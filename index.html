@@ -121,7 +121,8 @@
     min-width:64px;line-height:1.15}
   .cell u{display:block;text-decoration:none;font-size:9px;font-weight:500;opacity:.78;margin-top:1px}
   .score{font-family:"Roboto Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;
-    text-align:right;font-size:15px;font-weight:600;white-space:nowrap}
+    text-align:right;font-size:15px;font-weight:600;white-space:nowrap;line-height:1.25}
+  .score .sub{display:block;font-weight:400}
   .sub{font-size:10.5px;color:var(--muted);font-weight:400}
 
   /* rotation */
@@ -200,6 +201,7 @@
       min-width:15px;font-variant-numeric:tabular-nums}
     .mscore{display:block;font-family:"Roboto Mono",monospace;font-size:12px;font-weight:700;
       color:var(--ink);margin-top:3px;letter-spacing:-.01em}
+    .mscore em{font-style:normal;font-weight:500;color:var(--muted);font-size:11px}
     .delta{display:none}
     .cell{min-width:56px;font-size:10.5px;padding:5px 2px}
     .cell u{font-size:8.5px}
@@ -534,11 +536,15 @@ function render(){
       return `<td><span class="cell" style="background:${sh.bg};color:${sh.fg}"
         title="GW${f.gw} · ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"} · score ${pct}/100${r.raws?" · "+colName+" "+fmt(SIDE,r.raws[j]):""}">${label}<u>${val}</u></span></td>`;
     }).join("");
-    const sub = (MODE==="proj"&&SIDE==="atk") ? `<span class="sub">${(r.shownVal/Math.max(r.games,1)).toFixed(2)} xG/gm</span>` : "";
+    // every column says whether the headline number is a total or an average
+    const per = r.games ? r.shownVal / r.games : 0;
+    const sub = (MODE==="proj"&&SIDE==="atk")
+      ? `<span class="sub">avg ${per.toFixed(2)} xG</span>`
+      : `<span class="sub">avg per game</span>`;
     const shown = SIDE==="all" ? Math.round(r.shownVal) : fmt(SIDE,r.shownVal);
     return `<tr class="${(SORT!=="az"&&rank<=6)?"top6":""}">
       <td class="rank">${rank}</td>
-      <td class="pad"><span class="mrank">${rank}</span><span class="team"><i style="background:${CLUB[TEAMS[r.id][1]]||"#888"}"></i>${r.name}</span>${r.promoted?'<span class="prov" title="Promoted — started from the relegated-three average"></span>':""}${chip}<span class="mscore">${shown}${(MODE==="proj"&&SIDE==="atk")?" total":""}</span></td>
+      <td class="pad"><span class="mrank">${rank}</span><span class="team"><i style="background:${CLUB[TEAMS[r.id][1]]||"#888"}"></i>${r.name}</span>${r.promoted?'<span class="prov" title="Promoted — started from the relegated-three average"></span>':""}${chip}<span class="mscore">${shown}${(MODE==="proj"&&SIDE==="atk")?` total <em>avg ${(r.games?r.shownVal/r.games:0).toFixed(2)}</em>`:" avg"}</span></td>
       ${tds}
       <td class="pad score">${shown} ${sub}</td></tr>`;
   }).join("");
