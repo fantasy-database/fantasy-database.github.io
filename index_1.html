@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Premier League fixture difficulty rated on expected goals, with attack and defence scored separately.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%E2%9A%BD</text></svg>">
+<title>Fixture Run Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ground:#F6F5F8; --surface:#FFFFFF; --surface-2:#EEEDF2;
+    --border:#E1DFE8; --border-strong:#C5C2D0;
+    --ink:#1B1720; --muted:#645E70; --accent:#37003C; --accent-ink:#FFFFFF;
+    --easy:#116B33; --easy2:#05E585; --midc:#E7E7E7; --hard2:#FF1751; --hard:#80072D;
+    --bar:#37003C;
+    --shadow:0 1px 2px rgba(27,23,32,.06), 0 8px 24px -12px rgba(27,23,32,.20);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#141218; --surface:#1D1A22; --surface-2:#282430;
+      --border:#37323F; --border-strong:#4E4859;
+      --ink:#F1EFF5; --muted:#9C95A8; --accent:#04E5F0; --accent-ink:#04222A;
+      --easy:#0B5A2A; --easy2:#06D47A; --midc:#3D3948; --hard2:#E8114A; --hard:#77082C;
+      --bar:#04E5F0;
+      --shadow:0 1px 2px rgba(0,0,0,.5), 0 10px 30px -14px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#141218; --surface:#1D1A22; --surface-2:#282430;
+    --border:#37323F; --border-strong:#4E4859;
+    --ink:#F1EFF5; --muted:#9C95A8; --accent:#04E5F0; --accent-ink:#04222A;
+    --easy:#0B5A2A; --easy2:#06D47A; --midc:#3D3948; --hard2:#E8114A; --hard:#77082C;
+    --bar:#04E5F0;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 10px 30px -14px rgba(0,0,0,.8);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);
+    font-family:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;
+    font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1200px;margin:0 auto;padding:26px 18px 60px}
+
+  .mast{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 28px;padding-bottom:16px;border-bottom:2px solid var(--ink)}
+  .mast h1{font-family:Archivo,sans-serif;font-weight:800;font-size:clamp(28px,4.6vw,42px);
+    line-height:.98;letter-spacing:-.028em;margin:0;text-wrap:balance}
+  .mast h1 em{font-style:normal;color:var(--accent)}
+  .mast p{margin:0;color:var(--muted);max-width:46ch;font-size:13.5px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:10.5px;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:7px}
+
+  .views{display:flex;flex-wrap:wrap;gap:9px 20px;align-items:center;margin-top:18px}
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:3px;gap:3px}
+  .seg button{font:inherit;font-size:13px;font-weight:600;padding:6px 14px;border:0;border-radius:6px;
+    background:transparent;color:var(--muted);cursor:pointer;font-family:Archivo,sans-serif}
+  .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.14)}
+  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .seglabel{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin-right:-11px}
+
+  .viewnote{margin:11px 2px 0;font-size:13px;color:var(--muted);max-width:82ch}
+  .viewnote b{color:var(--ink);font-weight:600}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);margin-top:14px}
+  .ctrls{display:grid;grid-template-columns:1.1fr 1fr 1fr}
+  @media (max-width:900px){.ctrls{grid-template-columns:1fr}}
+  .ctrl{padding:15px 17px}
+  .ctrl+.ctrl{border-left:1px solid var(--border)}
+  @media (max-width:900px){.ctrl+.ctrl{border-left:0;border-top:1px solid var(--border)}}
+  .ctrl h2{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 9px}
+  .readout{font-family:Archivo,sans-serif;font-weight:700;font-size:18px;letter-spacing:-.01em;
+    font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:8px;margin-bottom:9px;flex-wrap:wrap}
+  .readout small{font-family:"IBM Plex Sans",sans-serif;font-weight:400;font-size:12px;color:var(--muted);letter-spacing:0}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;background:transparent;margin:0;height:20px;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:99px;background:var(--surface-2);border:1px solid var(--border)}
+  input[type=range]::-moz-range-track{height:5px;border-radius:99px;background:var(--surface-2);border:1px solid var(--border)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--accent);border:2px solid var(--surface);margin-top:-6.5px;box-shadow:0 0 0 1px var(--border-strong)}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);
+    border:2px solid var(--surface);box-shadow:0 0 0 1px var(--border-strong)}
+  input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+  .slider-row{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:9px}
+  .slider-row span{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+  .presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+  .chipbtn{font:inherit;font-size:12px;font-weight:500;padding:4px 10px;border-radius:99px;cursor:pointer;
+    background:var(--surface-2);color:var(--ink);border:1px solid var(--border)}
+  .chipbtn:hover{border-color:var(--border-strong)}
+  .chipbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .chipbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .krows{display:flex;flex-direction:column;gap:13px}
+  .kb h3{margin:0 0 2px;font-family:Archivo,sans-serif;font-size:12.5px;font-weight:700;
+    letter-spacing:-.01em;color:var(--ink);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .kb h3 em{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:10px;
+    font-weight:500;color:var(--muted);letter-spacing:.02em}
+  .seg.mini{margin-bottom:11px}
+  .seg.mini button{font-size:11.5px;padding:5px 11px}
+  .blendoff{opacity:.4;pointer-events:none}
+  .readout.sub2{font-size:15px;margin-top:14px;margin-bottom:8px}
+  .hint{font-size:11.5px;color:var(--muted);margin:8px 0 0;line-height:1.45}
+  .mixbar{display:flex;height:7px;border-radius:99px;overflow:hidden;border:1px solid var(--border);margin-top:8px}
+  .mixbar i{display:block;height:100%}
+  .mixbar i:first-child{background:var(--accent)}
+  .mixbar i:last-child{background:var(--surface-2)}
+  .mixkey{display:flex;justify-content:space-between;font-family:"IBM Plex Mono",monospace;
+    font-size:10px;color:var(--muted);margin-top:4px}
+
+  .tablecard{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+  .tscroll{overflow-x:auto}
+  table{border-collapse:separate;border-spacing:0;width:100%;min-width:930px}
+  thead th{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);text-align:center;padding:9px 6px;
+    border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+  thead th.lft{text-align:left;padding-left:12px}
+  thead th.rgt{text-align:right;padding-right:12px}
+  thead th b{display:block;font-weight:600;color:var(--ink);font-size:11px;letter-spacing:.04em}
+  tbody td{padding:3px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tbody td.pad{padding:5px 12px}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover td.pad{background:var(--surface-2)}
+  .rank{font-family:Archivo,sans-serif;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;
+    color:var(--muted);width:26px;text-align:right;padding:5px 2px 5px 10px}
+  tr.top6 .rank{color:var(--ink)}
+  .team{font-family:Archivo,sans-serif;font-weight:700;font-size:14px;letter-spacing:-.012em;white-space:nowrap}
+  .prov{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--accent);margin-left:5px;vertical-align:2px}
+  .delta{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;margin-left:5px;
+    padding:1px 4px;border-radius:4px;border:1px solid var(--border-strong);color:var(--muted);vertical-align:1px}
+  .cellwrap{display:block}
+  .cell{display:block;border-radius:4px;padding:6px 2px;text-align:center;
+    font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;letter-spacing:.01em;
+    min-width:64px;line-height:1.15}
+  .cell u{display:block;text-decoration:none;font-size:9px;font-weight:500;opacity:.78;margin-top:1px}
+  .score{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;
+    text-align:right;font-size:15px;font-weight:600;white-space:nowrap}
+  .sub{font-size:10.5px;color:var(--muted);font-weight:400}
+
+  /* rotation */
+  .rot{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:16px 18px}
+  .rot h2{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+  .rot > p{margin:0 0 13px;font-size:12.5px;color:var(--muted);max-width:70ch}
+  .pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:9px}
+  .pair{border:1px solid var(--border);border-radius:8px;padding:10px 11px;background:var(--surface-2)}
+  .pairhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .pairname{font-family:Archivo,sans-serif;font-weight:700;font-size:13.5px;letter-spacing:-.01em}
+  .pairname s{text-decoration:none;color:var(--muted);font-weight:600;margin:0 3px}
+  .pairval{font-family:"IBM Plex Mono",monospace;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+  .pairstrip{display:flex;gap:2px}
+  .pcell{flex:1 1 0;border-radius:3px;padding:4px 1px;text-align:center;
+    font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;line-height:1.2}
+  .pcell u{display:block;text-decoration:none;font-size:8px;opacity:.8;font-weight:500}
+
+  .notes{margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:16px 30px}
+  .notes h3{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+  .notes p{margin:0 0 8px;font-size:13px;color:var(--muted);max-width:62ch}
+  .notes code{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink);
+    background:var(--surface-2);padding:1px 5px;border-radius:4px;border:1px solid var(--border)}
+  .notes strong{color:var(--ink);font-weight:600}
+  .ramp{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:11.5px;color:var(--muted)}
+  .rampbar{flex:1 1 auto;height:11px;border-radius:3px;max-width:190px}
+
+  .gloss{margin-top:20px;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;box-shadow:var(--shadow);padding:17px 19px 8px}
+  .gloss h2{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+  .gtable{display:flex;flex-direction:column}
+  .grow{display:grid;grid-template-columns:118px 150px 1fr 1.55fr;gap:14px;
+    padding:11px 0;border-top:1px solid var(--border);font-size:13px;color:var(--muted);align-items:start}
+  .grow.ghead{border-top:0;padding-top:0;font-family:"IBM Plex Mono",monospace;font-size:9.5px;
+    letter-spacing:.11em;text-transform:uppercase;padding-bottom:7px}
+  .gname{font-family:Archivo,sans-serif;font-weight:700;font-size:13px;color:var(--ink);letter-spacing:-.01em}
+  .gwhen{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.02em}
+  .gcalc code{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink);
+    background:var(--surface-2);padding:2px 6px;border-radius:4px;border:1px solid var(--border);
+    display:inline-block;line-height:1.5}
+  .grow strong{color:var(--ink);font-weight:600}
+  @media (max-width:820px){
+    .grow{grid-template-columns:1fr;gap:5px}
+    .grow.ghead{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<style>
+  html{-webkit-text-size-adjust:100%}
+  img{max-width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <div>
+      <span class="eyebrow">Premier League 2026/27 · xG fixture model</span>
+      <h1>Fixture Run<br><em>Planner</em></h1>
+    </div>
+    <p>An expected-goals ticker. Attack and defence rated apart, shaded on a continuous scale, with the rotation pairs whose good weeks fall in opposite places.</p>
+  </header>
+
+  <div class="views">
+    <span class="seglabel">Show</span>
+    <div class="seg" id="sideSeg">
+      <button data-side="all" aria-pressed="false">Overall</button>
+      <button data-side="atk" aria-pressed="true">Attack</button>
+      <button data-side="def" aria-pressed="false">Defence</button>
+    </div>
+    <span class="seglabel">Based on</span>
+    <div class="seg" id="modeSeg">
+      <button data-mode="ease" aria-pressed="false">Opponents</button>
+      <button data-mode="proj" aria-pressed="true">Expected returns</button>
+    </div>
+  </div>
+
+  <p class="viewnote" id="viewNote"></p>
+
+  <section class="panel ctrls">
+    <div class="ctrl">
+      <h2>Gameweek window</h2>
+      <div class="readout" id="gwReadout"></div>
+      <div class="slider-row"><span>From</span><input type="range" id="gwFrom" min="1" max="38" value="3" aria-label="First gameweek"></div>
+      <div class="slider-row"><span>To</span><input type="range" id="gwTo" min="1" max="38" value="8" aria-label="Last gameweek"></div>
+      <div class="presets" id="presets">
+        <button class="chipbtn" data-next="3">Next 3</button>
+        <button class="chipbtn" data-next="6">Next 6</button>
+        <button class="chipbtn" data-next="9">Next 9</button>
+        <button class="chipbtn" data-rest="1">Rest of season</button>
+      </div>
+    </div>
+    <div class="ctrl">
+      <h2>Season blend</h2>
+      <div class="seg mini" id="blendSeg">
+        <button data-blend="on" aria-pressed="true">Blend</button>
+        <button data-blend="off" aria-pressed="false">This season only</button>
+      </div>
+      <div class="krows" id="krows">
+        <div class="kb"><h3>Attack ratings<em id="kAtkFit"></em></h3>
+          <input type="range" id="kAtk" min="0" max="40" step="1" value="8" aria-label="How much of this season to use for attack ratings">
+          <div class="mixbar"><i id="bA"></i><i id="bAo"></i></div>
+          <div class="mixkey"><span id="lA"></span><span id="lAo"></span></div></div>
+        <div class="kb"><h3>Defence ratings<em id="kDefFit"></em></h3>
+          <input type="range" id="kDef" min="0" max="40" step="1" value="26" aria-label="How much of this season to use for defence ratings">
+          <div class="mixbar"><i id="bD"></i><i id="bDo"></i></div>
+          <div class="mixkey"><span id="lD"></span><span id="lDo"></span></div></div>
+        <div class="kb"><h3>Promoted sides<em id="kpFit"></em></h3>
+          <input type="range" id="kpval" min="0" max="40" step="1" value="4" aria-label="How much of this season to use for promoted sides">
+          <div class="mixbar"><i id="bP"></i><i id="bPo"></i></div>
+          <div class="mixkey"><span id="lP"></span><span id="lPo"></span></div></div>
+      </div>
+      <p class="hint" id="blendHint"></p>
+    </div>
+    <div class="ctrl">
+      <h2>Home advantage</h2>
+      <div class="seg mini" id="homeSeg">
+        <button data-home="on" aria-pressed="true">On</button>
+        <button data-home="off" aria-pressed="false">Off</button>
+      </div>
+      <div class="readout" id="hReadout"></div>
+      <div id="hwrap"><input type="range" id="hval" min="1" max="1.3" step="0.01" value="1.11" aria-label="Home advantage multiplier"></div>
+      <p class="hint" id="homeHint"></p>
+    </div>
+  </section>
+
+  <div class="tablecard">
+    <div class="tscroll"><table>
+      <thead><tr id="thead"></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </div>
+
+  <section class="rot">
+    <h2>Rotation pairs</h2>
+    <p id="rotIntro"></p>
+    <div class="pairs" id="pairs"></div>
+  </section>
+
+
+  <section class="gloss">
+    <h2>What every number on this page means</h2>
+    <div class="gtable">
+      <div class="grow ghead"><span>Column</span><span>Shown when</span><span>How it is worked out</span><span>How to read it</span></div>
+
+      <div class="grow"><span class="gname">Defences faced</span><span class="gwhen">Attack · Opponents</span>
+        <span class="gcalc"><code>DEF[opponent] &times; home</code></span>
+        <span>How much the defences this side faces concede, against the league average. <strong>1.00</strong> is an average defence; <strong>1.30</strong> means the opponents leak 30% more than average. Higher is better for your attackers. It says nothing about whether the team itself can finish.</span></div>
+
+      <div class="grow"><span class="gname">Attacks faced</span><span class="gwhen">Defence · Opponents</span>
+        <span class="gcalc"><code>home &divide; ATK[opponent]</code></span>
+        <span>How toothless the attacks this side faces are. <strong>1.00</strong> is an average attack; above 1.00 means weaker than average, so a better shot at a clean sheet. Higher is better.</span></div>
+
+      <div class="grow"><span class="gname">Goals expected</span><span class="gwhen">Attack · Expected returns</span>
+        <span class="gcalc"><code>base &times; ATK[team] &times; DEF[opponent] &times; home</code></span>
+        <span>Expected goals this side scores in that fixture. The column is the total across the window, with a per-game figure beneath. Unlike the ease columns, this folds in how good the team actually is.</span></div>
+
+      <div class="grow"><span class="gname">Clean sheet</span><span class="gwhen">Defence · Expected returns</span>
+        <span class="gcalc"><code>e<sup>&minus;xGA</sup></code></span>
+        <span>The Poisson probability of conceding exactly zero, given the expected goals against. The column is the average across the window.</span></div>
+
+      <div class="grow"><span class="gname">Overall</span><span class="gwhen">Overall · either</span>
+        <span class="gcalc"><code>(attack score + defence score) &divide; 2</code></span>
+        <span>Every fixture is scored 0&ndash;100 for attack and 0&ndash;100 for defence on a fixed scale, then the two are averaged. The column is the mean across the window. <strong>100</strong> is as good as a fixture gets at both ends at once; <strong>50</strong> is unremarkable. It rewards runs that are kind to attackers and defenders alike, rather than lopsided ones.</span></div>
+
+      <div class="grow"><span class="gname">Cell numbers</span><span class="gwhen">Every view</span>
+        <span class="gcalc">&mdash;</span>
+        <span>The same metric as the column, for that one fixture. Shading uses fixed anchors rather than the current window, so a colour means the same thing whichever gameweeks you pick.</span></div>
+
+      <div class="grow"><span class="gname">&#9650;&#9660; chip</span><span class="gwhen">Every view</span>
+        <span class="gcalc">&mdash;</span>
+        <span>Places gained or lost against FPL's own 1&ndash;5 difficulty rating over the same window. A big number is where this model and FPL genuinely disagree.</span></div>
+
+      <div class="grow"><span class="gname">Rotation pair</span><span class="gwhen">Below the table</span>
+        <span class="gcalc"><code>mean of max(A, B) per gameweek</code></span>
+        <span>The first figure is the average of whichever of the two has the better fixture each week. The second, in grey, is the <em>gain</em> &mdash; what rotating adds over simply holding the stronger of the pair throughout. A large first number with a small gain means one team is carrying the pair and you may as well just own them.</span></div>
+    </div>
+  </section>
+
+  <section class="notes">
+    <div>
+      <h3>Reading the grid</h3>
+      <p>Each cell is the opponent and where it is played &mdash; <strong>(H)</strong> home, <strong>(A)</strong> away &mdash; over the model's rating for that fixture.</p>
+      <p>Shading is continuous rather than five buckets. The model produces a real number for every fixture, so bucketing it into bands would throw away the precision that made it worth building.</p>
+      <div class="ramp"><span>easier</span><div class="rampbar" id="rampbar"></div><span>harder</span></div>
+    </div>
+    <div>
+      <h3>The two settings</h3>
+      <p><strong>Opponents</strong> asks how bad the teams they play are, and nothing else. It is the direct replacement for FDR, and it will happily put a poor side at the top if their fixtures are kind.</p>
+      <p><strong>Expected returns</strong> asks what this team should get out of those fixtures, using their own attack and defence too. Most of the time this is the one you want. A side can top one list and sit near the bottom of the other.</p>
+    </div>
+    <div>
+      <h3>How it is built</h3>
+      <p>Teams are rated on <strong>non-penalty</strong> expected goals, because a penalty belongs to whoever takes it rather than to a side's ability to create chances. Penalties are added back at league rate (<code>&times;1.06</code>) when a rating becomes a goal projection.</p>
+      <p><strong>The constants are fitted, not chosen.</strong> Splitting last season's 760 matches into odd and even halves and correlating each team against itself measures how much of a sample is signal; <code>k = n(1&minus;r)/r</code> turns that into a blend constant. Attack came out at <strong>8</strong>, defence at <strong>26</strong>, home advantage at <strong>1.11&times;</strong>.</p>
+      <p>Every rating is <strong>opponent-adjusted</strong>: each match is measured against what an average side would have managed versus that opponent, at that venue, so a soft or brutal run of fixtures does not masquerade as form.</p>
+<p>The three promoted sides, marked <span class="prov"></span>, have no Premier League record. Their prior is what promoted sides have actually managed in their first season up, averaged over the <strong>fifteen teams promoted in the last five seasons</strong> — 1.11 npxG and 1.95 npxGA per game. Their <em>k</em> is the one constant still set by judgement rather than fitted.</p>
+      <h3 style="margin-top:14px">Caveats</h3>
+      <p>Two matches is a very small sample. Squad turnover is not modelled at all &mdash; a side that sold its striker in August is not last season's side, and no amount of xG history knows that.</p>
+      <p class="sub">xG from Understat (2025/26 full season, 2026/27 to date). Fixtures and difficulty ratings from the Fantasy Premier League API. Data is a snapshot, not live.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+const TEAMS={1:["Arsenal","ars"],2:["Aston Villa","avl"],3:["Bournemouth","bou"],4:["Brentford","bre"],
+5:["Brighton","bha"],6:["Chelsea","che"],7:["Coventry","cov"],8:["Crystal Palace","cry"],
+9:["Everton","eve"],10:["Fulham","ful"],11:["Hull City","hul"],12:["Ipswich","ips"],
+13:["Leeds","lee"],14:["Liverpool","liv"],15:["Man City","mci"],16:["Man Utd","mun"],
+17:["Newcastle","new"],18:["Nott'm Forest","nfo"],19:["Spurs","tot"],20:["Sunderland","sun"]};
+const REC={
+// pa/pd = 2025/26, a26/d26 = 2026/27. Non-penalty xG & xGA per game, opponent-adjusted.
+1:{pa:1.9285,pd:0.8839,a26:1.3996,d26:0.4558},   2:{pa:1.4815,pd:1.4486,a26:0.3727,d26:2.3882},
+3:{pa:1.6426,pd:1.3845,a26:1.5595,d26:1.7646},   4:{pa:1.5504,pd:1.4062,a26:2.5564,d26:1.0210},
+5:{pa:1.4338,pd:1.2976,a26:2.8144,d26:1.7992},   6:{pa:1.7514,pd:1.5015,a26:3.2969,d26:1.7456},
+7:{pa:1.1145,pd:1.9492,a26:0.8443,d26:1.0572,promoted:1},
+8:{pa:1.4893,pd:1.4450,a26:1.6979,d26:1.7959},   9:{pa:1.2781,pd:1.4851,a26:1.5707,d26:2.0390},
+10:{pa:1.2182,pd:1.5062,a26:1.1622,d26:2.1761},
+11:{pa:1.1145,pd:1.9492,a26:0.8930,d26:1.5006,promoted:1},
+12:{pa:1.1145,pd:1.9492,a26:1.7404,d26:2.6633,promoted:1},
+13:{pa:1.4186,pd:1.3608,a26:0.7807,d26:1.1788}, 14:{pa:1.7279,pd:1.3471,a26:1.7410,d26:1.9398},
+15:{pa:1.9983,pd:1.2046,a26:2.5535,d26:0.7505}, 16:{pa:1.7780,pd:1.2569,a26:2.2013,d26:2.1177},
+17:{pa:1.4800,pd:1.4086,a26:1.3648,d26:1.7188}, 18:{pa:1.2368,pd:1.5716,a26:1.4644,d26:0.7848},
+19:{pa:1.2307,pd:1.3866,a26:0.9530,d26:2.0237}, 20:{pa:1.0482,pd:1.5022,a26:1.1492,d26:1.6070}};
+const FIT={kAtk:8, kDef:26, home:1.11};
+const PEN=1.0634;   // ratings exclude penalties; restore them when projecting real goals
+const MATCHES_PLAYED=2;
+const DEADLINES=["2026-08-21","2026-08-28","2026-09-04","2026-09-12","2026-09-18","2026-10-10","2026-10-17","2026-10-23","2026-10-31","2026-11-07","2026-11-21","2026-11-28","2026-12-02","2026-12-05","2026-12-12","2026-12-19","2026-12-26","2026-12-30","2027-01-02","2027-01-06","2027-01-16","2027-01-23","2027-01-30","2027-02-06","2027-02-10","2027-02-20","2027-02-27","2027-03-03","2027-03-13","2027-03-20","2027-04-10","2027-04-17","2027-04-24","2027-05-01","2027-05-08","2027-05-15","2027-05-23","2027-05-30"];
+const NEXT_GW=3;
+const FX=[[1,1,7,2,5],[1,11,16,4,2],[1,9,8,3,3],[1,12,20,2,2],[1,18,13,2,3],[1,4,19,3,3],[1,5,2,3,3],[1,15,3,3,5],[1,17,14,4,3],[1,10,6,4,3],[2,8,15,4,3],[2,14,18,3,4],[2,3,9,3,3],[2,7,11,2,2],[2,19,17,2,3],[2,6,5,2,4],[2,13,4,3,3],[2,20,10,2,3],[2,16,12,2,4],[2,2,1,4,4],[3,12,14,4,2],[3,17,3,3,3],[3,4,20,2,3],[3,5,13,2,3],[3,10,8,3,3],[3,15,7,2,5],[3,18,19,3,3],[3,11,2,3,2],[3,9,16,4,3],[3,1,6,4,5],[4,2,18,3,4],[4,3,4,3,3],[4,6,11,2,4],[4,8,12,2,3],[4,14,10,2,4],[4,19,9,3,3],[4,20,1,4,3],[4,7,5,2,2],[4,16,15,4,4],[4,13,17,2,3],[5,4,6,4,3],[5,19,2,3,3],[5,5,1,4,3],[5,9,12,2,3],[5,17,11,2,3],[5,18,7,2,3],[5,3,14,4,3],[5,13,8,3,3],[5,15,20,2,5],[5,10,16,4,3],[6,1,13,2,5],[6,2,4,3,4],[6,6,3,3,4],[6,12,10,2,2],[6,20,5,2,3],[6,16,19,3,4],[6,8,18,3,3],[6,11,9,3,2],[6,14,15,4,4],[6,7,17,2,2],[7,9,6,4,3],[7,4,14,4,3],[7,10,11,2,3],[7,15,12,2,5],[7,17,2,3,3],[7,3,20,2,3],[7,5,8,3,3],[7,13,16,4,3],[7,18,1,4,3],[7,19,7,2,3],[8,12,18,3,2],[8,2,15,4,4],[8,1,9,3,5],[8,7,10,2,2],[8,6,19,3,4],[8,8,17,2,3],[8,11,4,3,2],[8,14,5,2,4],[8,16,3,3,4],[8,20,13,2,3],[9,6,16,4,4],[9,3,13,2,3],[9,4,18,3,3],[9,7,20,2,2],[9,11,12,2,2],[9,15,5,2,5],[9,19,8,3,3],[9,2,10,2,4],[9,14,1,4,4],[9,17,9,3,3],[10,1,11,2,5],[10,5,4,3,3],[10,8,14,4,3],[10,9,7,2,3],[10,10,17,2,3],[10,12,3,3,2],[10,13,19,3,3],[10,16,2,3,4],[10,18,15,4,3],[10,20,6,4,3],[11,2,20,2,4],[11,3,18,3,3],[11,4,9,3,3],[11,6,13,2,4],[11,7,8,3,2],[11,11,5,2,2],[11,14,16,4,4],[11,15,10,2,5],[11,17,1,4,3],[11,19,12,2,3],[12,1,15,4,5],[12,5,17,2,3],[12,8,11,2,3],[12,9,14,4,3],[12,10,3,3,3],[12,12,2,3,2],[12,13,7,2,3],[12,16,4,3,4],[12,18,6,4,3],[12,20,19,3,3],[13,2,9,3,4],[13,3,5,2,3],[13,4,1,4,3],[13,6,8,3,4],[13,7,12,2,2],[13,11,18,3,2],[13,14,20,2,4],[13,15,13,2,5],[13,17,16,4,3],[13,19,10,2,3],[14,2,8,3,4],[14,3,11,2,3],[14,4,15,4,3],[14,6,14,4,4],[14,9,10,2,3],[14,13,12,2,3],[14,16,7,2,4],[14,17,20,2,3],[14,18,5,2,3],[14,19,1,4,3],[15,1,3,3,5],[15,5,9,3,3],[15,7,2,3,2],[15,8,16,4,3],[15,10,4,3,3],[15,11,19,3,2],[15,12,17,2,2],[15,14,13,2,4],[15,15,6,4,5],[15,20,18,3,3],[16,1,16,4,5],[16,3,7,2,3],[16,4,17,2,3],[16,5,12,2,3],[16,6,2,3,4],[16,13,10,2,3],[16,14,19,3,4],[16,15,11,2,5],[16,18,9,3,3],[16,20,8,3,3],[17,2,13,2,4],[17,7,6,4,2],[17,8,1,4,3],[17,9,20,2,3],[17,10,5,2,3],[17,11,14,4,2],[17,12,4,3,2],[17,16,18,3,4],[17,17,15,4,3],[17,19,3,3,3],[18,2,14,4,4],[18,7,4,3,2],[18,8,3,3,3],[18,9,15,4,3],[18,10,1,4,3],[18,11,13,2,2],[18,12,6,4,2],[18,16,20,2,4],[18,17,18,3,3],[18,19,5,2,3],[19,1,12,2,5],[19,3,2,3,3],[19,4,8,3,3],[19,5,16,4,3],[19,6,17,2,4],[19,13,9,3,3],[19,14,7,2,4],[19,15,19,3,5],[19,18,10,2,3],[19,20,11,2,3],[20,1,4,3,5],[20,5,3,3,3],[20,8,6,4,3],[20,9,2,3,3],[20,10,19,3,3],[20,12,7,2,2],[20,13,15,4,3],[20,16,17,2,4],[20,18,11,2,3],[20,20,14,4,3],[21,2,16,4,4],[21,3,12,2,3],[21,4,5,2,3],[21,6,20,2,4],[21,7,9,3,2],[21,11,1,4,2],[21,14,8,3,4],[21,15,18,3,5],[21,17,10,2,3],[21,19,13,2,3],[22,1,17,2,5],[22,5,15,4,3],[22,8,19,3,3],[22,9,4,3,3],[22,10,2,3,3],[22,12,11,2,2],[22,13,6,4,3],[22,16,14,4,4],[22,18,3,3,3],[22,20,7,2,3],[23,2,12,2,4],[23,3,10,2,3],[23,4,16,4,3],[23,6,18,3,4],[23,7,13,2,2],[23,11,8,3,2],[23,14,9,3,4],[23,15,1,4,5],[23,17,5,2,3],[23,19,20,2,3],[24,1,14,4,5],[24,5,11,2,3],[24,8,7,2,3],[24,9,17,2,3],[24,10,15,4,3],[24,12,19,3,2],[24,13,3,3,3],[24,16,6,4,4],[24,18,4,3,3],[24,20,2,3,3],[25,2,3,3,4],[25,7,14,4,2],[25,8,4,3,3],[25,9,13,2,3],[25,10,18,3,3],[25,11,20,2,2],[25,12,1,4,2],[25,16,5,2,4],[25,17,6,4,3],[25,19,15,4,3],[26,1,10,2,5],[26,3,8,3,3],[26,4,7,2,3],[26,5,19,3,3],[26,6,12,2,4],[26,13,2,3,3],[26,14,11,2,4],[26,15,17,2,5],[26,18,16,4,3],[26,20,9,3,3],[27,2,6,4,4],[27,7,3,3,2],[27,8,20,2,3],[27,9,18,3,3],[27,10,13,2,3],[27,11,15,4,2],[27,12,5,2,2],[27,16,1,4,4],[27,17,4,3,3],[27,19,14,4,3],[28,1,8,3,5],[28,3,19,3,3],[28,4,12,2,3],[28,5,10,2,3],[28,6,7,2,4],[28,13,11,2,3],[28,14,2,3,4],[28,15,9,3,5],[28,18,17,2,3],[28,20,16,4,3],[29,2,11,2,4],[29,3,17,2,3],[29,6,1,4,4],[29,7,15,4,2],[29,8,10,2,3],[29,13,5,2,3],[29,14,12,2,4],[29,16,9,3,4],[29,19,18,3,3],[29,20,4,3,3],[30,1,20,2,5],[30,4,3,3,3],[30,5,7,2,3],[30,9,19,3,3],[30,10,14,4,3],[30,11,6,4,2],[30,12,8,3,2],[30,15,16,4,5],[30,17,13,2,3],[30,18,2,3,3],[31,2,5,2,4],[31,3,15,4,3],[31,6,10,2,4],[31,7,1,4,2],[31,8,9,3,3],[31,13,18,3,3],[31,14,17,2,4],[31,16,11,2,4],[31,19,4,3,3],[31,20,12,2,3],[32,1,2,3,5],[32,4,13,2,3],[32,5,6,4,3],[32,9,3,3,3],[32,10,20,2,3],[32,11,7,2,2],[32,12,16,4,2],[32,15,8,3,5],[32,17,19,3,3],[32,18,14,4,3],[33,2,7,2,4],[33,3,1,4,3],[33,4,10,2,3],[33,6,15,4,4],[33,9,5,2,3],[33,13,14,4,3],[33,16,8,3,4],[33,17,12,2,3],[33,18,20,2,3],[33,19,11,2,3],[34,1,19,3,5],[34,5,18,3,3],[34,7,16,4,2],[34,8,2,3,3],[34,10,9,3,3],[34,11,3,3,2],[34,12,13,2,2],[34,14,6,4,4],[34,15,4,3,5],[34,20,17,2,3],[35,3,16,4,3],[35,4,2,3,3],[35,5,20,2,3],[35,9,11,2,3],[35,10,12,2,3],[35,13,1,4,3],[35,15,14,4,5],[35,17,7,2,3],[35,18,8,3,3],[35,19,6,4,3],[36,1,18,3,5],[36,2,17,2,4],[36,6,9,3,4],[36,7,19,3,2],[36,8,5,2,3],[36,11,10,2,2],[36,12,15,4,2],[36,14,4,3,4],[36,16,13,2,4],[36,20,3,3,3],[37,3,6,4,3],[37,4,11,2,3],[37,5,14,4,3],[37,9,1,4,3],[37,10,7,2,3],[37,13,20,2,3],[37,15,2,3,5],[37,17,8,3,3],[37,18,12,2,3],[37,19,16,4,3],[38,1,5,2,5],[38,2,19,3,4],[38,6,4,3,4],[38,7,18,3,2],[38,8,13,2,3],[38,11,17,2,2],[38,12,9,3,2],[38,14,3,3,4],[38,16,10,2,4],[38,20,15,4,3]];
+
+let SIDE="atk", MODE="proj", BLEND=true, HOME=true;
+const $=s=>document.querySelector(s);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmtDate=iso=>{const[y,m,d]=iso.split("-").map(Number);
+  return d+" "+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1];};
+
+/* ---- continuous diverging colour ---- */
+const hex2rgb=h=>{h=h.replace("#","");return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16));};
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+const ramp=()=>["--hard","--hard2","--midc","--easy2","--easy"].map(n=>hex2rgb(css(n)));
+function shade(t){                       // t: 0 = hardest (dark red), 1 = easiest (dark green)
+  t=Math.max(0,Math.min(1,t));
+  const s=ramp(), x=t*4, i=Math.min(3,Math.floor(x));
+  const rgb=mix(s[i],s[i+1],x-i);
+  const lum=(0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2])/255;
+  return {bg:`rgb(${rgb.join(",")})`, fg: lum>0.55 ? "#1A1611" : "#FFFFFF"};
+}
+
+function strengths(kA,kD,kp){
+  const b={}, n=MATCHES_PLAYED;
+  for(const id in REC){const r=REC[id];
+    const wa=n/(n+(r.promoted?kp:kA)), wd=n/(n+(r.promoted?kp:kD));
+    b[id]=[wa*r.a26+(1-wa)*r.pa, wd*r.d26+(1-wd)*r.pd];}
+  const ids=Object.keys(b);
+  const la=ids.reduce((s,i)=>s+b[i][0],0)/ids.length, ld=ids.reduce((s,i)=>s+b[i][1],0)/ids.length;
+  const ATK={},DEF={}; ids.forEach(i=>{ATK[i]=b[i][0]/la; DEF[i]=b[i][1]/ld;});
+  const w=x=>MATCHES_PLAYED/(MATCHES_PLAYED+x);
+  return {ATK,DEF,base:(la+ld)/2, wA:w(kA), wD:w(kD), wP:w(kp)};
+}
+function collect(from,to){
+  const out={}; for(const id in TEAMS) out[id]=[];
+  for(const[gw,h,a,hd,ad] of FX){ if(gw<from||gw>to) continue;
+    out[h].push({gw,opp:a,home:true,fdr:hd}); out[a].push({gw,opp:h,home:false,fdr:ad}); }
+  for(const id in out) out[id].sort((x,y)=>x.gw-y.gw);
+  return out;
+}
+/* raw value for one fixture, per side+mode */
+function rawVal(side,t,f,S,h){
+  const m=f.home?h:1/h;
+  if(side==="atk") return MODE==="ease" ? S.DEF[f.opp]*m : S.base*S.ATK[t]*S.DEF[f.opp]*m*PEN;
+  return MODE==="ease" ? m/S.ATK[f.opp] : Math.exp(-(S.base*S.ATK[f.opp]*S.DEF[t]/m*PEN))*100;
+}
+/* anchors map raw value -> 0..1 goodness, fixed so colours mean the same across windows */
+const ANCHOR={atk_ease:[0.70,1.32], atk_proj:[0.85,2.45], def_ease:[0.72,1.42], def_proj:[8,50]};
+const good=(side,v)=>{const[lo,hi]=ANCHOR[side+"_"+MODE]; return (v-lo)/(hi-lo);};
+function fmt(side,v){
+  if(MODE==="ease") return v.toFixed(2);
+  return side==="atk" ? v.toFixed(2) : Math.round(v)+"%";
+}
+
+function render(){
+  let from=+$("#gwFrom").value, to=+$("#gwTo").value; if(from>to)[from,to]=[to,from];
+  const hSet=+$("#hval").value, h=HOME?hSet:1;
+  const kA=BLEND?+$("#kAtk").value:0, kD=BLEND?+$("#kDef").value:0, kp=BLEND?+$("#kpval").value:0;
+  const S=strengths(kA,kD,kp), span=to-from+1;
+
+  $("#gwReadout").innerHTML=`GW${from} – GW${to} <small>${span} gameweek${span>1?"s":""} · ${fmtDate(DEADLINES[from-1])} – ${fmtDate(DEADLINES[to-1])}</small>`;
+  $("#krows").classList.toggle("blendoff", !BLEND);
+  const kout=(tag,w,old,k,fit)=>{
+    const p=Math.round(w*100);
+    $("#b"+tag).style.flexBasis=p+"%"; $("#b"+tag+"o").style.flexBasis=(100-p)+"%";
+    $("#l"+tag).innerHTML=`<b style="color:var(--ink)">${p}%</b> this season`;
+    $("#l"+tag+"o").innerHTML=`<b style="color:var(--ink)">${100-p}%</b> ${old}`;
+    if(fit!=null) $("#k"+({A:"Atk",D:"Def",P:"p"})[tag]+"Fit").innerHTML=
+      k===fit?`fitted at k&nbsp;${fit}`:`k&nbsp;${k} · fitted at ${fit}`;
+  };
+  kout("A",S.wA,"last season",kA,BLEND?FIT.kAtk:null);
+  kout("D",S.wD,"last season",kD,BLEND?FIT.kDef:null);
+  kout("P",S.wP,"borrowed prior",kp,null);
+  $("#blendHint").innerHTML = BLEND
+    ? `<code>w = n/(n+k)</code>. Attack and defence get different constants because they are not equally repeatable — fitted from last season, attack settles at <b>k&nbsp;${FIT.kAtk}</b> and defence at <b>k&nbsp;${FIT.kDef}</b>. Defence needs about three times the evidence before a sample means much. Promoted sides have no record of their own, so theirs stays a judgement call.`
+    : `Ratings come from this season alone — <strong>2 matches</strong>. Nothing is regressed toward last season, so one result moves a team a long way. Read it as current form, not as a ranking.`;
+  $("#hwrap").classList.toggle("blendoff", !HOME);
+  $("#hReadout").innerHTML = HOME
+    ? `${h.toFixed(2)}× <small>home side scores ${(h*h).toFixed(2)}× what the away side would</small>`
+    : `Off <small>every fixture rated as a neutral venue</small>`;
+  $("#homeHint").innerHTML = HOME
+    ? `Multiplies expected goals, so the benefit scales with what a side was going to score anyway — worth more against a leaky defence than an elite one. Fitted from last season at <b>1.11×</b>.`
+    : `Venue ignored. Useful for seeing a run purely on opponent quality — the (H) and (A) labels still show, they just stop counting.`;
+  $("#rampbar").style.background="linear-gradient(90deg,"+
+    [1,.75,.5,.25,0].map(v=>shade(v).bg).join(",")+")";
+
+  const NOTE={
+    atk_ease:"<b>How bad are the defences they play?</b> This ranks the opponents only. How good the team itself is does not come into it, so a poor side can sit top.",
+    atk_proj:"<b>How many goals should they score?</b> Their own attack, against those defences.",
+    def_ease:"<b>How bad are the attacks they play?</b> This ranks the opponents only. How good the team itself is does not come into it, so a leaky side can sit top.",
+    def_proj:"<b>How often should they keep a clean sheet?</b> Their own defence, against those attacks.",
+    all_ease:"<b>How bad is the opposition, at both ends?</b> The opponents only, attack and defence averaged.",
+    all_proj:"<b>What should they produce, at both ends?</b> Goals and clean sheets averaged."};
+  $("#viewNote").innerHTML=NOTE[SIDE+"_"+MODE];
+
+  const fixtures=collect(from,to);
+  const gws=[]; for(let g=from;g<=to;g++) gws.push(g);
+
+  // per-team, per-side goodness
+  const data={};
+  for(const id in TEAMS){
+    const fx=fixtures[id];
+    data[id]={fx,
+      atk:fx.map(f=>good("atk",rawVal("atk",+id,f,S,h))),
+      def:fx.map(f=>good("def",rawVal("def",+id,f,S,h))),
+      atkRaw:fx.map(f=>rawVal("atk",+id,f,S,h)),
+      defRaw:fx.map(f=>rawVal("def",+id,f,S,h))};
+  }
+  // team-level aggregate per side
+  const agg=s=>{const o={}; for(const id in TEAMS){const v=data[id][s];
+    o[id]= (MODE==="proj"&&s==="atk") ? v.reduce((a,b)=>a+b,0) : (v.length? v.reduce((a,b)=>a+b,0)/v.length : 0);} return o;};
+  const aggA=agg("atk"), aggD=agg("def");
+  // goodness drives sorting and shading; the summary column shows the metric in its own units
+  const aggRaw=s=>{const o={}; for(const id in TEAMS){const v=data[id][s+"Raw"];
+    o[id]=(MODE==="proj"&&s==="atk") ? v.reduce((a,b)=>a+b,0) : (v.length? v.reduce((a,b)=>a+b,0)/v.length : 0);} return o;};
+  const rawA=aggRaw("atk"), rawD=aggRaw("def");
+
+  const rows=Object.keys(TEAMS).map(id=>{
+    const d=data[id];
+    const cells = SIDE==="all" ? d.atk.map((v,i)=>(v+d.def[i])/2) : d[SIDE];
+    const raws  = SIDE==="all" ? null : (SIDE==="atk"?d.atkRaw:d.defRaw);
+    const clamp=v=>Math.max(0,Math.min(1,v));
+    const overall = cells.length ? cells.reduce((a,b)=>a+clamp(b),0)/cells.length*100 : 0;
+    const score = SIDE==="all" ? overall : (SIDE==="atk"?aggA[id]:aggD[id]);
+    const shownVal = SIDE==="all" ? overall : (SIDE==="atk"?rawA[id]:rawD[id]);
+    return {id:+id,name:TEAMS[id][0],fx:d.fx,cells,raws,score,shownVal,
+      fdrScore:d.fx.reduce((a,f)=>a+(6-f.fdr),0), promoted:!!REC[id].promoted, games:d.fx.length};
+  });
+
+  const fdrOrder=[...rows].sort((a,b)=>b.fdrScore-a.fdrScore||a.name.localeCompare(b.name));
+  const fdrRank=new Map(fdrOrder.map((r,i)=>[r.id,i+1]));
+  rows.sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
+
+  const colName = SIDE==="all" ? "Overall" : SIDE==="atk"
+    ? (MODE==="ease"?"Defences faced":"Goals expected") : (MODE==="ease"?"Attacks faced":"Clean sheet");
+  $("#thead").innerHTML=`<th class="lft">#</th><th class="lft">Team</th>`
+    + gws.map(g=>`<th>GW${g}<b>${fmtDate(DEADLINES[g-1]).replace(" ","&nbsp;")}</b></th>`).join("")
+    + `<th class="rgt">${colName}</th>`;
+
+  $("#rows").innerHTML=rows.map((r,i)=>{
+    const rank=i+1, moved=fdrRank.get(r.id)-rank;
+    const chip=moved===0?"":`<span class="delta" title="FPL's own rating ranks them ${fdrRank.get(r.id)}th here">${moved>0?"▲":"▼"}${Math.abs(moved)}</span>`;
+    const tds=r.fx.map((f,j)=>{
+      const sh=shade(r.cells[j]);
+      const nm=TEAMS[f.opp][1].toUpperCase(), label=`${nm} (${f.home?"H":"A"})`;
+      const pct=Math.round(Math.max(0,Math.min(1,r.cells[j]))*100);
+      const val=(MODE==="proj"&&r.raws)?fmt(SIDE,r.raws[j]):pct;
+      return `<td><span class="cell" style="background:${sh.bg};color:${sh.fg}"
+        title="GW${f.gw} · ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"} · score ${pct}/100${r.raws?" · "+colName+" "+fmt(SIDE,r.raws[j]):""}">${label}<u>${val}</u></span></td>`;
+    }).join("");
+    const sub = (MODE==="proj"&&SIDE==="atk") ? `<span class="sub">${(r.shownVal/Math.max(r.games,1)).toFixed(2)}/gm</span>` : "";
+    const shown = SIDE==="all" ? Math.round(r.shownVal) : fmt(SIDE,r.shownVal);
+    return `<tr class="${rank<=6?"top6":""}">
+      <td class="rank">${rank}</td>
+      <td class="pad"><span class="team">${r.name}</span>${r.promoted?'<span class="prov" title="Promoted — started from the relegated-three average"></span>':""}${chip}</td>
+      ${tds}
+      <td class="pad score">${shown} ${sub}</td></tr>`;
+  }).join("");
+
+  /* ---- rotation pairs: best two teams to alternate between ---- */
+  const ids=Object.keys(TEAMS);
+  const byGw={}; ids.forEach(id=>{byGw[id]={}; data[id].fx.forEach((f,j)=>{
+    byGw[id][f.gw] = SIDE==="all" ? (data[id].atk[j]+data[id].def[j])/2 : data[id][SIDE][j];});});
+  const solo={}; ids.forEach(id=>solo[id]=gws.reduce((s,g)=>s+(byGw[id][g]??0),0)/gws.length);
+  const pairs=[];
+  for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){
+    const A=ids[i],B=ids[j]; let sum=0; const pick=[];
+    gws.forEach(g=>{const a=byGw[A][g]??-9, b=byGw[B][g]??-9;
+      const useA=a>=b; sum+=Math.max(a,b); pick.push({gw:g,team:useA?A:B,v:Math.max(a,b)});});
+    const avg=sum/gws.length;
+    pairs.push({A,B,avg,pick,gain:avg-Math.max(solo[A],solo[B])});
+  }
+  pairs.sort((x,y)=>y.avg-x.avg);
+  const top=pairs.slice(0,6);
+  const noun = SIDE==="def"?"clean sheets":SIDE==="atk"?"attacking returns":"returns at both ends";
+  $("#rotIntro").textContent=`Play whichever of the two has the better week, every week. Ranked by the average of the better fixture across GW${from}–${to}, for ${noun}. The gain is what rotating adds over simply holding the stronger of the pair all the way through.`;
+  $("#pairs").innerHTML=top.map(p=>{
+    const strip=p.pick.map(x=>{const sh=shade(x.v);
+      const f=data[x.team].fx.find(f=>f.gw===x.gw);
+      const nm=TEAMS[f.opp][1].toUpperCase(), label=`${nm} (${f.home?"H":"A"})`;
+      return `<div class="pcell" style="background:${sh.bg};color:${sh.fg}" title="GW${x.gw}: play ${TEAMS[x.team][0]} vs ${TEAMS[f.opp][0]}">${TEAMS[x.team][1].toUpperCase()}<u>${label}</u></div>`;
+    }).join("");
+    return `<div class="pair">
+      <div class="pairhead"><span class="pairname">${TEAMS[p.A][0]}<s>/</s>${TEAMS[p.B][0]}</span>
+      <span class="pairval">${p.avg.toFixed(2)} <span class="sub">+${p.gain.toFixed(2)}</span></span></div>
+      <div class="pairstrip">${strip}</div></div>`;
+  }).join("");
+
+  document.querySelectorAll("#presets .chipbtn").forEach(b=>{
+    let on=false;
+    if(b.dataset.next) on=(from===NEXT_GW&&to===Math.min(38,NEXT_GW+(+b.dataset.next)-1));
+    else if(b.dataset.rest) on=(from===NEXT_GW&&to===38);
+    b.setAttribute("aria-pressed",on?"true":"false");
+  });
+}
+
+["#gwFrom","#gwTo","#kAtk","#kDef","#kpval","#hval"].forEach(s=>$(s).addEventListener("input",render));
+document.querySelectorAll("#presets .chipbtn").forEach(b=>b.addEventListener("click",()=>{
+  let from,to;
+  if(b.dataset.next){from=NEXT_GW;to=Math.min(38,NEXT_GW+(+b.dataset.next)-1);}
+  else {from=NEXT_GW;to=38;}
+  $("#gwFrom").value=from;$("#gwTo").value=to;render();}));
+$("#sideSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  SIDE=b.dataset.side;[...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
+$("#homeSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  HOME=b.dataset.home==="on";
+  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
+$("#blendSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  BLEND=b.dataset.blend==="on";
+  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
+$("#modeSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  MODE=b.dataset.mode;[...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",render);
+new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+render();
+</script>
+</body>
+</html>
