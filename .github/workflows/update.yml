@@ -26,10 +26,12 @@ jobs:
         run: |
           git config user.name "fpl-ticker bot"
           git config user.email "actions@github.com"
-          if git diff --quiet data.json; then
-            echo "No change this week."
+          git add -A data.json players.json
+          if git diff --cached --quiet; then
+            echo "Nothing changed this week."
           else
-            git add data.json
-            git commit -m "Weekly ratings refresh"
+            git commit -m "Weekly data refresh"
             git push
+            echo "Pushed:"
+            git show --stat --oneline HEAD | head -8
           fi
