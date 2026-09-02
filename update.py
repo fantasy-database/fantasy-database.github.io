@@ -10,7 +10,7 @@ the checks at the bottom, so a bad run leaves the live site on the last good
 version rather than breaking it.
 """
 
-import json, math, sys, urllib.request, datetime, pathlib
+import json, math, sys, time, urllib.request, urllib.error, datetime, pathlib
 
 FPL = "https://fantasy.premierleague.com/api"
 UND = "https://understat.com"
@@ -35,13 +35,30 @@ SLUG = {n: n.replace(" ", "_") for n in NAME2SHORT}
 # in their first year up. Non-penalty xG and xGA per game.
 PROMOTED_PRIOR = {"a": 1.1145, "d": 1.9492}
 
-UA = {"User-Agent": "Mozilla/5.0 (fpl-ticker; +https://github.com/)"}
+# Both sources sit behind Cloudflare and refuse traffic that does not look like
+# a browser, so present as one and retry a few times before giving up.
+UA = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"),
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "Accept-Language": "en-GB,en;q=0.9",
+}
 
 
-def get_json(url, headers=None):
-    req = urllib.request.Request(url, headers={**UA, **(headers or {})})
-    with urllib.request.urlopen(req, timeout=45) as r:
-        return json.loads(r.read().decode())
+def get_json(url, headers=None, tries=4):
+    last = None
+    for attempt in range(1, tries + 1):
+        req = urllib.request.Request(url, headers={**UA, **(headers or {})})
+        try:
+            with urllib.request.urlopen(req, timeout=45) as r:
+                return json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            last = f"HTTP {e.code} {e.reason}"
+        except Exception as e:
+            last = f"{type(e).__name__}: {e}"
+        if attempt < tries:
+            time.sleep(2 ** attempt)
+    raise RuntimeError(f"could not fetch {url} after {tries} tries — {last}")
 
 
 def understat_season(today=None):
@@ -150,8 +167,14 @@ def fit_k(matches, A, D, base, hfac):
     return out
 
 
+def log(msg):
+    print(msg, flush=True)
+
+
 def main():
+    log("fetching FPL bootstrap…")
     boot = get_json(f"{FPL}/bootstrap-static/")
+    log("fetching FPL fixtures…")
     fixtures = get_json(f"{FPL}/fixtures/")
 
     short2id = {t["short_name"]: t["id"] for t in boot["teams"]}
@@ -164,6 +187,8 @@ def main():
 
     season = understat_season()
     prev = season - 1
+    log(f"FPL ok — {played} matches played, next GW{next_gw}; "
+        f"Understat seasons {prev} and {season}")
 
     # last season: everyone who was in the division
     anchor, _ = team_matches("Arsenal", prev)
@@ -177,6 +202,7 @@ def main():
         prev_matches[sh] = [(o, h, f * prev_share[sh][0], a * prev_share[sh][1])
                             for o, h, f, a in ms]
 
+    log(f"last season: {len(prev_matches)} teams pulled")
     A, D, base, hfac = solve(prev_matches)
     fit = fit_k(prev_matches, A, D, base, hfac)
 
@@ -191,6 +217,7 @@ def main():
         sa, sd = np_share(payload)
         cur_matches[sh] = [(o, h, f * sa, a * sd) for o, h, f, a in ms]
 
+    log(f"this season: {len(cur_matches)} teams pulled")
     promoted = [sh for sh in cur_shorts if sh not in prev_matches]
     pa_rat = PROMOTED_PRIOR["a"] / base
     pd_rat = PROMOTED_PRIOR["d"] / base
@@ -268,4 +295,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"\nFAILED: {e}", file=sys.stderr)
+        raise
