@@ -1,2 +1,2 @@
-# FPL-TRACKER
+# FPL-TICKER
 A tool used for fpl players
