@@ -312,7 +312,7 @@ def load_fpl(previous):
         log("fetching FPL fixtures…")
         raw = get_json(f"{FPL}/fixtures/")
         return {
-            "live": True,
+            "live": True, "boot": boot,
             "short2id": {t["short_name"]: t["id"] for t in boot["teams"]},
             "meta": {t["id"]: {"name": t["name"],
                                "short": t["short_name"].lower()}
@@ -333,7 +333,7 @@ def load_fpl(previous):
         meta = {int(k): {"name": v["name"], "short": v["short"]}
                 for k, v in previous["teams"].items()}
         return {
-            "live": False,
+            "live": False, "boot": None,
             "short2id": {v["short"].upper(): k for k, v in meta.items()},
             "meta": meta,
             "deadlines": previous["deadlines"],
@@ -461,7 +461,9 @@ def main():
 
     # players are a separate file so the ticker never waits on them
     try:
-        players = build_players(boot, season, short2name, short2id)
+        if fpl["boot"] is None:
+            raise RuntimeError("FPL was unavailable, so there is no player data to build from")
+        players = build_players(fpl["boot"], season, short2name, short2id)
         if len(players) < 300:
             raise ValueError(f"only {len(players)} players")
         pdata = {"generated": data["generated"], "season": data["season"],
