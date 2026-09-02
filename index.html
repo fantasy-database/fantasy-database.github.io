@@ -33,6 +33,13 @@
   .mast h1 em{font-style:normal;color:var(--accent)}
   .mast h1{text-transform:uppercase;letter-spacing:-.02em}
   .mast p{margin:0;color:var(--muted);max-width:46ch;font-size:13.5px}
+  .nav{margin-left:auto;display:flex;gap:8px;order:3}
+  .nav a{font-weight:600;font-size:13px;text-decoration:none;color:var(--muted);
+    padding:7px 14px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border)}
+  .nav a[aria-current]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .nav a:hover{color:var(--ink)}
+  .nav a[aria-current]:hover{color:var(--accent-ink)}
+  @media (max-width:700px){.nav{margin-left:0;order:0;width:100%}}
   .eyebrow{font-family:"Roboto Mono",ui-monospace,monospace;font-weight:600;font-size:10.5px;
     letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:7px}
 
@@ -230,6 +237,10 @@
       <span class="eyebrow" id="stamp">Loading…</span>
       <h1>Fixture Run<br><em>Planner</em></h1>
     </div>
+    <nav class="nav">
+      <a href="index.html" aria-current="page">Fixtures</a>
+      <a href="players.html">Players</a>
+    </nav>
     <p>An expected-goals ticker. Attack and defence rated apart, shaded on a continuous scale, with the rotation pairs whose good weeks fall in opposite places.</p>
   </header>
 

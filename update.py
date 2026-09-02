@@ -10,11 +10,12 @@ the checks at the bottom, so a bad run leaves the live site on the last good
 version rather than breaking it.
 """
 
-import json, math, sys, time, gzip, zlib, urllib.request, urllib.error, datetime, pathlib
+import json, math, sys, time, gzip, zlib, re, unicodedata, urllib.request, urllib.error, datetime, pathlib
 
 FPL = "https://fantasy.premierleague.com/api"
 UND = "https://understat.com"
 OUT = pathlib.Path(__file__).parent / "data.json"
+OUT_P = pathlib.Path(__file__).parent / "players.json"
 
 # Understat's full team names -> FPL's short codes. Covers every side to appear
 # in the Premier League recently, so promotion and relegation need no edits.
@@ -189,6 +190,113 @@ def log(msg):
     print(msg, flush=True)
 
 
+# ---------------------------------------------------------------- players ---
+
+def strip_name(s):
+    """Fold accents and punctuation so the two sources' spellings can meet."""
+    out = unicodedata.normalize("NFD", s)
+    out = "".join(c for c in out if unicodedata.category(c) != "Mn").lower()
+    return re.sub(r"[^a-z ]", "", out).strip()
+
+
+def match_player(full, web, pool):
+    """
+    Find an Understat player for an FPL one. Tried in order of confidence:
+    exact, one name being a subset of the other, shared surname, web name.
+    """
+    f, w = strip_name(full), strip_name(web)
+    toks = f.split()
+    if not toks:
+        return None
+    for cand in pool:
+        if cand["n"] == f:
+            return cand
+    for cand in pool:
+        if cand["n"] and all(t in toks for t in cand["n"].split()):
+            return cand
+    for cand in pool:
+        if all(t in cand["n"].split() for t in toks):
+            return cand
+    last = toks[-1]
+    for cand in pool:
+        if cand["n"] == last or cand["n"].endswith(" " + last):
+            return cand
+    bare = re.sub(r"^[a-z]\.", "", w).strip()
+    for cand in pool:
+        if bare and bare in cand["n"]:
+            return cand
+    return None
+
+
+def build_players(boot, season, short2name, short2id):
+    """Every FPL player, with non-penalty xG and shots joined from Understat."""
+    und_by_team, unmatched = {}, 0
+    for sh, tid in short2id.items():
+        name = short2name.get(sh)
+        if not name:
+            continue
+        try:
+            d = get_json(f"{UND}/getTeamData/{SLUG[name]}/{season}",
+                         {"X-Requested-With": "XMLHttpRequest"})
+            und_by_team[tid] = [
+                {"n": strip_name(p["player_name"]),
+                 "npxg": float(p["npxG"]), "xa": float(p["xA"]),
+                 "sh": int(p["shots"]), "min": int(p["time"])}
+                for p in d["players"]]
+        except Exception as e:
+            log(f"   no Understat players for {sh}: {e}")
+            und_by_team[tid] = []
+
+    def per90(total, minutes):
+        return round(total / minutes * 90, 3) if minutes and total is not None else None
+
+    out = []
+    for e in boot["elements"]:
+        mins = e["minutes"]
+        u = match_player(f"{e['first_name']} {e['second_name']}", e["web_name"],
+                         und_by_team.get(e["team"], []))
+        if u is None and mins > 0:
+            unmatched += 1
+        npxg = u["npxg"] if u else None
+        xa = u["xa"] if u else None
+        shots = u["sh"] if u else None
+        npxgi = (npxg + xa) if (npxg is not None and xa is not None) else None
+
+        out.append({
+            "i": e["id"], "n": e["web_name"], "t": e["team"], "p": e["element_type"],
+            "c": e["now_cost"], "own": float(e["selected_by_percent"]),
+            "st": e["status"], "news": (e["news"] or "")[:90],
+            "cop": e["chance_of_playing_next_round"],
+            "min": mins, "starts": e["starts"],
+            "mps": round(mins / e["starts"], 1) if e["starts"] else None,
+            "pts": e["total_points"],
+            "dc": e["defensive_contribution"],
+            "sv": e["saves"], "cs": e["clean_sheets"],
+            "gc": e["goals_conceded"],
+            "xgc": round(float(e["expected_goals_conceded"]), 2),
+            "g": e["goals_scored"], "a": e["assists"],
+            "npxg": round(npxg, 2) if npxg is not None else None,
+            "xa": round(xa, 2) if xa is not None else None,
+            "npxgi": round(npxgi, 2) if npxgi is not None else None,
+            "sh": shots,
+            "pen": e["penalties_order"],
+            "ck": e["corners_and_indirect_freekicks_order"],
+            "fk": e["direct_freekicks_order"],
+            # rates, all computed the same way so nothing is inconsistent
+            "pts90": per90(e["total_points"], mins),
+            "dc90": per90(e["defensive_contribution"], mins),
+            "sv90": per90(e["saves"], mins),
+            "cs90": per90(e["clean_sheets"], mins),
+            "gc90": per90(e["goals_conceded"], mins),
+            "xgc90": per90(float(e["expected_goals_conceded"]), mins),
+            "npxg90": per90(npxg, mins), "xa90": per90(xa, mins),
+            "npxgi90": per90(npxgi, mins), "sh90": per90(shots, mins),
+        })
+    log(f"players: {len(out)} built, {unmatched} with minutes had no Understat row")
+    return out
+
+
+
 def load_fpl(previous):
     """
     Fixtures, deadlines and difficulty ratings from the FPL API.
@@ -350,6 +458,21 @@ def main():
         sys.exit(1)
 
     OUT.write_text(json.dumps(data, separators=(",", ":")))
+
+    # players are a separate file so the ticker never waits on them
+    try:
+        players = build_players(boot, season, short2name, short2id)
+        if len(players) < 300:
+            raise ValueError(f"only {len(players)} players")
+        pdata = {"generated": data["generated"], "season": data["season"],
+                 "matchesPlayed": played, "nextGw": next_gw,
+                 "teams": {k: {"name": v["name"], "short": v["short"]}
+                           for k, v in data["teams"].items()},
+                 "players": players}
+        OUT_P.write_text(json.dumps(pdata, separators=(",", ":")))
+        log(f"wrote {OUT_P.name}: {len(players)} players")
+    except Exception as e:
+        log(f"!! players not rebuilt ({e}) — keeping the previous players.json")
     print(f"wrote {OUT.name}: {len(data['teams'])} teams, "
           f"{data['matchesPlayed']} matches played, next GW{data['nextGw']}, "
           f"kAtk={data['fit']['kAtk']} kDef={data['fit']['kDef']} "
