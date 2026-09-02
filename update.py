@@ -10,7 +10,7 @@ the checks at the bottom, so a bad run leaves the live site on the last good
 version rather than breaking it.
 """
 
-import json, math, sys, time, urllib.request, urllib.error, datetime, pathlib
+import json, math, sys, time, gzip, zlib, urllib.request, urllib.error, datetime, pathlib
 
 FPL = "https://fantasy.premierleague.com/api"
 UND = "https://understat.com"
@@ -42,20 +42,38 @@ UA = {
                    "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"),
     "Accept": "application/json, text/javascript, */*; q=0.01",
     "Accept-Language": "en-GB,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate",
 }
 
 
+def _decode(body, encoding):
+    """Cloudflare compresses replies for anything that looks like a browser."""
+    encoding = (encoding or "").lower()
+    if encoding == "gzip" or body[:2] == b"\x1f\x8b":
+        body = gzip.decompress(body)
+    elif encoding == "deflate":
+        try:
+            body = zlib.decompress(body)
+        except zlib.error:
+            body = zlib.decompress(body, -zlib.MAX_WBITS)
+    return body.decode("utf-8")
+
+
 def get_json(url, headers=None, tries=4):
+    """Fetch and parse JSON, retrying only on errors worth retrying."""
     last = None
     for attempt in range(1, tries + 1):
         req = urllib.request.Request(url, headers={**UA, **(headers or {})})
         try:
             with urllib.request.urlopen(req, timeout=45) as r:
-                return json.loads(r.read().decode())
+                return json.loads(_decode(r.read(), r.headers.get("Content-Encoding")))
         except urllib.error.HTTPError as e:
             last = f"HTTP {e.code} {e.reason}"
-        except Exception as e:
-            last = f"{type(e).__name__}: {e}"
+        except urllib.error.URLError as e:
+            last = f"network: {e.reason}"
+        except (UnicodeDecodeError, json.JSONDecodeError, OSError) as e:
+            # not transient — retrying will fail the same way
+            raise RuntimeError(f"could not read {url} — {type(e).__name__}: {e}")
         if attempt < tries:
             time.sleep(2 ** attempt)
     raise RuntimeError(f"could not fetch {url} after {tries} tries — {last}")
