@@ -6,7 +6,7 @@
 <meta name="description" content="Premier League fixture difficulty rated on expected goals, with attack and defence scored separately.">
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%E2%9A%BD</text></svg>">
-<title>Fixture Run Planner</title>
+<title>Fantasy DataBase — Fixtures</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500;700&display=swap">
@@ -31,6 +31,9 @@
   .mast h1{font-family:Barlow,Arial,Helvetica,sans-serif;font-weight:800;font-size:clamp(28px,4.6vw,42px);
     line-height:.98;letter-spacing:-.028em;margin:0;text-wrap:balance}
   .mast h1 em{font-style:normal;color:var(--accent)}
+  .mast .sect{margin:6px 0 0;font-family:"Roboto Mono",ui-monospace,monospace;
+    font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted)}
   .mast h1{text-transform:uppercase;letter-spacing:-.02em}
   .mast p{margin:0;color:var(--muted);max-width:46ch;font-size:13.5px}
   .nav{margin-left:auto;display:flex;gap:8px;order:3}
@@ -235,7 +238,8 @@
   <header class="mast">
     <div>
       <span class="eyebrow" id="stamp">Loading…</span>
-      <h1>Fixture Run<br><em>Planner</em></h1>
+      <h1>Fantasy <em>DataBase</em></h1>
+      <p class="sect">Fixture ticker</p>
     </div>
     <nav class="nav">
       <a href="index.html" aria-current="page">Fixtures</a>
