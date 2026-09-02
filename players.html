@@ -101,6 +101,22 @@
   .flag{display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;
     margin-left:5px;vertical-align:1px;font-family:"Roboto Mono",monospace}
   .flag.out{background:var(--bad);color:#fff}
+  button.flag{font:inherit;font-size:9px;font-weight:700;cursor:pointer;border:0;
+    line-height:1.5;vertical-align:middle}
+  button.flag:hover{filter:brightness(1.15)}
+  button.flag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .key{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:12px 0 0;
+    font-size:12px;color:var(--muted);line-height:1.5}
+  .key .hint{color:var(--accent);opacity:.85}
+  .pop{position:absolute;z-index:60;max-width:290px;background:var(--surface);
+    border:1px solid var(--border-strong);border-radius:10px;padding:12px 14px 13px;
+    box-shadow:var(--shadow)}
+  .pop h4{margin:0 0 6px;font-size:13.5px;color:var(--ink)}
+  .pop p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.5}
+  .pop .popwhy{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11.5px}
+  .popx{position:absolute;top:5px;right:7px;background:none;border:0;color:var(--muted);
+    font-size:17px;line-height:1;cursor:pointer;padding:2px 4px}
+  .popx:hover{color:var(--ink)}
   .flag.doubt{background:var(--warn);color:#241900}
   .dim{color:var(--muted)}
   .empty{padding:34px 16px;text-align:center;color:var(--muted)}
@@ -165,7 +181,22 @@
     </label>
   </div>
 
+  <p class="key" id="fitKey">
+    <span class="flag doubt" aria-hidden="true">75%</span>
+    <span>Chance of playing the next match, straight from FPL. Under 100% is a fitness doubt.</span>
+    <span class="flag out" aria-hidden="true">OUT</span>
+    <span>Injured, suspended or unavailable.</span>
+    <span class="hint">Tap any badge for the actual news.</span>
+  </p>
+
   <p class="note" id="note"></p>
+
+  <div id="pop" class="pop" hidden role="dialog" aria-live="polite">
+    <button type="button" class="popx" id="popx" aria-label="Close">&times;</button>
+    <h4 id="popTitle"></h4>
+    <p id="popNews"></p>
+    <p class="popwhy" id="popWhy"></p>
+  </div>
 
   <div class="card">
     <div class="scroll">
@@ -283,12 +314,17 @@ function render(){
   $("#floorChip").classList.toggle("off", minm===0);
   $("#note").innerHTML = `${dir} Showing ${rows.length} ${POSNAME[POS].toLowerCase()}.${cut}`;
 
-  if(!rows.length){ $("#rows").innerHTML=`<tr><td colspan="8" class="empty">No players match those filters.</td></tr>`; return; }
+  if(!rows.length){ closePop(); $("#rows").innerHTML=`<tr><td colspan="8" class="empty">No players match those filters.</td></tr>`; return; }
 
+  closePop();
   $("#rows").innerHTML=rows.map((p,i)=>{
     const t=T[p.t]||{name:"?",short:"?"};
+    const esc=t=>String(t||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
     const flag = p.st==="a" ? ""
-      : `<span class="flag ${p.st==="d"?"doubt":"out"}" title="${(p.news||"").replace(/"/g,"&quot;")}">${p.st==="d"?(p.cop??"?")+"%":"OUT"}</span>`;
+      : `<button type="button" class="flag ${p.st==="d"?"doubt":"out"}" data-nm="${esc(p.n)}"`
+        + ` data-cop="${p.cop===null||p.cop===undefined?"":p.cop}" data-st="${p.st}"`
+        + ` data-news="${esc(p.news)}" aria-label="Fitness status for ${esc(p.n)} — click for detail">`
+        + `${p.st==="d"?(p.cop??"?")+"%":"OUT"}</button>`;
     return `<tr>
       <td class="lft"><span class="rk">${i+1}</span> <span class="pl"><i style="background:${CLUB[t.short]||"#888"}"></i>${p.n}</span><span class="tm">${t.short}</span>${flag}</td>
       <td class="lead">${fmt(STAT,p[k])}</td>
@@ -315,6 +351,32 @@ $("#statSeg").addEventListener("click",e=>{const b=e.target.closest("button");if
   [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
 ["#q","#maxc","#minm","#avail","#team"].forEach(s=>$(s).addEventListener("input",render));
 $("#minm").addEventListener("input",()=>{minmTouched=true;});
+
+// A bare "75%" badge means nothing on its own, and a title tooltip is invisible
+// on a phone. Tapping one explains the number and shows FPL's actual wording.
+const pop=$("#pop");
+function closePop(){ pop.hidden=true; }
+$("#rows").addEventListener("click",e=>{
+  const f=e.target.closest("button.flag"); if(!f) return;
+  const st=f.dataset.st, cop=f.dataset.cop, news=f.dataset.news.trim();
+  $("#popTitle").textContent = st==="d"
+    ? `${f.dataset.nm} — ${cop!==""?cop+"% chance of playing":"a doubt"}`
+    : `${f.dataset.nm} — unavailable`;
+  $("#popNews").textContent = news || "FPL has not published a reason.";
+  $("#popWhy").textContent = st==="d"
+    ? "This is FPL's own estimate of his chance of featuring in the next match. It updates with press conferences, so it usually firms up on a Friday."
+    : "Injured, suspended or otherwise out. He will score nothing until this clears.";
+  pop.hidden=false;
+  const r=f.getBoundingClientRect(), pr=pop.getBoundingClientRect();
+  const x=Math.min(r.left+window.scrollX, window.scrollX+document.documentElement.clientWidth-pr.width-12);
+  pop.style.left=Math.max(window.scrollX+8,x)+"px";
+  pop.style.top=(r.bottom+window.scrollY+8)+"px";
+});
+$("#popx").addEventListener("click",closePop);
+document.addEventListener("click",e=>{
+  if(!pop.hidden && !e.target.closest(".pop") && !e.target.closest("button.flag")) closePop();});
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closePop(); });
+window.addEventListener("resize",closePop);
 $("#resetm").addEventListener("click",()=>{minmTouched=false;syncFloor();render();});
 
 fetch("players.json?t="+Date.now())
