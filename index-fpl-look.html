@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Premier League fixture difficulty rated on expected goals, with attack and defence scored separately.">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%E2%9A%BD</text></svg>">
+<title>Fixture Run Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500;700&display=swap">
+<style>
+    :root{
+    --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44;
+    --border:#4B1A52; --border-strong:#663570;
+    --ink:#FFFFFF; --muted:#B9A3BE; --accent:#00FF87; --accent-ink:#1E0021;
+    --easy:#116B33; --easy2:#05E585; --midc:#E7E7E7; --hard2:#FF1751; --hard:#80072D;
+    --bar:#04F5FF;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);
+    font-family:Barlow,Arial,Helvetica,sans-serif;
+    font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1200px;margin:0 auto;padding:26px 18px 60px}
+
+  .mast{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 28px;
+    padding-bottom:16px;border-bottom:3px solid var(--accent)}
+  .mast h1{font-family:Barlow,Arial,Helvetica,sans-serif;font-weight:800;font-size:clamp(28px,4.6vw,42px);
+    line-height:.98;letter-spacing:-.028em;margin:0;text-wrap:balance}
+  .mast h1 em{font-style:normal;color:var(--accent)}
+  .mast h1{text-transform:uppercase;letter-spacing:-.02em}
+  .mast p{margin:0;color:var(--muted);max-width:46ch;font-size:13.5px}
+  .eyebrow{font-family:"Roboto Mono",ui-monospace,monospace;font-weight:600;font-size:10.5px;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:7px}
+
+  .views{display:flex;flex-wrap:wrap;gap:9px 20px;align-items:center;margin-top:18px}
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:3px;gap:3px}
+  .seg button{font:inherit;font-size:13px;font-weight:600;padding:6px 14px;border:0;border-radius:6px;
+    background:transparent;color:var(--muted);cursor:pointer;font-family:Barlow,Arial,Helvetica,sans-serif}
+  .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.14)}
+  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .seglabel{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin-right:-11px}
+
+  .viewnote{margin:11px 2px 0;font-size:13px;color:var(--muted);max-width:82ch}
+  .viewnote b{color:var(--ink);font-weight:600}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);margin-top:14px}
+  .ctrls{display:grid;grid-template-columns:1.1fr 1fr 1fr}
+  @media (max-width:900px){.ctrls{grid-template-columns:1fr}}
+  .ctrl{padding:15px 17px}
+  .ctrl+.ctrl{border-left:1px solid var(--border)}
+  @media (max-width:900px){.ctrl+.ctrl{border-left:0;border-top:1px solid var(--border)}}
+  .ctrl h2{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 9px}
+  .readout{font-family:Barlow,Arial,Helvetica,sans-serif;font-weight:700;font-size:18px;letter-spacing:-.01em;
+    font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:8px;margin-bottom:9px;flex-wrap:wrap}
+  .readout small{font-family:Barlow,Arial,sans-serif;font-weight:400;font-size:12px;color:var(--muted);letter-spacing:0}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;background:transparent;margin:0;height:20px;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:99px;background:var(--surface-2);border:1px solid var(--border)}
+  input[type=range]::-moz-range-track{height:5px;border-radius:99px;background:var(--surface-2);border:1px solid var(--border)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--accent);border:2px solid var(--surface);margin-top:-6.5px;box-shadow:0 0 0 1px var(--border-strong)}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);
+    border:2px solid var(--surface);box-shadow:0 0 0 1px var(--border-strong)}
+  input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+  .slider-row{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:9px}
+  .slider-row span{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+  .presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+  .chipbtn{font:inherit;font-size:12px;font-weight:500;padding:4px 10px;border-radius:99px;cursor:pointer;
+    background:var(--surface-2);color:var(--ink);border:1px solid var(--border)}
+  .chipbtn:hover{border-color:var(--border-strong)}
+  .chipbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .chipbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .krows{display:flex;flex-direction:column;gap:13px}
+  .kb h3{margin:0 0 2px;font-family:Barlow,Arial,Helvetica,sans-serif;font-size:12.5px;font-weight:700;
+    letter-spacing:-.01em;color:var(--ink);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .kb h3 em{font-style:normal;font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;
+    font-weight:500;color:var(--muted);letter-spacing:.02em}
+  .seg.mini{margin-bottom:11px}
+  .seg.mini button{font-size:11.5px;padding:5px 11px}
+  .blendoff{opacity:.4;pointer-events:none}
+  .readout.sub2{font-size:15px;margin-top:14px;margin-bottom:8px}
+  .hint{font-size:11.5px;color:var(--muted);margin:8px 0 0;line-height:1.45}
+  .mixbar{display:flex;height:7px;border-radius:99px;overflow:hidden;border:1px solid var(--border);margin-top:8px}
+  .mixbar i{display:block;height:100%}
+  .mixbar i:first-child{background:var(--accent)}
+  .mixbar i:last-child{background:var(--surface-2)}
+  .mixkey{display:flex;justify-content:space-between;font-family:"Roboto Mono",ui-monospace,monospace;
+    font-size:10px;color:var(--muted);margin-top:4px}
+
+  .tablecard{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+  .tscroll{overflow-x:auto}
+  table{border-collapse:separate;border-spacing:0;width:100%;min-width:930px}
+  thead th{font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;font-weight:600;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);text-align:center;padding:9px 6px;
+    border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+  thead th.lft{text-align:left;padding-left:12px}
+  thead th.rgt{text-align:right;padding-right:12px}
+  thead th b{display:block;font-weight:600;color:var(--ink);font-size:11px;letter-spacing:.04em}
+  tbody td{padding:3px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tbody td.pad{padding:5px 12px}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover td.pad{background:var(--surface-2)}
+  .rank{font-family:Barlow,Arial,Helvetica,sans-serif;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;
+    color:var(--muted);width:26px;text-align:right;padding:5px 2px 5px 10px}
+  tr.top6 .rank{color:var(--ink)}
+  .team{font-family:Barlow,Arial,Helvetica,sans-serif;font-weight:700;font-size:14px;
+    letter-spacing:-.012em;white-space:nowrap;display:inline-flex;align-items:center;gap:8px}
+  .team i{display:block;width:4px;height:15px;border-radius:2px;flex:0 0 auto;
+    box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+  .prov{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--accent);margin-left:5px;vertical-align:2px}
+  .delta{font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;font-weight:600;margin-left:5px;
+    padding:1px 4px;border-radius:4px;border:1px solid var(--border-strong);color:var(--muted);vertical-align:1px}
+  .cellwrap{display:block}
+  .cell{display:block;border-radius:4px;padding:6px 2px;text-align:center;
+    font-family:"Roboto Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.01em;
+    min-width:64px;line-height:1.15}
+  .cell u{display:block;text-decoration:none;font-size:9px;font-weight:500;opacity:.78;margin-top:1px}
+  .score{font-family:"Roboto Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;
+    text-align:right;font-size:15px;font-weight:600;white-space:nowrap}
+  .sub{font-size:10.5px;color:var(--muted);font-weight:400}
+
+  /* rotation */
+  .rot{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:16px 18px}
+  .rot h2{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+  .rot > p{margin:0 0 13px;font-size:12.5px;color:var(--muted);max-width:70ch}
+  .pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:9px}
+  .pair{border:1px solid var(--border);border-radius:8px;padding:10px 11px;background:var(--surface-2)}
+  .pairhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .pairname{font-family:Barlow,Arial,Helvetica,sans-serif;font-weight:700;font-size:13.5px;letter-spacing:-.01em}
+  .pairname s{text-decoration:none;color:var(--muted);font-weight:600;margin:0 3px}
+  .pairval{font-family:"Roboto Mono",ui-monospace,monospace;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+  .pairstrip{display:flex;gap:2px}
+  .pcell{flex:1 1 0;border-radius:3px;padding:4px 1px;text-align:center;
+    font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;font-weight:600;line-height:1.2}
+  .pcell u{display:block;text-decoration:none;font-size:8px;opacity:.8;font-weight:500}
+
+  .notes{margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:16px 30px}
+  .notes h3{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+  .notes p{margin:0 0 8px;font-size:13px;color:var(--muted);max-width:62ch}
+  .notes code{font-family:"Roboto Mono",ui-monospace,monospace;font-size:12px;color:var(--ink);
+    background:var(--surface-2);padding:1px 5px;border-radius:4px;border:1px solid var(--border)}
+  .notes strong{color:var(--ink);font-weight:600}
+  .ramp{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:11.5px;color:var(--muted)}
+  .rampbar{flex:1 1 auto;height:11px;border-radius:3px;max-width:190px}
+
+  .gloss{margin-top:20px;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;box-shadow:var(--shadow);padding:17px 19px 8px}
+  .gloss h2{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+  .gtable{display:flex;flex-direction:column}
+  .grow{display:grid;grid-template-columns:118px 150px 1fr 1.55fr;gap:14px;
+    padding:11px 0;border-top:1px solid var(--border);font-size:13px;color:var(--muted);align-items:start}
+  .grow.ghead{border-top:0;padding-top:0;font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;
+    letter-spacing:.11em;text-transform:uppercase;padding-bottom:7px}
+  .gname{font-family:Barlow,Arial,Helvetica,sans-serif;font-weight:700;font-size:13px;color:var(--ink);letter-spacing:-.01em}
+  .gwhen{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10.5px;letter-spacing:.02em}
+  .gcalc code{font-family:"Roboto Mono",ui-monospace,monospace;font-size:11px;color:var(--ink);
+    background:var(--surface-2);padding:2px 6px;border-radius:4px;border:1px solid var(--border);
+    display:inline-block;line-height:1.5}
+  .grow strong{color:var(--ink);font-weight:600}
+  @media (max-width:820px){
+    .grow{grid-template-columns:1fr;gap:5px}
+    .grow.ghead{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<style>html{-webkit-text-size-adjust:100%}img{max-width:100%}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <div>
+      <span class="eyebrow" id="stamp">Loading…</span>
+      <h1>Fixture Run<br><em>Planner</em></h1>
+    </div>
+    <p>An expected-goals ticker. Attack and defence rated apart, shaded on a continuous scale, with the rotation pairs whose good weeks fall in opposite places.</p>
+  </header>
+
+  <div class="views">
+    <span class="seglabel">Show</span>
+    <div class="seg" id="sideSeg">
+      <button data-side="all" aria-pressed="false">Overall</button>
+      <button data-side="atk" aria-pressed="true">Attack</button>
+      <button data-side="def" aria-pressed="false">Defence</button>
+    </div>
+    <span class="seglabel">Sort</span>
+    <div class="seg" id="sortSeg">
+      <button data-sort="best" aria-pressed="true">Easiest</button>
+      <button data-sort="worst" aria-pressed="false">Hardest</button>
+      <button data-sort="az" aria-pressed="false">A&ndash;Z</button>
+    </div>
+    <span class="seglabel">Based on</span>
+    <div class="seg" id="modeSeg">
+      <button data-mode="ease" aria-pressed="false">Opponents</button>
+      <button data-mode="proj" aria-pressed="true">Expected returns</button>
+    </div>
+  </div>
+
+  <p class="viewnote" id="viewNote"></p>
+
+  <section class="panel ctrls">
+    <div class="ctrl">
+      <h2>Gameweek window</h2>
+      <div class="readout" id="gwReadout"></div>
+      <div class="slider-row"><span>From</span><input type="range" id="gwFrom" min="1" max="38" value="3" aria-label="First gameweek"></div>
+      <div class="slider-row"><span>To</span><input type="range" id="gwTo" min="1" max="38" value="8" aria-label="Last gameweek"></div>
+      <div class="presets" id="presets">
+        <button class="chipbtn" data-next="3">Next 3</button>
+        <button class="chipbtn" data-next="6">Next 6</button>
+        <button class="chipbtn" data-next="9">Next 9</button>
+        <button class="chipbtn" data-rest="1">Rest of season</button>
+      </div>
+    </div>
+    <div class="ctrl">
+      <h2>Season blend</h2>
+      <div class="seg mini" id="blendSeg">
+        <button data-blend="on" aria-pressed="true">Blend</button>
+        <button data-blend="off" aria-pressed="false">This season only</button>
+      </div>
+      <div class="krows" id="krows">
+        <div class="kb"><h3>Attack ratings<em id="kAtkFit"></em></h3>
+          <input type="range" id="kAtk" min="0" max="40" step="1" value="8" aria-label="How much of this season to use for attack ratings">
+          <div class="mixbar"><i id="bA"></i><i id="bAo"></i></div>
+          <div class="mixkey"><span id="lA"></span><span id="lAo"></span></div></div>
+        <div class="kb"><h3>Defence ratings<em id="kDefFit"></em></h3>
+          <input type="range" id="kDef" min="0" max="40" step="1" value="26" aria-label="How much of this season to use for defence ratings">
+          <div class="mixbar"><i id="bD"></i><i id="bDo"></i></div>
+          <div class="mixkey"><span id="lD"></span><span id="lDo"></span></div></div>
+        <div class="kb"><h3>Promoted sides<em id="kpFit"></em></h3>
+          <input type="range" id="kpval" min="0" max="40" step="1" value="4" aria-label="How much of this season to use for promoted sides">
+          <div class="mixbar"><i id="bP"></i><i id="bPo"></i></div>
+          <div class="mixkey"><span id="lP"></span><span id="lPo"></span></div></div>
+      </div>
+      <p class="hint" id="blendHint"></p>
+    </div>
+    <div class="ctrl">
+      <h2>Home advantage</h2>
+      <div class="seg mini" id="homeSeg">
+        <button data-home="on" aria-pressed="true">On</button>
+        <button data-home="off" aria-pressed="false">Off</button>
+      </div>
+      <div class="readout" id="hReadout"></div>
+      <div id="hwrap"><input type="range" id="hval" min="1" max="1.3" step="0.01" value="1.11" aria-label="Home advantage multiplier"></div>
+      <p class="hint" id="homeHint"></p>
+    </div>
+  </section>
+
+  <div class="tablecard">
+    <div class="tscroll"><table>
+      <thead><tr id="thead"></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </div>
+
+  <section class="rot">
+    <h2>Rotation pairs</h2>
+    <p id="rotIntro"></p>
+    <div class="pairs" id="pairs"></div>
+  </section>
+
+
+  <section class="gloss">
+    <h2>What every number on this page means</h2>
+    <div class="gtable">
+      <div class="grow ghead"><span>Column</span><span>Shown when</span><span>How it is worked out</span><span>How to read it</span></div>
+
+      <div class="grow"><span class="gname">Defences faced</span><span class="gwhen">Attack · Opponents</span>
+        <span class="gcalc"><code>DEF[opponent] &times; home</code></span>
+        <span>How much the defences this side faces concede, against the league average. <strong>1.00</strong> is an average defence; <strong>1.30</strong> means the opponents leak 30% more than average. Higher is better for your attackers. It says nothing about whether the team itself can finish.</span></div>
+
+      <div class="grow"><span class="gname">Attacks faced</span><span class="gwhen">Defence · Opponents</span>
+        <span class="gcalc"><code>home &divide; ATK[opponent]</code></span>
+        <span>How toothless the attacks this side faces are. <strong>1.00</strong> is an average attack; above 1.00 means weaker than average, so a better shot at a clean sheet. Higher is better.</span></div>
+
+      <div class="grow"><span class="gname">Goals expected</span><span class="gwhen">Attack · Expected returns</span>
+        <span class="gcalc"><code>base &times; ATK[team] &times; DEF[opponent] &times; home</code></span>
+        <span>Expected goals this side scores in that fixture. The column is the total across the window, with a per-game figure beneath. Unlike the ease columns, this folds in how good the team actually is.</span></div>
+
+      <div class="grow"><span class="gname">Clean sheet</span><span class="gwhen">Defence · Expected returns</span>
+        <span class="gcalc"><code>e<sup>&minus;xGA</sup></code></span>
+        <span>The Poisson probability of conceding exactly zero, given the expected goals against. The column is the average across the window.</span></div>
+
+      <div class="grow"><span class="gname">Overall</span><span class="gwhen">Overall · either</span>
+        <span class="gcalc"><code>(attack score + defence score) &divide; 2</code></span>
+        <span>Every fixture is scored 0&ndash;100 for attack and 0&ndash;100 for defence on a fixed scale, then the two are averaged. The column is the mean across the window. <strong>100</strong> is as good as a fixture gets at both ends at once; <strong>50</strong> is unremarkable. It rewards runs that are kind to attackers and defenders alike, rather than lopsided ones.</span></div>
+
+      <div class="grow"><span class="gname">Cell numbers</span><span class="gwhen">Every view</span>
+        <span class="gcalc">&mdash;</span>
+        <span>The same metric as the column, for that one fixture. Shading uses fixed anchors rather than the current window, so a colour means the same thing whichever gameweeks you pick.</span></div>
+
+      <div class="grow"><span class="gname">&#9650;&#9660; chip</span><span class="gwhen">Every view</span>
+        <span class="gcalc">&mdash;</span>
+        <span>Places gained or lost against FPL's own 1&ndash;5 difficulty rating over the same window. A big number is where this model and FPL genuinely disagree.</span></div>
+
+      <div class="grow"><span class="gname">Rotation pair</span><span class="gwhen">Below the table</span>
+        <span class="gcalc"><code>mean of max(A, B) per gameweek</code></span>
+        <span>The first figure is the average of whichever of the two has the better fixture each week. The second, in grey, is the <em>gain</em> &mdash; what rotating adds over simply holding the stronger of the pair throughout. A large first number with a small gain means one team is carrying the pair and you may as well just own them.</span></div>
+    </div>
+  </section>
+
+  <section class="notes">
+    <div>
+      <h3>Reading the grid</h3>
+      <p>Each cell is the opponent and where it is played &mdash; <strong>(H)</strong> home, <strong>(A)</strong> away &mdash; over the model's rating for that fixture.</p>
+      <p>Shading is continuous rather than five buckets. The model produces a real number for every fixture, so bucketing it into bands would throw away the precision that made it worth building.</p>
+      <div class="ramp"><span>easier</span><div class="rampbar" id="rampbar"></div><span>harder</span></div>
+    </div>
+    <div>
+      <h3>The two settings</h3>
+      <p><strong>Opponents</strong> asks how bad the teams they play are, and nothing else. It is the direct replacement for FDR, and it will happily put a poor side at the top if their fixtures are kind.</p>
+      <p><strong>Expected returns</strong> asks what this team should get out of those fixtures, using their own attack and defence too. Most of the time this is the one you want. A side can top one list and sit near the bottom of the other.</p>
+    </div>
+    <div>
+      <h3>How it is built</h3>
+      <p>Teams are rated on <strong>non-penalty</strong> expected goals, because a penalty belongs to whoever takes it rather than to a side's ability to create chances. Penalties are added back at league rate (<code>&times;1.06</code>) when a rating becomes a goal projection.</p>
+      <p><strong>The constants are fitted, not chosen.</strong> Splitting last season's 760 matches into odd and even halves and correlating each team against itself measures how much of a sample is signal; <code>k = n(1&minus;r)/r</code> turns that into a blend constant. Attack came out at <strong>8</strong>, defence at <strong>26</strong>, home advantage at <strong>1.11&times;</strong>.</p>
+      <p>Every rating is <strong>opponent-adjusted</strong>: each match is measured against what an average side would have managed versus that opponent, at that venue, so a soft or brutal run of fixtures does not masquerade as form.</p>
+<p>The three promoted sides, marked <span class="prov"></span>, have no Premier League record. Their prior is what promoted sides have actually managed in their first season up, averaged over the <strong>fifteen teams promoted in the last five seasons</strong> — 1.11 npxG and 1.95 npxGA per game. Their <em>k</em> is the one constant still set by judgement rather than fitted.</p>
+      <h3 style="margin-top:14px">Caveats</h3>
+      <p>Two matches is a very small sample. Squad turnover is not modelled at all &mdash; a side that sold its striker in August is not last season's side, and no amount of xG history knows that.</p>
+      <p class="sub">xG from Understat (2025/26 full season, 2026/27 to date). Fixtures and difficulty ratings from the Fantasy Premier League API. Data is a snapshot, not live.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+
+let SIDE="atk", MODE="proj", BLEND=true, HOME=true, SORT="best";
+const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
+che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
+ips:"#3A64A3",lee:"#FFCD00",liv:"#C8102E",mci:"#6CABDD",mun:"#DA291C",new:"#41B6E6",
+nfo:"#DD0000",tot:"#132257",sun:"#EB172B"};
+let TEAMS={}, REC={}, FX=[], DEADLINES=[], NEXT_GW=1, MATCHES_PLAYED=0, FIT={}, PEN=1;
+const $=s=>document.querySelector(s);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmtDate=iso=>{const[y,m,d]=iso.split("-").map(Number);
+  return d+" "+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1];};
+
+/* ---- continuous diverging colour ---- */
+const hex2rgb=h=>{h=h.replace("#","");return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16));};
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+const ramp=()=>["--hard","--hard2","--midc","--easy2","--easy"].map(n=>hex2rgb(css(n)));
+function shade(t){                       // t: 0 = hardest (dark red), 1 = easiest (dark green)
+  t=Math.max(0,Math.min(1,t));
+  const s=ramp(), x=t*4, i=Math.min(3,Math.floor(x));
+  const rgb=mix(s[i],s[i+1],x-i);
+  const lum=(0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2])/255;
+  return {bg:`rgb(${rgb.join(",")})`, fg: lum>0.55 ? "#1A1611" : "#FFFFFF"};
+}
+
+function strengths(kA,kD,kp){
+  const b={}, n=MATCHES_PLAYED;
+  for(const id in REC){const r=REC[id];
+    const wa=n/(n+(r.promoted?kp:kA)), wd=n/(n+(r.promoted?kp:kD));
+    b[id]=[wa*r.a26+(1-wa)*r.pa, wd*r.d26+(1-wd)*r.pd];}
+  const ids=Object.keys(b);
+  const la=ids.reduce((s,i)=>s+b[i][0],0)/ids.length, ld=ids.reduce((s,i)=>s+b[i][1],0)/ids.length;
+  const ATK={},DEF={}; ids.forEach(i=>{ATK[i]=b[i][0]/la; DEF[i]=b[i][1]/ld;});
+  const w=x=>MATCHES_PLAYED/(MATCHES_PLAYED+x);
+  return {ATK,DEF,base:(la+ld)/2, wA:w(kA), wD:w(kD), wP:w(kp)};
+}
+function collect(from,to){
+  const out={}; for(const id in TEAMS) out[id]=[];
+  for(const[gw,h,a,hd,ad] of FX){ if(gw<from||gw>to) continue;
+    out[h].push({gw,opp:a,home:true,fdr:hd}); out[a].push({gw,opp:h,home:false,fdr:ad}); }
+  for(const id in out) out[id].sort((x,y)=>x.gw-y.gw);
+  return out;
+}
+/* raw value for one fixture, per side+mode */
+function rawVal(side,t,f,S,h){
+  const m=f.home?h:1/h;
+  if(side==="atk") return MODE==="ease" ? S.DEF[f.opp]*m : S.base*S.ATK[t]*S.DEF[f.opp]*m*PEN;
+  return MODE==="ease" ? m/S.ATK[f.opp] : Math.exp(-(S.base*S.ATK[f.opp]*S.DEF[t]/m*PEN))*100;
+}
+/* anchors map raw value -> 0..1 goodness, fixed so colours mean the same across windows */
+const ANCHOR={atk_ease:[0.70,1.32], atk_proj:[0.85,2.45], def_ease:[0.72,1.42], def_proj:[8,50]};
+const good=(side,v)=>{const[lo,hi]=ANCHOR[side+"_"+MODE]; return (v-lo)/(hi-lo);};
+const UNIT={atk_ease:"index", atk_proj:"xG", def_ease:"index", def_proj:"CS"};
+function fmt(side,v,withUnit){
+  const u=UNIT[side+"_"+MODE];
+  const n = MODE==="ease" ? v.toFixed(2) : (side==="atk" ? v.toFixed(2) : Math.round(v)+"%");
+  if(!withUnit) return n;
+  return side==="atk" && MODE==="proj" ? `${n} xG`
+       : side==="def" && MODE==="proj" ? `${n} CS`
+       : n;
+}
+
+function render(){
+  let from=+$("#gwFrom").value, to=+$("#gwTo").value; if(from>to)[from,to]=[to,from];
+  const hSet=+$("#hval").value, h=HOME?hSet:1;
+  const kA=BLEND?+$("#kAtk").value:0, kD=BLEND?+$("#kDef").value:0, kp=BLEND?+$("#kpval").value:0;
+  const S=strengths(kA,kD,kp), span=to-from+1;
+
+  $("#gwReadout").innerHTML=`GW${from} – GW${to} <small>${span} gameweek${span>1?"s":""} · ${fmtDate(DEADLINES[from-1])} – ${fmtDate(DEADLINES[to-1])}</small>`;
+  $("#krows").classList.toggle("blendoff", !BLEND);
+  const kout=(tag,w,old,k,fit)=>{
+    const p=Math.round(w*100);
+    $("#b"+tag).style.flexBasis=p+"%"; $("#b"+tag+"o").style.flexBasis=(100-p)+"%";
+    $("#l"+tag).innerHTML=`<b style="color:var(--ink)">${p}%</b> this season`;
+    $("#l"+tag+"o").innerHTML=`<b style="color:var(--ink)">${100-p}%</b> ${old}`;
+    if(fit!=null) $("#k"+({A:"Atk",D:"Def",P:"p"})[tag]+"Fit").innerHTML=
+      k===fit?`fitted at k&nbsp;${fit}`:`k&nbsp;${k} · fitted at ${fit}`;
+  };
+  kout("A",S.wA,"last season",kA,BLEND?FIT.kAtk:null);
+  kout("D",S.wD,"last season",kD,BLEND?FIT.kDef:null);
+  kout("P",S.wP,"borrowed prior",kp,null);
+  $("#blendHint").innerHTML = BLEND
+    ? `<code>w = n/(n+k)</code>. Attack and defence get different constants because they are not equally repeatable — fitted from last season, attack settles at <b>k&nbsp;${FIT.kAtk}</b> and defence at <b>k&nbsp;${FIT.kDef}</b>. Defence needs about three times the evidence before a sample means much. Promoted sides have no record of their own, so theirs stays a judgement call.`
+    : `Ratings come from this season alone — <strong>2 matches</strong>. Nothing is regressed toward last season, so one result moves a team a long way. Read it as current form, not as a ranking.`;
+  $("#hwrap").classList.toggle("blendoff", !HOME);
+  $("#hReadout").innerHTML = HOME
+    ? `${h.toFixed(2)}× <small>home side scores ${(h*h).toFixed(2)}× what the away side would</small>`
+    : `Off <small>every fixture rated as a neutral venue</small>`;
+  $("#homeHint").innerHTML = HOME
+    ? `Multiplies expected goals, so the benefit scales with what a side was going to score anyway — worth more against a leaky defence than an elite one. Fitted from last season at <b>1.11×</b>.`
+    : `Venue ignored. Useful for seeing a run purely on opponent quality — the (H) and (A) labels still show, they just stop counting.`;
+  $("#rampbar").style.background="linear-gradient(90deg,"+
+    [1,.75,.5,.25,0].map(v=>shade(v).bg).join(",")+")";
+
+  const NOTE={
+    atk_ease:"<b>How bad are the defences they play?</b> Scored <b>0&ndash;100</b> per fixture, opponents only &mdash; how good the team itself is does not come into it, so a poor side can sit top.",
+    atk_proj:"<b>How many goals should they score?</b> Their own attack, against those defences. Every number is <b>xG</b> &mdash; expected goals for that fixture.",
+    def_ease:"<b>How bad are the attacks they play?</b> Scored <b>0&ndash;100</b> per fixture, opponents only &mdash; how good the team itself is does not come into it, so a leaky side can sit top.",
+    def_proj:"<b>How often should they keep a clean sheet?</b> Their own defence, against those attacks. Every number is <b>CS</b> &mdash; the chance of conceding nothing.",
+    all_ease:"<b>How bad is the opposition, at both ends?</b> The opponents only, attack and defence averaged.",
+    all_proj:"<b>What should they produce, at both ends?</b> Goals and clean sheets averaged."};
+  $("#viewNote").innerHTML=NOTE[SIDE+"_"+MODE];
+
+  const fixtures=collect(from,to);
+  const gws=[]; for(let g=from;g<=to;g++) gws.push(g);
+
+  // per-team, per-side goodness
+  const data={};
+  for(const id in TEAMS){
+    const fx=fixtures[id];
+    data[id]={fx,
+      atk:fx.map(f=>good("atk",rawVal("atk",+id,f,S,h))),
+      def:fx.map(f=>good("def",rawVal("def",+id,f,S,h))),
+      atkRaw:fx.map(f=>rawVal("atk",+id,f,S,h)),
+      defRaw:fx.map(f=>rawVal("def",+id,f,S,h))};
+  }
+  // team-level aggregate per side
+  const agg=s=>{const o={}; for(const id in TEAMS){const v=data[id][s];
+    o[id]= (MODE==="proj"&&s==="atk") ? v.reduce((a,b)=>a+b,0) : (v.length? v.reduce((a,b)=>a+b,0)/v.length : 0);} return o;};
+  const aggA=agg("atk"), aggD=agg("def");
+  // goodness drives sorting and shading; the summary column shows the metric in its own units
+  const aggRaw=s=>{const o={}; for(const id in TEAMS){const v=data[id][s+"Raw"];
+    o[id]=(MODE==="proj"&&s==="atk") ? v.reduce((a,b)=>a+b,0) : (v.length? v.reduce((a,b)=>a+b,0)/v.length : 0);} return o;};
+  const rawA=aggRaw("atk"), rawD=aggRaw("def");
+
+  const rows=Object.keys(TEAMS).map(id=>{
+    const d=data[id];
+    const cells = SIDE==="all" ? d.atk.map((v,i)=>(v+d.def[i])/2) : d[SIDE];
+    const raws  = SIDE==="all" ? null : (SIDE==="atk"?d.atkRaw:d.defRaw);
+    const clamp=v=>Math.max(0,Math.min(1,v));
+    const overall = cells.length ? cells.reduce((a,b)=>a+clamp(b),0)/cells.length*100 : 0;
+    const score = SIDE==="all" ? overall : (SIDE==="atk"?aggA[id]:aggD[id]);
+    const shownVal = SIDE==="all" ? overall : (SIDE==="atk"?rawA[id]:rawD[id]);
+    return {id:+id,name:TEAMS[id][0],fx:d.fx,cells,raws,score,shownVal,
+      fdrScore:d.fx.reduce((a,f)=>a+(6-f.fdr),0), promoted:!!REC[id].promoted, games:d.fx.length};
+  });
+
+  const fdrOrder=[...rows].sort((a,b)=>b.fdrScore-a.fdrScore||a.name.localeCompare(b.name));
+  const fdrRank=new Map(fdrOrder.map((r,i)=>[r.id,i+1]));
+  rows.sort((a,b)=> SORT==="az" ? a.name.localeCompare(b.name)
+                  : SORT==="worst" ? (a.score-b.score||a.name.localeCompare(b.name))
+                  : (b.score-a.score||a.name.localeCompare(b.name)));
+
+  const colName = SIDE==="all" ? "Overall / 100" : SIDE==="atk"
+    ? (MODE==="ease" ? "Defences faced" : "Total xG")
+    : (MODE==="ease" ? "Attacks faced"  : "Clean sheet %");
+  $("#thead").innerHTML=`<th class="lft">#</th><th class="lft">Team</th>`
+    + gws.map(g=>`<th>GW${g}<b>${fmtDate(DEADLINES[g-1]).replace(" ","&nbsp;")}</b></th>`).join("")
+    + `<th class="rgt">${colName}</th>`;
+
+  $("#rows").innerHTML=rows.map((r,i)=>{
+    const rank=i+1, moved=fdrRank.get(r.id)-rank;
+    const chip=moved===0?"":`<span class="delta" title="FPL's own rating ranks them ${fdrRank.get(r.id)}th here">${moved>0?"▲":"▼"}${Math.abs(moved)}</span>`;
+    const tds=r.fx.map((f,j)=>{
+      const sh=shade(r.cells[j]);
+      const nm=TEAMS[f.opp][1].toUpperCase(), label=`${nm} (${f.home?"H":"A"})`;
+      const pct=Math.round(Math.max(0,Math.min(1,r.cells[j]))*100);
+      const val=(MODE==="proj"&&r.raws)?fmt(SIDE,r.raws[j],true):pct;
+      return `<td><span class="cell" style="background:${sh.bg};color:${sh.fg}"
+        title="GW${f.gw} · ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"} · score ${pct}/100${r.raws?" · "+colName+" "+fmt(SIDE,r.raws[j]):""}">${label}<u>${val}</u></span></td>`;
+    }).join("");
+    const sub = (MODE==="proj"&&SIDE==="atk") ? `<span class="sub">${(r.shownVal/Math.max(r.games,1)).toFixed(2)} xG/gm</span>` : "";
+    const shown = SIDE==="all" ? Math.round(r.shownVal) : fmt(SIDE,r.shownVal);
+    return `<tr class="${(SORT!=="az"&&rank<=6)?"top6":""}">
+      <td class="rank">${rank}</td>
+      <td class="pad"><span class="team"><i style="background:${CLUB[TEAMS[r.id][1]]||"#888"}"></i>${r.name}</span>${r.promoted?'<span class="prov" title="Promoted — started from the relegated-three average"></span>':""}${chip}</td>
+      ${tds}
+      <td class="pad score">${shown} ${sub}</td></tr>`;
+  }).join("");
+
+  /* ---- rotation pairs: best two teams to alternate between ---- */
+  const ids=Object.keys(TEAMS);
+  const byGw={}; ids.forEach(id=>{byGw[id]={}; data[id].fx.forEach((f,j)=>{
+    byGw[id][f.gw] = SIDE==="all" ? (data[id].atk[j]+data[id].def[j])/2 : data[id][SIDE][j];});});
+  const solo={}; ids.forEach(id=>solo[id]=gws.reduce((s,g)=>s+(byGw[id][g]??0),0)/gws.length);
+  const pairs=[];
+  for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){
+    const A=ids[i],B=ids[j]; let sum=0; const pick=[];
+    gws.forEach(g=>{const a=byGw[A][g]??-9, b=byGw[B][g]??-9;
+      const useA=a>=b; sum+=Math.max(a,b); pick.push({gw:g,team:useA?A:B,v:Math.max(a,b)});});
+    const avg=sum/gws.length;
+    pairs.push({A,B,avg,pick,gain:avg-Math.max(solo[A],solo[B])});
+  }
+  pairs.sort((x,y)=>y.avg-x.avg);
+  const top=pairs.slice(0,6);
+  const noun = SIDE==="def"?"clean sheets":SIDE==="atk"?"attacking returns":"returns at both ends";
+  $("#rotIntro").textContent=`Play whichever of the two has the better week, every week. Ranked by the average of the better fixture across GW${from}–${to}, for ${noun}. The gain is what rotating adds over simply holding the stronger of the pair all the way through.`;
+  $("#pairs").innerHTML=top.map(p=>{
+    const strip=p.pick.map(x=>{const sh=shade(x.v);
+      const f=data[x.team].fx.find(f=>f.gw===x.gw);
+      const nm=TEAMS[f.opp][1].toUpperCase(), label=`${nm} (${f.home?"H":"A"})`;
+      return `<div class="pcell" style="background:${sh.bg};color:${sh.fg}" title="GW${x.gw}: play ${TEAMS[x.team][0]} vs ${TEAMS[f.opp][0]}">${TEAMS[x.team][1].toUpperCase()}<u>${label}</u></div>`;
+    }).join("");
+    return `<div class="pair">
+      <div class="pairhead"><span class="pairname">${TEAMS[p.A][0]}<s>/</s>${TEAMS[p.B][0]}</span>
+      <span class="pairval">${p.avg.toFixed(2)} <span class="sub">+${p.gain.toFixed(2)}</span></span></div>
+      <div class="pairstrip">${strip}</div></div>`;
+  }).join("");
+
+  document.querySelectorAll("#presets .chipbtn").forEach(b=>{
+    let on=false;
+    if(b.dataset.next) on=(from===NEXT_GW&&to===Math.min(38,NEXT_GW+(+b.dataset.next)-1));
+    else if(b.dataset.rest) on=(from===NEXT_GW&&to===38);
+    b.setAttribute("aria-pressed",on?"true":"false");
+  });
+}
+
+["#gwFrom","#gwTo","#kAtk","#kDef","#kpval","#hval"].forEach(s=>$(s).addEventListener("input",render));
+document.querySelectorAll("#presets .chipbtn").forEach(b=>b.addEventListener("click",()=>{
+  let from,to;
+  if(b.dataset.next){from=NEXT_GW;to=Math.min(38,NEXT_GW+(+b.dataset.next)-1);}
+  else {from=NEXT_GW;to=38;}
+  $("#gwFrom").value=from;$("#gwTo").value=to;render();}));
+$("#sideSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  SIDE=b.dataset.side;[...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
+$("#sortSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  SORT=b.dataset.sort;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
+$("#homeSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  HOME=b.dataset.home==="on";
+  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
+$("#blendSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  BLEND=b.dataset.blend==="on";
+  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
+$("#modeSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  MODE=b.dataset.mode;[...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{ if(FX.length) render(); });
+new MutationObserver(()=>{ if(FX.length) render(); })
+  .observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+function applyData(d){
+  TEAMS={}; REC={};
+  for(const id in d.teams){
+    const t=d.teams[id];
+    TEAMS[id]=[t.name, t.short];
+    REC[id]={pa:t.pa, pd:t.pd, a26:t.a26, d26:t.d26};
+    if(t.promoted) REC[id].promoted=1;
+  }
+  FX=d.fixtures; DEADLINES=d.deadlines; NEXT_GW=d.nextGw;
+  MATCHES_PLAYED=d.matchesPlayed; FIT=d.fit; PEN=d.fit.pen;
+  $("#kAtk").value=FIT.kAtk; $("#kDef").value=FIT.kDef; $("#hval").value=FIT.home;
+  const to=Math.min(38, NEXT_GW+5);
+  $("#gwFrom").min=NEXT_GW; $("#gwTo").min=NEXT_GW;
+  $("#gwFrom").value=NEXT_GW; $("#gwTo").value=to;
+  const when=new Date(d.generated);
+  $("#stamp").textContent=`${d.season} · ${d.matchesPlayed} match${d.matchesPlayed===1?"":"es"} played · data updated ${when.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`;
+  render();
+}
+
+fetch("data.json?t="+Date.now())
+  .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
+  .then(applyData)
+  .catch(err=>{
+    document.querySelector("#rows").innerHTML=
+      `<tr><td colspan="9" style="padding:26px 14px;color:var(--muted)">
+        Could not load the ratings file. If you are opening this page straight from your
+        computer rather than from the web address, the browser blocks it from reading
+        <code>data.json</code> &mdash; that is expected, and it works once published.</td></tr>`;
+    console.error("data.json failed:", err);
+  });
+</script>
+</body>
+</html>
