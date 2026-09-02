@@ -2,8 +2,12 @@ name: Refresh ratings
 
 on:
   schedule:
-    # 06:00 UTC every Tuesday — after Monday night fixtures have settled
-    - cron: "0 6 * * 2"
+    # Daily. Prices change overnight and injury news lands most days, so the
+    # player data goes stale far faster than the fixture ratings do.
+    - cron: "30 6 * * *"
+    # Again on Friday afternoon, to pick up the press-conference team news
+    # before the usual evening deadline.
+    - cron: "0 16 * * 5"
   workflow_dispatch:        # adds a "Run workflow" button so you can trigger it by hand
 
 permissions:
