@@ -171,24 +171,61 @@ def log(msg):
     print(msg, flush=True)
 
 
-def main():
-    log("fetching FPL bootstrap…")
-    boot = get_json(f"{FPL}/bootstrap-static/")
-    log("fetching FPL fixtures…")
-    fixtures = get_json(f"{FPL}/fixtures/")
+def load_fpl(previous):
+    """
+    Fixtures, deadlines and difficulty ratings from the FPL API.
 
-    short2id = {t["short_name"]: t["id"] for t in boot["teams"]}
-    teams_meta = {t["id"]: {"name": t["name"], "short": t["short_name"].lower()}
-                  for t in boot["teams"]}
-    deadlines = [e["deadline_time"][:10] for e in boot["events"]]
-    finished = [e for e in boot["events"] if e["finished"]]
-    next_gw = next((e["id"] for e in boot["events"] if not e["finished"]), 38)
-    played = len(finished)
+    The API refuses datacentre traffic often enough that this cannot be a hard
+    dependency. When it will not answer we reuse whatever the last good
+    data.json held — fixtures barely move, and the weekly change we actually
+    care about is the expected goals, which come from Understat.
+    """
+    try:
+        log("fetching FPL bootstrap…")
+        boot = get_json(f"{FPL}/bootstrap-static/")
+        log("fetching FPL fixtures…")
+        raw = get_json(f"{FPL}/fixtures/")
+        return {
+            "live": True,
+            "short2id": {t["short_name"]: t["id"] for t in boot["teams"]},
+            "meta": {t["id"]: {"name": t["name"],
+                               "short": t["short_name"].lower()}
+                     for t in boot["teams"]},
+            "deadlines": [e["deadline_time"][:10] for e in boot["events"]],
+            "nextGw": next((e["id"] for e in boot["events"]
+                            if not e["finished"]), 38),
+            "fixtures": [[f["event"], f["team_h"], f["team_a"],
+                          f["team_h_difficulty"], f["team_a_difficulty"]]
+                         for f in raw if f["event"]],
+        }
+    except Exception as e:
+        if not previous:
+            raise RuntimeError(
+                f"FPL unreachable and no previous data.json to fall back on — {e}")
+        log(f"!! FPL unreachable ({e})")
+        log("   falling back to the fixtures and deadlines already in data.json")
+        meta = {int(k): {"name": v["name"], "short": v["short"]}
+                for k, v in previous["teams"].items()}
+        return {
+            "live": False,
+            "short2id": {v["short"].upper(): k for k, v in meta.items()},
+            "meta": meta,
+            "deadlines": previous["deadlines"],
+            "nextGw": None,          # worked out from the calendar below
+            "fixtures": previous["fixtures"],
+        }
+
+
+def main():
+    previous = json.loads(OUT.read_text()) if OUT.exists() else None
+    fpl = load_fpl(previous)
+    short2id = fpl["short2id"]
+    teams_meta = fpl["meta"]
+    deadlines = fpl["deadlines"]
+    fixtures = fpl["fixtures"]
 
     season = understat_season()
     prev = season - 1
-    log(f"FPL ok — {played} matches played, next GW{next_gw}; "
-        f"Understat seasons {prev} and {season}")
 
     # last season: everyone who was in the division
     anchor, _ = team_matches("Arsenal", prev)
@@ -218,6 +255,14 @@ def main():
         cur_matches[sh] = [(o, h, f * sa, a * sd) for o, h, f, a in ms]
 
     log(f"this season: {len(cur_matches)} teams pulled")
+    played = max((len(v) for v in cur_matches.values()), default=0)
+    next_gw = fpl["nextGw"]
+    if next_gw is None:
+        today = datetime.date.today().isoformat()
+        next_gw = next((i + 1 for i, d in enumerate(deadlines) if d >= today), 38)
+    log(f"{played} matches played, next GW{next_gw}"
+        + ("" if fpl["live"] else "  (derived — FPL was unavailable)"))
+
     promoted = [sh for sh in cur_shorts if sh not in prev_matches]
     pa_rat = PROMOTED_PRIOR["a"] / base
     pd_rat = PROMOTED_PRIOR["d"] / base
@@ -261,9 +306,8 @@ def main():
         "promotedPrior": PROMOTED_PRIOR,
         "teams": teams,
         "deadlines": deadlines,
-        "fixtures": [[f["event"], f["team_h"], f["team_a"],
-                      f["team_h_difficulty"], f["team_a_difficulty"]]
-                     for f in fixtures if f["event"]],
+        "fixtures": fixtures,
+        "fplLive": fpl["live"],
     }
 
     # --- refuse to publish anything that looks wrong -----------------------
