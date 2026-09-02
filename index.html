@@ -169,6 +169,49 @@
     .grow{grid-template-columns:1fr;gap:5px}
     .grow.ghead{display:none}
   }
+
+  .mrank,.mscore{display:none}
+  /* ---- phones: pin the team, scroll the fixtures ---- */
+  @media (max-width:700px){
+    .wrap{padding:16px 0 44px}
+    .mast,.views,.viewnote,.panel,.tablecard,.rot,.notes,.gloss{margin-left:12px;margin-right:12px}
+    .mast h1{font-size:30px}
+    .mast p{font-size:12.5px}
+    .views{gap:8px 12px}
+    .seg button{font-size:12px;padding:6px 11px}
+    .seglabel{margin-right:-8px}
+
+    .tablecard{border-radius:8px}
+    table{min-width:0}
+    thead th:first-child{display:none}
+    tbody td.rank{display:none}
+    thead th.rgt{display:none}
+    tbody td.score{display:none}
+
+    /* the team column stays put while the weeks scroll past it */
+    thead th.lft:nth-child(2), tbody td.pad{
+      position:sticky;left:0;z-index:2;background:var(--surface);
+      box-shadow:6px 0 8px -6px rgba(0,0,0,.55);
+      min-width:132px;max-width:132px;padding:7px 9px}
+    tbody tr:hover td.pad{background:var(--surface)}
+    .team{font-size:12.5px;gap:6px;white-space:normal;line-height:1.15}
+    .team i{height:26px}
+    .mrank{display:inline-block;font-weight:700;font-size:10.5px;color:var(--muted);
+      min-width:15px;font-variant-numeric:tabular-nums}
+    .mscore{display:block;font-family:"Roboto Mono",monospace;font-size:12px;font-weight:700;
+      color:var(--ink);margin-top:3px;letter-spacing:-.01em}
+    .delta{display:none}
+    .cell{min-width:56px;font-size:10.5px;padding:5px 2px}
+    .cell u{font-size:8.5px}
+    thead th{font-size:8.5px;padding:7px 4px}
+    thead th b{font-size:9.5px}
+
+    .ctrl{padding:13px 14px}
+    .grow{gap:3px}
+    .pairs{grid-template-columns:1fr}
+    .gloss{padding:14px 15px 6px}
+    .notes{gap:14px}
+  }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 <style>html{-webkit-text-size-adjust:100%}img{max-width:100%}</style>
@@ -495,7 +538,7 @@ function render(){
     const shown = SIDE==="all" ? Math.round(r.shownVal) : fmt(SIDE,r.shownVal);
     return `<tr class="${(SORT!=="az"&&rank<=6)?"top6":""}">
       <td class="rank">${rank}</td>
-      <td class="pad"><span class="team"><i style="background:${CLUB[TEAMS[r.id][1]]||"#888"}"></i>${r.name}</span>${r.promoted?'<span class="prov" title="Promoted — started from the relegated-three average"></span>':""}${chip}</td>
+      <td class="pad"><span class="mrank">${rank}</span><span class="team"><i style="background:${CLUB[TEAMS[r.id][1]]||"#888"}"></i>${r.name}</span>${r.promoted?'<span class="prov" title="Promoted — started from the relegated-three average"></span>':""}${chip}<span class="mscore">${shown}${(MODE==="proj"&&SIDE==="atk")?" total":""}</span></td>
       ${tds}
       <td class="pad score">${shown} ${sub}</td></tr>`;
   }).join("");
