@@ -93,6 +93,11 @@
     font-size:10px;color:var(--muted);margin-top:4px}
 
   .tablecard{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+  .keybar{display:flex;align-items:center;gap:10px;padding:9px 12px;
+    border-bottom:1px solid var(--border);background:var(--surface-2);
+    font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+  .keybar b{color:var(--ink);font-weight:700}
+  .kbramp{display:inline-block;width:78px;height:10px;border-radius:3px;flex:0 0 auto}
   .tscroll{overflow-x:auto}
   table{border-collapse:separate;border-spacing:0;width:100%;min-width:930px}
   thead th{font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;font-weight:600;letter-spacing:.1em;
@@ -298,6 +303,7 @@
   </section>
 
   <div class="tablecard">
+    <div class="keybar"><span class="kbramp" id="kbramp"></span><span id="kbtext"></span></div>
     <div class="tscroll"><table>
       <thead><tr id="thead"></tr></thead>
       <tbody id="rows"></tbody>
@@ -466,17 +472,27 @@ function render(){
   $("#homeHint").innerHTML = HOME
     ? `Multiplies expected goals, so the benefit scales with what a side was going to score anyway — worth more against a leaky defence than an elite one. Fitted from last season at <b>1.11×</b>.`
     : `Venue ignored. Useful for seeing a run purely on opponent quality — the (H) and (A) labels still show, they just stop counting.`;
+  const RAMP="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v).bg).join(",")+")";
   $("#rampbar").style.background="linear-gradient(90deg,"+
     [1,.75,.5,.25,0].map(v=>shade(v).bg).join(",")+")";
+  $("#kbramp").style.background=RAMP;
 
   const NOTE={
     atk_ease:"<b>How bad are the defences they play?</b> Scored <b>0&ndash;100</b> per fixture, opponents only &mdash; how good the team itself is does not come into it, so a poor side can sit top.",
     atk_proj:"<b>How many goals should they score?</b> Their own attack, against those defences. Every number is <b>xG</b> &mdash; expected goals for that fixture.",
-    def_ease:"<b>How bad are the attacks they play?</b> Scored <b>0&ndash;100</b> per fixture, opponents only &mdash; how good the team itself is does not come into it, so a leaky side can sit top.",
+    def_ease:"<b>How bad are the attacks they play?</b> Each fixture scores <b>0&ndash;100</b> &mdash; 100 is the most harmless attack you can face, 50 is average. The column is the average of those. Opponents only, so a leaky side can sit top.",
     def_proj:"<b>How often should they keep a clean sheet?</b> Their own defence, against those attacks. Every number is <b>CS</b> &mdash; the chance of conceding nothing.",
     all_ease:"<b>How bad is the opposition, at both ends?</b> The opponents only, attack and defence averaged.",
     all_proj:"<b>What should they produce, at both ends?</b> Goals and clean sheets averaged."};
   $("#viewNote").innerHTML=NOTE[SIDE+"_"+MODE];
+  const DIR={
+    atk_ease:"<b>Higher is better</b> &mdash; a bigger number means softer defences to attack.",
+    atk_proj:"<b>Higher is better</b> &mdash; a bigger number means more goals expected.",
+    def_ease:"<b>Higher is better</b> &mdash; a bigger number means weaker attacks to keep out.",
+    def_proj:"<b>Higher is better</b> &mdash; a bigger number means a better chance of a clean sheet.",
+    all_ease:"<b>Higher is better</b> &mdash; a bigger number means weaker opposition at both ends.",
+    all_proj:"<b>Higher is better</b> &mdash; a bigger number means more expected at both ends."};
+  $("#kbtext").innerHTML = DIR[SIDE+"_"+MODE] + ' Green is an easier fixture, red a harder one.';
 
   const fixtures=collect(from,to);
   const gws=[]; for(let g=from;g<=to;g++) gws.push(g);
@@ -505,9 +521,14 @@ function render(){
     const cells = SIDE==="all" ? d.atk.map((v,i)=>(v+d.def[i])/2) : d[SIDE];
     const raws  = SIDE==="all" ? null : (SIDE==="atk"?d.atkRaw:d.defRaw);
     const clamp=v=>Math.max(0,Math.min(1,v));
-    const overall = cells.length ? cells.reduce((a,b)=>a+clamp(b),0)/cells.length*100 : 0;
+    const overall_or_mean=cs=>cs.length ? cs.reduce((a,b)=>a+clamp(b),0)/cs.length*100 : 0;
+    const overall = overall_or_mean(cells);
     const score = SIDE==="all" ? overall : (SIDE==="atk"?aggA[id]:aggD[id]);
-    const shownVal = SIDE==="all" ? overall : (SIDE==="atk"?rawA[id]:rawD[id]);
+    // the cells are scored 0-100, so the row summary must be too — showing the
+    // raw opponent index here put two different scales in the same view
+    const shownVal = (SIDE==="all" || MODE==="ease")
+      ? overall_or_mean(cells)
+      : (SIDE==="atk" ? rawA[id] : rawD[id]);
     return {id:+id,name:TEAMS[id][0],fx:d.fx,cells,raws,score,shownVal,
       fdrScore:d.fx.reduce((a,f)=>a+(6-f.fdr),0), promoted:!!REC[id].promoted, games:d.fx.length};
   });
@@ -519,8 +540,8 @@ function render(){
                   : (b.score-a.score||a.name.localeCompare(b.name)));
 
   const colName = SIDE==="all" ? "Overall / 100" : SIDE==="atk"
-    ? (MODE==="ease" ? "Defences faced" : "Total xG")
-    : (MODE==="ease" ? "Attacks faced"  : "Clean sheet %");
+    ? (MODE==="ease" ? "Defences faced / 100" : "Total xG")
+    : (MODE==="ease" ? "Attacks faced / 100"  : "Clean sheet %");
   $("#thead").innerHTML=`<th class="lft">#</th><th class="lft">Team</th>`
     + gws.map(g=>`<th>GW${g}<b>${fmtDate(DEADLINES[g-1]).replace(" ","&nbsp;")}</b></th>`).join("")
     + `<th class="rgt">${colName}</th>`;
@@ -541,7 +562,7 @@ function render(){
     const sub = (MODE==="proj"&&SIDE==="atk")
       ? `<span class="sub">avg ${per.toFixed(2)} xG</span>`
       : `<span class="sub">avg per game</span>`;
-    const shown = SIDE==="all" ? Math.round(r.shownVal) : fmt(SIDE,r.shownVal);
+    const shown = (SIDE==="all"||MODE==="ease") ? Math.round(r.shownVal) : fmt(SIDE,r.shownVal);
     return `<tr class="${(SORT!=="az"&&rank<=6)?"top6":""}">
       <td class="rank">${rank}</td>
       <td class="pad"><span class="mrank">${rank}</span><span class="team"><i style="background:${CLUB[TEAMS[r.id][1]]||"#888"}"></i>${r.name}</span>${r.promoted?'<span class="prov" title="Promoted — started from the relegated-three average"></span>':""}${chip}<span class="mscore">${shown}${(MODE==="proj"&&SIDE==="atk")?` total <em>avg ${(r.games?r.shownVal/r.games:0).toFixed(2)}</em>`:" avg"}</span></td>
