@@ -57,6 +57,15 @@
   .filters select{font:inherit;font-size:13px;background:var(--surface-2);border:1px solid var(--border);
     color:var(--ink);border-radius:7px;padding:6px 8px}
   .filters input[type=range]{width:118px}
+  .filters .chip{font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+    background:rgba(0,255,135,.10);border:1px solid rgba(0,255,135,.45);color:var(--accent);
+    border-radius:999px;padding:3px 9px;margin-left:-6px;white-space:nowrap}
+  .filters .chip.off{background:rgba(255,255,255,.05);border-color:var(--border);color:var(--muted)}
+  .filters .reset{margin-left:-8px}
+  .filters .reset button{font:inherit;font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+    background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;
+    padding:4px 8px;cursor:pointer}
+  .filters .reset button:hover{color:var(--ink);border-color:var(--accent)}
   .filters output{font-family:"Roboto Mono",monospace;font-size:12px;color:var(--ink);min-width:52px}
   input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:18px;cursor:pointer}
   input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:99px;background:var(--surface-2);border:1px solid var(--border)}
@@ -147,7 +156,9 @@
   <div class="filters">
     <label>Search <input type="search" id="q" placeholder="player or team" autocomplete="off"></label>
     <label>Max price <input type="range" id="maxc" min="38" max="160" step="1" value="160"><output id="maxcOut"></output></label>
-    <label>Min minutes <input type="range" id="minm" min="0" max="270" step="10" value="0"><output id="minmOut"></output></label>
+    <label>Min minutes <input type="range" id="minm" min="0" max="270" step="10" value="60"><output id="minmOut"></output></label>
+    <span class="chip" id="floorChip">60+ min only</span>
+    <label class="reset"><button type="button" id="resetm" title="Back to the suggested minutes floor">reset</button></label>
     <label><input type="checkbox" id="avail"> Hide injured &amp; suspended</label>
     <label>Team
       <select id="team"><option value="">All</option></select>
@@ -169,8 +180,13 @@
     Points, minutes, defensive contributions, saves, clean sheets and expected goals conceded come from
     the Fantasy Premier League API &mdash; the same numbers the game scores on. Non-penalty xG, xA and
     shots come from Understat, because FPL's own expected goals include penalties and would flatter
-    whoever takes them. <b>Per 90</b> divides by minutes played, so always read it next to the minutes
-    column: a fine rate off half an hour of football is not a signal.
+    whoever takes them. <b>Per 90</b> divides by minutes played, which is why switching to it also
+    raises the minutes floor further: a goal off twenty minutes reads as 4.5 xG per 90, and that is
+    arithmetic rather than form. Every view starts at <b>60 minutes</b>; in Per 90 the floor grows
+    to 30% of the football played so far, so it tightens as the season goes on instead of going
+    stale at a fixed number. Drag it to 0 whenever you want to see everyone &mdash; a new signing
+    with one cameo is hidden by design, not because he is bad. <b>Min/game</b> is minutes divided
+    by the matches his club has played, so it reads as availability and tops out at 90.
   </p>
 </div>
 
@@ -191,8 +207,23 @@ const DECIMALS={xgc:2,npxg:2,xa:2,npxgi:2};
 const POSNAME={1:"Goalkeepers",2:"Defenders",3:"Midfielders",4:"Forwards"};
 
 let DATA=null, POS=2, SCALE="tot", STAT="pts";
+// A 20-minute cameo makes noise look like form, so the list starts at 60 minutes
+// in every view. Per 90 is the harsher case — it divides by that same small number
+// — so there the floor scales with the season: 30% of the minutes available so far.
+// At GW3 that is 60; by GW20 it is 540, which is the point. A fixed number stops
+// filtering anything once the season is long enough.
+let AVAIL=0, FLOOR=60, minmTouched=false;
+const suggested=()=>SCALE==="p90"?FLOOR:60;
+function syncFloor(){ if(!minmTouched) $("#minm").value=suggested(); }
 const $=s=>document.querySelector(s);
 const key=id=>SCALE==="p90" ? id+"90" : id;
+// Minutes per team game, not per start. Dividing by starts gave a man with one
+// start and two cameos 150 min/start, which is not a thing that can happen.
+const mpg=p=>{
+  if(p.mpg!==undefined && p.mpg!==null) return p.mpg;
+  const g=DATA&&DATA.matchesPlayed;
+  return g ? p.min/g : null;
+};
 
 function fmt(id,v){
   if(v===null||v===undefined) return '<span class="dim">–</span>';
@@ -211,10 +242,11 @@ function render(){
   const maxc=+$("#maxc").value, minm=+$("#minm").value;
   const onlyAvail=$("#avail").checked, teamFilter=$("#team").value;
   $("#maxcOut").textContent="£"+(maxc/10).toFixed(1)+"m";
-  $("#minmOut").textContent=minm+" min";
+  $("#minmOut").textContent = minm ? minm+" min" : "any";
 
   const T=DATA.teams;
-  let rows=DATA.players.filter(p=>p.p===POS)
+  const pool=DATA.players.filter(p=>p.p===POS);
+  let rows=pool
     .filter(p=>p.c<=maxc && p.min>=minm)
     .filter(p=>!teamFilter || String(p.t)===teamFilter)
     .filter(p=>!onlyAvail || p.st==="a")
@@ -230,12 +262,26 @@ function render(){
   $("#thead").innerHTML=
     `<th class="lft">#&nbsp;&nbsp;Player</th>`
     + `<th data-active>${label}${suffix}</th>`
-    + `<th>£</th><th>Min</th><th class="opt">Starts</th><th class="opt">Min/start</th>`
+    + `<th>£</th><th>Min</th><th class="opt">Starts</th><th class="opt" title="Minutes divided by matches his team has played">Min/game</th>`
     + `<th class="opt">Pts</th><th class="opt">Own</th>`;
 
-  $("#note").innerHTML = low
+  const dir = low
     ? `<b>${label}</b> — lower is better, so this list runs from best to worst with the smallest number on top.`
-    : `<b>${label}</b> — higher is better. Showing ${rows.length} ${POSNAME[POS].toLowerCase()}.`;
+    : `<b>${label}</b> — higher is better.`;
+  const hidden = pool.length - rows.length;
+  let cut = "";
+  if(minm>0){
+    cut = ` <b>Only players with ${minm}+ minutes are included</b>`
+        + (hidden ? ` — ${hidden} ${hidden===1?"player":"players"} hidden` : "")
+        + `. Drag the slider to 0 to see everyone.`;
+    if(SCALE==="p90" && minm===FLOOR && FLOOR>60)
+      cut += ` Per 90 raises the floor to 30% of the football played so far.`;
+  } else {
+    cut = ` <b>No minutes filter</b> — short cameos will distort any per-90 number.`;
+  }
+  $("#floorChip").textContent = minm>0 ? `${minm}+ min only` : "all players";
+  $("#floorChip").classList.toggle("off", minm===0);
+  $("#note").innerHTML = `${dir} Showing ${rows.length} ${POSNAME[POS].toLowerCase()}.${cut}`;
 
   if(!rows.length){ $("#rows").innerHTML=`<tr><td colspan="8" class="empty">No players match those filters.</td></tr>`; return; }
 
@@ -249,7 +295,7 @@ function render(){
       <td>${(p.c/10).toFixed(1)}</td>
       <td>${p.min}</td>
       <td class="opt">${p.starts}</td>
-      <td class="opt">${p.mps===null?'<span class="dim">–</span>':p.mps.toFixed(0)}</td>
+      <td class="opt">${mpg(p)===null?'<span class="dim">–</span>':mpg(p).toFixed(0)}</td>
       <td class="opt">${p.pts}</td>
       <td class="opt dim">${p.own.toFixed(1)}%</td>
     </tr>`;}).join("");
@@ -262,11 +308,14 @@ $("#posSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(
   buildStatSeg(); render();});
 $("#scaleSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   SCALE=b.dataset.scale;
-  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
+  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));
+  syncFloor(); render();});
 $("#statSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   STAT=b.dataset.stat;
   [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
 ["#q","#maxc","#minm","#avail","#team"].forEach(s=>$(s).addEventListener("input",render));
+$("#minm").addEventListener("input",()=>{minmTouched=true;});
+$("#resetm").addEventListener("click",()=>{minmTouched=false;syncFloor();render();});
 
 fetch("players.json?t="+Date.now())
   .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
@@ -279,6 +328,10 @@ fetch("players.json?t="+Date.now())
           .map(([id,t])=>`<option value="${id}">${t.name}</option>`).join("");
     const maxCost=Math.max(...d.players.map(p=>p.c));
     $("#maxc").max=maxCost; $("#maxc").value=maxCost;
+    AVAIL=(d.matchesPlayed||0)*90;
+    FLOOR=Math.max(60, Math.round(AVAIL*0.3/10)*10);
+    $("#minm").max=Math.max(90, AVAIL);
+    $("#minm").value=suggested();
     buildStatSeg(); render();
   })
   .catch(err=>{

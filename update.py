@@ -228,7 +228,7 @@ def match_player(full, web, pool):
     return None
 
 
-def build_players(boot, season, short2name, short2id):
+def build_players(boot, season, short2name, short2id, played):
     """Every FPL player, with non-penalty xG and shots joined from Understat."""
     und_by_team, unmatched = {}, 0
     for sh, tid in short2id.items():
@@ -268,7 +268,11 @@ def build_players(boot, season, short2name, short2id):
             "st": e["status"], "news": (e["news"] or "")[:90],
             "cop": e["chance_of_playing_next_round"],
             "min": mins, "starts": e["starts"],
-            "mps": round(mins / e["starts"], 1) if e["starts"] else None,
+            # Minutes per team game, NOT per start. Dividing by starts hands a
+            # player with one start and two cameos 150 min/start, which cannot
+            # happen in football. Against matches played it reads as availability
+            # and is bounded by 90.
+            "mpg": round(mins / played, 1) if played else None,
             "pts": e["total_points"],
             "dc": e["defensive_contribution"],
             "sv": e["saves"], "cs": e["clean_sheets"],
@@ -463,7 +467,7 @@ def main():
     try:
         if fpl["boot"] is None:
             raise RuntimeError("FPL was unavailable, so there is no player data to build from")
-        players = build_players(fpl["boot"], season, short2name, short2id)
+        players = build_players(fpl["boot"], season, short2name, short2id, played)
         if len(players) < 300:
             raise ValueError(f"only {len(players)} players")
         pdata = {"generated": data["generated"], "season": data["season"],
