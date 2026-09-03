@@ -537,7 +537,10 @@ function render(){
 
   const rulesSquad=squad.map(toRules);
   let problems = squad.length
-    ? validateSquad(rulesSquad,{bank:b,teamName:id=>(TEAMS[id]?TEAMS[id][0]:"team "+id)})
+    // Budget is checked against the real bank once we have one. A team that has
+    // been running all season is worth more than £100m, so measuring an imported
+    // squad against today's prices calls every legal team "over budget".
+    ? validateSquad(rulesSquad,{bank:shownBank,teamName:id=>(TEAMS[id]?TEAMS[id][0]:"team "+id)})
         .concat(xi.length?validateXI(xi,rulesSquad):[])
     : ["Pick 15 players to get started — 2 keepers, 5 defenders, 5 midfielders, 3 forwards."];
   const done = squad.length===15 && problems.length===0;
