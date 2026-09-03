@@ -114,9 +114,13 @@
     background:var(--surface-2);border:1px solid var(--border);color:var(--ink);
     border-radius:7px;padding:6px 10px;width:130px}
   .import input:focus,.import textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
-  .import button.go{font:inherit;font-size:12.5px;font-weight:700;padding:7px 15px;border:0;
+  .import .go{font:inherit;font-size:12.5px;font-weight:700;padding:7px 15px;border:0;
     border-radius:7px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
-  .import button.go:hover{filter:brightness(1.08)}
+  .import .go:hover{filter:brightness(1.08)}
+  .import a.go{display:inline-block;text-decoration:none;margin:6px 8px 2px 0}
+  .import .copyaddr{font:inherit;font-size:11.5px;padding:6px 11px;border-radius:7px;
+    border:1px solid var(--border-strong);background:var(--surface-2);color:var(--muted);cursor:pointer}
+  .import .copyaddr:hover{color:var(--ink);border-color:var(--accent)}
   .import .hint{font-size:12px;color:var(--muted);margin:8px 0 0}
   .import .hint a{color:var(--accent)}
   .steps{margin:10px 0 0;padding:0;list-style:none;counter-reset:s}
@@ -622,20 +626,52 @@ function showSteps(id){
   $("#importSteps").hidden=false;
   $("#importSteps").innerHTML=`
     <ul class="steps">
-      <li><b>Open this address</b> — it opens your own team's data in a new tab.<br>
-        <a href="${url}" target="_blank" rel="noopener">${url}</a></li>
-      <li><b>Select everything on that page and copy it.</b> Ctrl&#8209;A then Ctrl&#8209;C.</li>
-      <li><b>Paste it here</b> and press Load.
-        <textarea id="pasteBox" placeholder="Paste the whole page here" spellcheck="false"></textarea></li>
+      <li><b>Open your team's data in a new tab.</b> What opens is a wall of computer code —
+        that is what it is meant to look like.<br>
+        <a class="go" href="${url}" target="_blank" rel="noopener">Open my team data &#8599;</a>
+        <button type="button" class="copyaddr" id="copyAddr">Copy the address instead</button></li>
+      <li><b>On that page press Ctrl&#8209;A, then Ctrl&#8209;C.</b> That selects all of the code and
+        copies it. On a Mac it is &#8984;A then &#8984;C.</li>
+      <li><b>Come back here and paste it into the box.</b> It will load by itself.
+        <textarea id="pasteBox" spellcheck="false"
+          placeholder="Paste the code here — not the web address"></textarea></li>
     </ul>
     <button type="button" class="go" id="loadPasted">Load from what I pasted</button>`;
-  $("#loadPasted").addEventListener("click",()=>{
-    const raw=$("#pasteBox").value.trim();
-    if(!raw) return msg("Nothing pasted yet.","err");
-    try{ applyPicks(JSON.parse(raw)); }
-    catch(e){ msg("That does not look like the right page — copy everything from the address above.","err"); }
+  $("#loadPasted").addEventListener("click",loadPasted);
+  // Pasting is the last step, so there is no reason to make them press a button too.
+  $("#pasteBox").addEventListener("paste",()=>setTimeout(loadPasted,60));
+  $("#copyAddr").addEventListener("click",async e=>{
+    try{ await navigator.clipboard.writeText(url); e.target.textContent="Address copied"; }
+    catch(err){ e.target.textContent="Select the link above and copy it"; }
   });
   msg("The FPL API will not let a site like this one fetch your team directly, so it takes one copy and paste.","");
+}
+
+// People paste the address instead of the data, or copy a bit of the page around
+// it. Say which mistake it was rather than "that is wrong", and dig the JSON out
+// of any surrounding rubbish.
+function readPasted(raw){
+  const t=(raw||"").trim();
+  if(!t) return {err:"empty"};
+  if(/^https?:\/\//i.test(t)){
+    const m=t.match(/entry\/(\d+)/);
+    return {err:"url", id:m?m[1]:null};
+  }
+  const a=t.indexOf("{"), b=t.lastIndexOf("}");
+  if(a<0||b<a) return {err:"notjson"};
+  try{ return {data:JSON.parse(t.slice(a,b+1))}; }
+  catch(e){ return {err:"notjson"}; }
+}
+function loadPasted(){
+  const r=readPasted($("#pasteBox").value);
+  if(r.data) return applyPicks(r.data);
+  if(r.err==="empty") return msg("Nothing pasted yet.","err");
+  if(r.err==="url")
+    return msg("That is the web address, not the data behind it. Press the green "
+      + "\u201cOpen my team data\u201d button above \u2014 a page of code opens \u2014 then copy "
+      + "everything on that page and paste it here.","err");
+  return msg("That does not look like your team data. On the page that opens, press "
+    + "Ctrl\u2011A then Ctrl\u2011C to copy all of it, then paste it here.","err");
 }
 
 function applyPicks(j){
