@@ -610,18 +610,19 @@ $("#clear").addEventListener("click",()=>{
 
 /* ------------------------------ importing -------------------------------
  * The FPL API sends no CORS header, so this page cannot fetch a squad itself —
- * tested, not assumed. Two ways round it. PROXY, if you ever set it, makes the
- * button work in one click; leave it empty and the page walks you through
- * opening the address yourself and pasting the result back, which needs no
- * server and works today.
+ * tested, not assumed. PROXY is the Cloudflare worker in proxy/worker.js, which
+ * reads the FPL API server-side and adds the header a browser needs. Empty it
+ * and the page falls back to walking the user through fetching and pasting the
+ * data by hand, which needs no server. That fallback also catches the case
+ * where the worker is down, so it stays in permanently.
  * ---------------------------------------------------------------------- */
-const PROXY="";                                   // e.g. "https://fpl-proxy.<you>.workers.dev/?url="
+const PROXY="https://orange-smoke-1a15.nxhom-fitsum.workers.dev/?url=";
 const picksUrl=id=>`https://fantasy.premierleague.com/api/entry/${id}/event/${Math.max(1,NEXT_GW-1)}/picks/`;
 
 function msg(text,kind){
   const m=$("#importMsg"); m.textContent=text||""; m.className="msg"+(kind?" "+kind:"");
 }
-function showSteps(id){
+function showSteps(id,note){
   const url=picksUrl(id);
   $("#importSteps").hidden=false;
   $("#importSteps").innerHTML=`
@@ -644,7 +645,8 @@ function showSteps(id){
     try{ await navigator.clipboard.writeText(url); e.target.textContent="Address copied"; }
     catch(err){ e.target.textContent="Select the link above and copy it"; }
   });
-  msg("The FPL API will not let a site like this one fetch your team directly, so it takes one copy and paste.","");
+  // Keep whatever explanation the caller had; only fall back to the general one.
+  msg(note || "The FPL API will not let a site like this one fetch your team directly, so it takes one copy and paste.", note?"err":"");
 }
 
 // People paste the address instead of the data, or copy a bit of the page around
@@ -700,14 +702,27 @@ $("#loadTeam").addEventListener("click",async()=>{
   if(!/^\d{1,10}$/.test(id)) return msg("Enter your team ID — digits only.","err");
   try{ localStorage.setItem("fdb-team-id",id); }catch(e){}
   if(!PROXY) return showSteps(id);
-  msg("Loading…","");
+  msg("Loading your team\u2026","");
   try{
-    const r=await fetch(PROXY+encodeURIComponent(picksUrl(id)));
-    if(!r.ok) throw new Error(r.status);
-    applyPicks(await r.json());
+    // If the worker is down, a browser can sit on a dead connection for a long
+    // time. Give up after eight seconds and offer the manual route instead of
+    // leaving someone staring at "Loading".
+    const stop=new AbortController();
+    const timer=setTimeout(()=>stop.abort(),8000);
+    let r;
+    try{ r=await fetch(PROXY+encodeURIComponent(picksUrl(id)),{signal:stop.signal}); }
+    catch(e){ throw new Error(stop.signal.aborted ? "it took too long to answer" : "the proxy could not be reached"); }
+    finally{ clearTimeout(timer); }
+    const body=await r.json().catch(()=>null);
+    // A wrong team ID is the ordinary mistake, not a broken proxy — say so
+    // plainly instead of dropping them into the copy-and-paste fallback.
+    if(r.status===404)
+      return msg((body&&body.error) || "No team found with that ID. Check the number in the address of your FPL \u201cPoints\u201d page.","err");
+    if(!r.ok) throw new Error((body&&body.error) || ("the server said "+r.status));
+    applyPicks(body);
   }catch(e){
-    msg("Could not reach the FPL API through the proxy. You can still do it by hand:","err");
-    showSteps(id);
+    showSteps(id,"Could not load your team automatically \u2014 "+e.message
+      +". You can still do it by hand:");
   }
 });
 $("#teamId").addEventListener("keydown",e=>{ if(e.key==="Enter") $("#loadTeam").click(); });
