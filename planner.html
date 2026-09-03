@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Build your FPL squad and see every player's fixture run rated on expected goals, with attack and defence scored separately.">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%231E0021'/><g fill='%2300FF87'><rect x='10' y='42' width='8' height='12' rx='2'/><rect x='22' y='34' width='8' height='20' rx='2'/><rect x='34' y='26' width='8' height='28' rx='2'/><rect x='46' y='16' width='8' height='38' rx='2'/></g></svg>">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1E0021">
+<meta name="apple-mobile-web-app-title" content="Fantasy DB">
+<title>Fantasy DataBase</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Fantasy DataBase">
+<meta property="og:title" content="Fantasy DataBase">
+<meta property="og:description" content="Build your FPL squad and see every player's fixture run rated on expected goals, with attack and defence scored separately.">
+<meta property="og:url" content="https://fantasy-database.github.io/planner.html">
+<meta property="og:image" content="https://fantasy-database.github.io/share.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Fantasy DataBase">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500;700&display=swap">
+<style>
+  :root{
+    --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44;
+    --border:#4B1A52; --border-strong:#663570;
+    --ink:#FFFFFF; --muted:#B9A3BE; --accent:#00FF87; --accent-ink:#1E0021;
+    --good:#05E585; --bad:#FF1751; --warn:#FFC845;
+    --easy:#116B33; --easy2:#05E585; --midc:#E7E7E7; --hard2:#FF1751; --hard:#80072D;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);
+    font-family:Barlow,Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1220px;margin:0 auto;padding:26px 18px 60px}
+
+  .mast{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 26px;
+    padding-bottom:14px;border-bottom:3px solid var(--accent)}
+  .mast h1{font-weight:800;font-size:clamp(26px,4.4vw,40px);line-height:.98;
+    letter-spacing:-.03em;margin:0}
+  .mast h1 em{font-style:normal;color:var(--accent)}
+  .brand{display:flex;align-items:center;gap:13px}
+  .brand .mark{flex:none;height:clamp(34px,5.4vw,50px);width:auto;display:block}
+  .mast .sect{margin:6px 0 0;font-family:"Roboto Mono",ui-monospace,monospace;
+    font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted)}
+  .eyebrow{font-family:"Roboto Mono",monospace;font-weight:600;font-size:10.5px;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px}
+  .nav{margin-left:auto;display:flex;gap:8px}
+  .nav a{font-weight:600;font-size:13px;text-decoration:none;color:var(--muted);
+    padding:7px 14px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border)}
+  .nav a[aria-current]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .nav a:hover{color:var(--ink)}
+  .nav a[aria-current]:hover{color:var(--accent-ink)}
+
+  .cols{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;margin-top:18px;align-items:start}
+  .card{background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+  .card h2{margin:0;padding:12px 14px;font-size:12px;font-weight:700;
+    font-family:"Roboto Mono",monospace;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--muted);border-bottom:1px solid var(--border)}
+  .card .body{padding:14px}
+
+  /* ---- money / status strip ---- */
+  .status{display:flex;flex-wrap:wrap;gap:8px}
+  .stat{flex:1 1 118px;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:9px;padding:9px 11px}
+  .stat b{display:block;font-family:"Roboto Mono",monospace;font-size:17px;
+    font-variant-numeric:tabular-nums;line-height:1.2}
+  .stat span{font-family:"Roboto Mono",monospace;font-size:9.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--muted)}
+  .stat.bad b{color:var(--bad)}
+  .stat.ok b{color:var(--accent)}
+  .problems{margin:10px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--warn)}
+  .problems li{padding:3px 0 3px 16px;position:relative}
+  .problems li::before{content:"!";position:absolute;left:2px;font-weight:700}
+  .problems.done{color:var(--accent)}
+  .problems.done li::before{content:"\2713"}
+
+  /* ---- pitch ---- */
+  .pitch{background:linear-gradient(180deg,#123d24,#0d2b19);border-radius:10px;
+    padding:14px 10px;display:grid;gap:10px;min-height:330px;
+    background-image:repeating-linear-gradient(180deg,rgba(255,255,255,.035) 0 42px,transparent 42px 84px)}
+  .row{display:flex;justify-content:center;gap:7px;flex-wrap:wrap}
+  .slot{width:74px;background:var(--surface);border:1px solid var(--border-strong);
+    border-radius:7px;padding:5px 3px 4px;text-align:center;cursor:pointer;position:relative}
+  .slot:hover{border-color:var(--accent)}
+  .slot.empty{background:rgba(255,255,255,.06);border-style:dashed;color:var(--muted)}
+  .slot .nm{font-weight:700;font-size:11.5px;line-height:1.15;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .slot .mt{font-family:"Roboto Mono",monospace;font-size:9px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.06em}
+  .slot .fx{display:flex;gap:1px;margin-top:4px;justify-content:center}
+  .slot .fx i{display:block;width:9px;height:9px;border-radius:2px}
+  .slot .cap{position:absolute;top:-6px;left:-6px;width:17px;height:17px;border-radius:50%;
+    background:var(--accent);color:var(--accent-ink);font-size:10px;font-weight:800;
+    line-height:17px;font-family:"Roboto Mono",monospace}
+  .slot .cap.v{background:var(--muted);color:var(--ground)}
+  .slot .kit{display:block;width:34px;height:31px;margin:0 auto 2px}
+  .slot.empty .kit{opacity:.25}
+
+  /* ---- import ---- */
+  .import{margin-top:18px;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;box-shadow:var(--shadow);padding:13px 15px}
+  .import .hd{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+  .import h3{margin:0;font-size:12px;font-weight:700;font-family:"Roboto Mono",monospace;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .import input[type=text]{font:inherit;font-family:"Roboto Mono",monospace;font-size:13px;
+    background:var(--surface-2);border:1px solid var(--border);color:var(--ink);
+    border-radius:7px;padding:6px 10px;width:130px}
+  .import input:focus,.import textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .import button.go{font:inherit;font-size:12.5px;font-weight:700;padding:7px 15px;border:0;
+    border-radius:7px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+  .import button.go:hover{filter:brightness(1.08)}
+  .import .hint{font-size:12px;color:var(--muted);margin:8px 0 0}
+  .import .hint a{color:var(--accent)}
+  .steps{margin:10px 0 0;padding:0;list-style:none;counter-reset:s}
+  .steps li{counter-increment:s;position:relative;padding:4px 0 4px 26px;font-size:12.5px;color:var(--muted)}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:4px;width:18px;height:18px;
+    border-radius:50%;background:var(--surface-2);border:1px solid var(--border-strong);
+    color:var(--accent);font-family:"Roboto Mono",monospace;font-size:10px;font-weight:700;
+    line-height:17px;text-align:center}
+  .steps b{color:var(--ink)}
+  .steps textarea{display:block;width:100%;margin-top:6px;min-height:64px;resize:vertical;
+    font-family:"Roboto Mono",monospace;font-size:11px;background:var(--surface-2);
+    border:1px solid var(--border);color:var(--ink);border-radius:7px;padding:8px 10px}
+  .import .msg{margin:9px 0 0;font-size:12.5px}
+  .import .msg.err{color:var(--warn)}
+  .import .msg.ok{color:var(--accent)}
+
+  .benchwrap{margin-top:12px}
+  .benchwrap .lbl{font-family:"Roboto Mono",monospace;font-size:9.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+
+  /* ---- picker ---- */
+  .ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:9px;padding:3px;gap:3px}
+  .seg button{font:inherit;font-size:12.5px;font-weight:600;padding:5px 11px;border:0;
+    border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink)}
+  input[type=search],select{font:inherit;font-size:13px;background:var(--surface-2);
+    border:1px solid var(--border);color:var(--ink);border-radius:7px;padding:6px 10px}
+  input[type=search]{flex:1 1 130px;min-width:0}
+  input[type=search]:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .list{max-height:430px;overflow-y:auto;border:1px solid var(--border);border-radius:8px}
+  .p{display:flex;align-items:center;gap:8px;padding:6px 9px;border-bottom:1px solid var(--border);
+    cursor:pointer;font-size:13px}
+  .p:last-child{border-bottom:0}
+  .p:hover{background:var(--surface-2)}
+  .p[aria-disabled="true"]{opacity:.42;cursor:not-allowed}
+  .p i{width:4px;height:15px;border-radius:2px;flex:0 0 auto;box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+  .p .nm{font-weight:700;flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .p .tm{font-family:"Roboto Mono",monospace;font-size:10px;color:var(--muted);text-transform:uppercase}
+  .p .num{font-family:"Roboto Mono",monospace;font-size:12px;font-variant-numeric:tabular-nums}
+  .p .fx{display:flex;gap:1px}
+  .p .fx i{width:9px;height:14px;border-radius:2px;box-shadow:none}
+  .p.in{background:rgba(0,255,135,.09)}
+  .empty{padding:28px 14px;text-align:center;color:var(--muted);font-size:13px}
+
+  .note{margin:12px 2px 0;font-size:12.5px;color:var(--muted)}
+  .note b{color:var(--ink)}
+  .key{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:12px 0 0;
+    font-size:12px;color:var(--muted)}
+  .rampbar{display:inline-block;width:96px;height:9px;border-radius:99px;vertical-align:-1px}
+  .banner{margin-top:14px;background:rgba(255,200,69,.08);border:1px solid rgba(255,200,69,.4);
+    border-radius:9px;padding:11px 13px;font-size:12.5px;color:var(--muted)}
+  .banner b{color:var(--warn)}
+  .act{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .act button{font:inherit;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:7px;
+    border:1px solid var(--border);background:var(--surface-2);color:var(--muted);cursor:pointer}
+  .act button:hover{color:var(--ink);border-color:var(--accent)}
+
+  @media (max-width:860px){
+    .cols{grid-template-columns:1fr}
+    .wrap{padding:16px 0 44px}
+    .mast,.cols,.note,.key,.banner{margin-left:12px;margin-right:12px}
+    .nav{margin-left:0;width:100%}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<style>html{-webkit-text-size-adjust:100%}img{max-width:100%}</style>
+
+<!-- GoatCounter: cookieless visit counting. Dashboard at
+     https://fantasydatabase.goatcounter.com/ -->
+<script data-goatcounter="https://fantasydatabase.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<!-- One shirt outline, shared by every kit on the page. The kits are drawn from
+     club colours rather than loaded as images: nothing to fetch, nothing borrowed. -->
+<svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+  <defs><clipPath id="shirtClip" clipPathUnits="userSpaceOnUse">
+    <path d="M14 4h6q4 5 8 0h6l12 8-6 8-4-3v25H12V17l-4 3-6-8Z"/>
+  </clipPath></defs>
+</svg>
+<div class="wrap">
+  <header class="mast">
+    <div>
+      <span class="eyebrow" id="stamp">Loading…</span>
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 68 54" fill="none" aria-hidden="true" focusable="false">
+          <rect x="8" y="3" width="52" height="35" rx="4.5" stroke="#00FF87" stroke-width="4.5"/>
+          <g fill="#00FF87">
+            <rect x="17" y="26" width="5.5" height="7" rx="1.2"/>
+            <rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/>
+            <rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/>
+            <rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/>
+          </g>
+          <path d="M8 42h52l4 4.5H4L8 42Z" fill="#00FF87"/>
+          <path d="M3 47.5h62a2.5 2.5 0 0 1-2.5 2.5H5.5A2.5 2.5 0 0 1 3 47.5Z" fill="#00FF87"/>
+          <path d="M28 43.5h12l-1.5 1.8h-9L28 43.5Z" fill="#1E0021"/>
+        </svg>
+        <h1><em>Fantasy</em> DataBase</h1>
+      </div>
+      <p class="sect">Squad planner</p>
+    </div>
+    <nav class="nav">
+      <a href="index.html">Fixtures</a>
+      <a href="players.html">Players</a>
+      <a href="planner.html" aria-current="page">Planner</a>
+    </nav>
+  </header>
+
+  <div class="import">
+    <div class="hd">
+      <h3>Load your FPL team</h3>
+      <input type="text" id="teamId" inputmode="numeric" placeholder="Team ID" autocomplete="off">
+      <button type="button" class="go" id="loadTeam">Load</button>
+      <span class="hint" style="margin:0">Your ID is the number in your FPL "Points" page address.</span>
+    </div>
+    <div id="importSteps" hidden></div>
+    <p class="msg" id="importMsg"></p>
+  </div>
+
+  <div class="cols">
+    <!-- ---------------- left: the squad ---------------- -->
+    <section class="card">
+      <h2>Your squad</h2>
+      <div class="body">
+        <div class="status">
+          <div class="stat" id="sPicked"><b>0/15</b><span>Picked</span></div>
+          <div class="stat" id="sValue"><b>£0.0m</b><span>Squad value</span></div>
+          <div class="stat" id="sBank"><b>£100.0m</b><span>In the bank</span></div>
+          <div class="stat" id="sRun" title="Average fixture ease across your starting eleven over the window. Higher is easier."><b>–</b><span>Fixture run</span></div>
+        </div>
+        <ul class="problems" id="problems"></ul>
+
+        <div class="pitch" id="pitch"></div>
+
+        <div class="benchwrap">
+          <div class="lbl">Bench</div>
+          <div class="row" id="bench"></div>
+        </div>
+
+        <p class="key">
+          <span>Hardest</span><span class="rampbar" id="rampbar"></span><span>Easiest</span>
+          <span>Each block is one gameweek, over the window set on the right. Keepers and defenders
+            are rated on how likely a clean sheet looks; midfielders and forwards on how many goals
+            their side should score. <b>Fixture run</b> averages those across your eleven &mdash;
+            higher is easier.</span>
+        </p>
+
+        <div class="act">
+          <button type="button" id="autoXI">Pick the best XI I can</button>
+          <button type="button" id="clear">Clear squad</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- right: the picker ---------------- -->
+    <section class="card">
+      <h2>Add players</h2>
+      <div class="body">
+        <div class="ctl">
+          <div class="seg" id="posSeg">
+            <button data-pos="1">GK</button>
+            <button data-pos="2" aria-pressed="true">DEF</button>
+            <button data-pos="3">MID</button>
+            <button data-pos="4">FWD</button>
+          </div>
+          <input type="search" id="q" placeholder="Search player or team" autocomplete="off">
+        </div>
+        <div class="ctl">
+          <select id="sort">
+            <option value="fx">Sort: easiest fixtures</option>
+            <option value="pts">Sort: points</option>
+            <option value="c">Sort: most expensive</option>
+            <option value="cheap">Sort: cheapest</option>
+            <option value="own">Sort: most owned</option>
+          </select>
+          <select id="gws">
+            <option value="3">Next 3 GWs</option>
+            <option value="6" selected>Next 6 GWs</option>
+            <option value="9">Next 9 GWs</option>
+          </select>
+        </div>
+        <div class="list" id="list"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="banner">
+    <b>Expected points are not in here yet.</b> The colours come from the fixture model —
+    they tell you whose run of games looks kind, not how many points he will score. Judging a
+    transfer properly needs a points projection per player per gameweek, which is the next
+    piece of work. Until then this is a squad you can build, save and read fixtures off.
+  </div>
+
+  <p class="note">
+    Your squad is saved in this browser only. It never leaves your computer, and it is not
+    connected to your real FPL team &mdash; loading that in directly is something the FPL API
+    does not allow a site like this one to do. Prices are today's prices, so the totals here
+    describe a squad bought today rather than the money in your own account.
+  </p>
+</div>
+
+<script type="module">
+import { DEFAULT_RULES, sellPrice, validateSquad, validateXI, legalFormations } from "./planner.js";
+
+const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
+che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
+ips:"#3A64A3",lee:"#FFCD00",liv:"#C8102E",mci:"#6CABDD",mun:"#DA291C",new:"#41B6E6",
+nfo:"#DD0000",tot:"#132257",sun:"#EB172B"};
+const POSNAME={1:"GK",2:"DEF",3:"MID",4:"FWD"};
+// Home kits, drawn rather than downloaded: body colour, trim colour, and which
+// of three patterns to use. Close enough to be recognised at 34 pixels, and it
+// costs no requests and borrows no artwork.
+const KITS={
+ ars:["#EF0107","#FFFFFF","sleeves"], avl:["#670E36","#95BFE5","sleeves"],
+ bou:["#DA291C","#000000","stripes"], bre:["#E30613","#FFFFFF","stripes"],
+ bha:["#0057B8","#FFFFFF","stripes"], che:["#034694","#FFFFFF","plain"],
+ cov:["#6CACE4","#FFFFFF","plain"],   cry:["#1B458F","#C4122E","stripes"],
+ eve:["#003399","#FFFFFF","plain"],   ful:["#FFFFFF","#000000","sleeves"],
+ hul:["#F18A01","#000000","stripes"], ips:["#3A64A3","#FFFFFF","sleeves"],
+ lee:["#FFFFFF","#FFCD00","plain"],   liv:["#C8102E","#FFFFFF","plain"],
+ mci:["#6CABDD","#FFFFFF","plain"],   mun:["#DA291C","#000000","plain"],
+ new:["#FFFFFF","#241F20","stripes"], nfo:["#DD0000","#FFFFFF","plain"],
+ tot:["#FFFFFF","#132257","sleeves"], sun:["#EB172B","#FFFFFF","stripes"]};
+function kit(short){
+  const [body,trim,pattern]=KITS[short]||["#6B6B6B","#FFFFFF","plain"];
+  let inner=`<rect width="48" height="44" fill="${body}"/>`;
+  if(pattern==="stripes")
+    inner+=[6,16,26,36].map(x=>`<rect x="${x}" y="0" width="5" height="44" fill="${trim}"/>`).join("");
+  if(pattern==="sleeves")
+    inner+=`<rect x="0" y="0" width="12" height="44" fill="${trim}"/>`
+         + `<rect x="36" y="0" width="12" height="44" fill="${trim}"/>`;
+  return `<svg class="kit" viewBox="0 0 48 44" aria-hidden="true" focusable="false">`
+       + `<g clip-path="url(#shirtClip)">${inner}</g>`
+       + `<path d="M14 4h6q4 5 8 0h6l12 8-6 8-4-3v25H12V17l-4 3-6-8Z" fill="none"`
+       + ` stroke="rgba(0,0,0,.5)" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+}
+const SAVE_KEY="fdb-squad-v1";
+
+const $=s=>document.querySelector(s);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+let TEAMS={}, REC={}, FX=[], NEXT_GW=1, MATCHES_PLAYED=0, FIT={}, PLAYERS=[], S=null;
+let squad=[], xi=[], captain=null, vice=null, realBank=null;
+let pos=2, horizon=6;
+
+/* ---------------------------------------------------------------------------
+ * The model. These four are lifted from index.html unchanged — the same blend,
+ * the same anchors, the same colour ramp, so a fixture reads identically on
+ * both pages. They belong in a shared model.js; until that extraction happens
+ * this is a copy, and any change to one must be made to the other.
+ * ------------------------------------------------------------------------- */
+const hex2rgb=h=>{h=h.replace("#","");return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16));};
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+const ramp=()=>["--hard","--hard2","--midc","--easy2","--easy"].map(n=>hex2rgb(css(n)));
+function shade(t){
+  t=Math.max(0,Math.min(1,t));
+  const s=ramp(), x=t*4, i=Math.min(3,Math.floor(x));
+  return `rgb(${mix(s[i],s[i+1],x-i).join(",")})`;
+}
+function strengths(kA,kD,kp){
+  const b={}, n=MATCHES_PLAYED;
+  for(const id in REC){const r=REC[id];
+    const wa=n/(n+(r.promoted?kp:kA)), wd=n/(n+(r.promoted?kp:kD));
+    b[id]=[wa*r.a26+(1-wa)*r.pa, wd*r.d26+(1-wd)*r.pd];}
+  const ids=Object.keys(b);
+  const la=ids.reduce((s,i)=>s+b[i][0],0)/ids.length, ld=ids.reduce((s,i)=>s+b[i][1],0)/ids.length;
+  const ATK={},DEF={}; ids.forEach(i=>{ATK[i]=b[i][0]/la; DEF[i]=b[i][1]/ld;});
+  return {ATK,DEF,base:(la+ld)/2};
+}
+function collect(from,to){
+  const out={}; for(const id in TEAMS) out[id]=[];
+  for(const[gw,h,a] of FX){ if(gw<from||gw>to) continue;
+    out[h].push({gw,opp:a,home:true}); out[a].push({gw,opp:h,home:false}); }
+  for(const id in out) out[id].sort((x,y)=>x.gw-y.gw);
+  return out;
+}
+// "Ease" only. A keeper or defender is rated on the clean sheet, everyone else
+// on the goals — because those two do not move together, which is the whole
+// argument behind this site.
+const ANCHOR={atk:[0.70,1.32], def:[0.72,1.42]};
+function ease(side,team,f){
+  const m=f.home?FIT.home:1/FIT.home;
+  const v = side==="atk" ? S.DEF[f.opp]*m : m/S.ATK[f.opp];
+  const [lo,hi]=ANCHOR[side];
+  return Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
+}
+const sideFor=p=>p.p<=2 ? "def" : "atk";
+
+/* --------------------------------- state --------------------------------- */
+function fixturesFor(teamId){
+  const to=Math.min(38,NEXT_GW+horizon-1);
+  return (collect(NEXT_GW,to)[teamId]||[]);
+}
+function runScore(p){
+  const fx=fixturesFor(p.t);
+  if(!fx.length) return 0;
+  return fx.reduce((a,f)=>a+ease(sideFor(p),p.t,f),0)/fx.length;
+}
+const byId=id=>PLAYERS.find(p=>p.i===id);
+// planner.js speaks {id,pos,team,buy}; players.json speaks {i,p,t,c}. One place
+// to translate, so the rules engine never has to know about the data format.
+const toRules=p=>({id:p.i,name:p.n,pos:p.p,team:p.t,buy:p.c});
+
+function save(){
+  try{ localStorage.setItem(SAVE_KEY,JSON.stringify({squad:squad.map(p=>p.i),xi,captain,vice,realBank})); }
+  catch(e){ /* private window, or storage full — the page still works, it just forgets */ }
+}
+function load(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY); if(!raw) return;
+    const d=JSON.parse(raw);
+    squad=(d.squad||[]).map(byId).filter(Boolean);
+    xi=(d.xi||[]).filter(id=>squad.some(p=>p.i===id));
+    captain=d.captain??null; vice=d.vice??null;
+    realBank = typeof d.realBank==="number" ? d.realBank : null;
+  }catch(e){ squad=[]; xi=[]; }
+}
+
+/* ------------------------------- the squad ------------------------------- */
+function add(p){
+  if(squad.some(x=>x.i===p.i)) return;
+  if(squad.filter(x=>x.p===p.p).length >= DEFAULT_RULES.squad[p.p]) return;
+  squad.push(p); autoXI(); save(); render();
+}
+function remove(id){
+  squad=squad.filter(p=>p.i!==id);
+  xi=xi.filter(x=>x!==id);
+  if(captain===id) captain=null;
+  if(vice===id) vice=null;
+  save(); render();
+}
+function bank(){
+  return DEFAULT_RULES.budget - squad.reduce((t,p)=>t+p.c,0);
+}
+/** Best legal XI by fixture run — a starting point, not a recommendation. */
+function autoXI(){
+  const best=[...squad].sort((a,b)=>runScore(b)-runScore(a));
+  const chosen=[], count={1:0,2:0,3:0,4:0};
+  const min={1:1,2:3,3:2,4:1}, max={1:1,2:5,3:5,4:3};
+  for(const pos of [1,2,3,4]){                     // fill the minimums first
+    for(const p of best) if(p.p===pos && count[pos]<min[pos] && !chosen.includes(p)){
+      chosen.push(p); count[pos]++;
+    }
+  }
+  for(const p of best){                            // then the best of the rest
+    if(chosen.length>=11) break;
+    if(chosen.includes(p) || count[p.p]>=max[p.p]) continue;
+    chosen.push(p); count[p.p]++;
+  }
+  xi=chosen.map(p=>p.i);
+  if(!captain || !xi.includes(captain)) captain=xi[0]??null;
+  if(!vice || vice===captain || !xi.includes(vice)) vice=xi.find(id=>id!==captain)??null;
+}
+
+/* -------------------------------- drawing -------------------------------- */
+// One block per gameweek in the window. The blocks get narrower rather than
+// fewer as the window grows — showing six of nine and saying nothing about it
+// would quietly misrepresent the run.
+function fxStrip(p){
+  const w = horizon>6 ? 6 : 9;
+  return fixturesFor(p.t)
+    .map(f=>{
+      const t=TEAMS[f.opp];
+      return `<i style="background:${shade(ease(sideFor(p),p.t,f))};width:${w}px" `
+           + `title="GW${f.gw} ${t?t[0]:"?"} (${f.home?"H":"A"})"></i>`;
+    }).join("") || `<i style="background:var(--surface-2)" title="No fixture in this window"></i>`;
+}
+
+function slot(p,role){
+  if(!p) return `<div class="slot empty">${kit("")}<div class="nm">Empty</div><div class="mt">${role}</div></div>`;
+  const t=TEAMS[p.t]||["?","?"];
+  const badge = captain===p.i ? `<span class="cap">C</span>`
+              : vice===p.i    ? `<span class="cap v">V</span>` : "";
+  return `<div class="slot" data-id="${p.i}" title="${esc(p.n)} — click to remove, shift-click to captain">
+    ${badge}${kit(t[1])}<div class="nm">${esc(p.n)}</div>
+    <div class="mt">${t[1]} · ${(p.c/10).toFixed(1)}</div>
+    <div class="fx">${fxStrip(p)}</div></div>`;
+}
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function render(){
+  if(!S) return;
+  const inXI=id=>xi.includes(id);
+  const starters=xi.map(byId).filter(Boolean);
+  const benched=squad.filter(p=>!inXI(p.i));
+
+  $("#pitch").innerHTML=[1,2,3,4]
+    .map(pos=>`<div class="row">${starters.filter(p=>p.p===pos).map(p=>slot(p,POSNAME[pos])).join("")}</div>`)
+    .join("");
+  $("#bench").innerHTML = benched.length
+    ? benched.map(p=>slot(p,POSNAME[p.p])).join("")
+    : `<div class="slot empty"><div class="nm">Empty</div><div class="mt">Bench</div></div>`;
+
+  const b=bank();
+  $("#sPicked").innerHTML=`<b>${squad.length}/15</b><span>Picked</span>`;
+  $("#sValue").innerHTML=`<b>£${(squad.reduce((t,p)=>t+p.c,0)/10).toFixed(1)}m</b><span>Squad value</span>`;
+  // After an import we know the real bank from FPL. Otherwise it is £100.0m
+  // minus what this squad costs today, which is a different (and usually
+  // wrong) number for a team that has been running all season.
+  const shownBank = realBank!==null ? realBank : b;
+  $("#sBank").className="stat"+(shownBank<0?" bad":"");
+  $("#sBank").title = realBank!==null
+    ? "Your actual bank, from FPL."
+    : "£100.0m minus what this squad costs at today's prices — not your real bank unless you built this squad today.";
+  $("#sBank").innerHTML=`<b>£${(shownBank/10).toFixed(1)}m</b>`
+    + `<span>${realBank!==null?"Bank · from FPL":"In the bank"}</span>`;
+  const run = starters.length ? starters.reduce((t,p)=>t+runScore(p),0)/starters.length : null;
+  $("#sRun").className="stat"+(run!==null&&run>=.5?" ok":"");
+  $("#sRun").innerHTML=`<b>${run===null?"–":Math.round(run*100)+"%"}</b><span>Fixture run</span>`;
+  $("#sRun").title="Average fixture ease across your starting eleven over the next "
+    + horizon + " gameweeks. Higher is easier — 50% is an average run.";
+
+  const rulesSquad=squad.map(toRules);
+  let problems = squad.length
+    ? validateSquad(rulesSquad,{bank:b,teamName:id=>(TEAMS[id]?TEAMS[id][0]:"team "+id)})
+        .concat(xi.length?validateXI(xi,rulesSquad):[])
+    : ["Pick 15 players to get started — 2 keepers, 5 defenders, 5 midfielders, 3 forwards."];
+  const done = squad.length===15 && problems.length===0;
+  $("#problems").className="problems"+(done?" done":"");
+  $("#problems").innerHTML = done
+    ? `<li>A legal squad, inside budget.</li>`
+    : problems.slice(0,6).map(p=>`<li>${esc(p)}</li>`).join("");
+
+  renderList();
+}
+
+function renderList(){
+  const q=$("#q").value.trim().toLowerCase();
+  const sort=$("#sort").value;
+  const full = squad.filter(p=>p.p===pos).length >= DEFAULT_RULES.squad[pos];
+
+  let rows=PLAYERS.filter(p=>p.p===pos)
+    .filter(p=>!q || p.n.toLowerCase().includes(q) || (TEAMS[p.t]&&TEAMS[p.t][0].toLowerCase().includes(q)));
+
+  const clubCount={}; squad.forEach(p=>clubCount[p.t]=(clubCount[p.t]||0)+1);
+  const key={fx:p=>-runScore(p), pts:p=>-p.pts, c:p=>-p.c, cheap:p=>p.c, own:p=>-p.own}[sort];
+  rows.sort((a,b)=>key(a)-key(b));
+  rows=rows.slice(0,120);
+
+  $("#list").innerHTML = rows.length ? rows.map(p=>{
+    const t=TEAMS[p.t]||["?","?"];
+    const has=squad.some(x=>x.i===p.i);
+    const blocked = !has && (full || (clubCount[p.t]||0)>=DEFAULT_RULES.maxPerClub || p.c>bank());
+    const why = has ? "In your squad — click to remove"
+      : full ? `You already have ${DEFAULT_RULES.squad[pos]} ${POSNAME[pos]}`
+      : (clubCount[p.t]||0)>=DEFAULT_RULES.maxPerClub ? `Already 3 from ${t[0]}`
+      : p.c>bank() ? "Not enough money left" : "Click to add";
+    return `<div class="p${has?" in":""}" data-id="${p.i}" aria-disabled="${blocked}" title="${esc(why)}">
+      <i style="background:${CLUB[t[1]]||"#888"}"></i>
+      <span class="nm">${esc(p.n)}</span>
+      <span class="tm">${t[1]}</span>
+      <span class="fx">${fxStrip(p)}</span>
+      <span class="num">${(p.c/10).toFixed(1)}</span>
+      <span class="num">${p.pts}</span>
+    </div>`;}).join("")
+    : `<div class="empty">No players match that search.</div>`;
+}
+
+/* -------------------------------- events -------------------------------- */
+$("#posSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  pos=+b.dataset.pos;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));
+  renderList();});
+$("#list").addEventListener("click",e=>{
+  const row=e.target.closest(".p"); if(!row) return;
+  const p=byId(+row.dataset.id); if(!p) return;
+  if(squad.some(x=>x.i===p.i)) remove(p.i);
+  else if(row.getAttribute("aria-disabled")!=="true") add(p);
+});
+// Clicking a shirt takes him out; shift-clicking makes him captain. Both are
+// spelled out in the tooltip, because nobody guesses a modifier key.
+function onSlot(e){
+  const s=e.target.closest(".slot"); if(!s||!s.dataset.id) return;
+  const id=+s.dataset.id;
+  if(e.shiftKey){ if(captain===id) vice=id; else captain=id; if(vice===captain) vice=null; save(); render(); }
+  else remove(id);
+}
+$("#pitch").addEventListener("click",onSlot);
+$("#bench").addEventListener("click",onSlot);
+["#q","#sort"].forEach(s=>$(s).addEventListener("input",renderList));
+$("#gws").addEventListener("input",e=>{horizon=+e.target.value; render();});
+$("#autoXI").addEventListener("click",()=>{autoXI();save();render();});
+$("#clear").addEventListener("click",()=>{
+  squad=[];xi=[];captain=null;vice=null;realBank=null;save();render();msg("");});
+
+/* ------------------------------ importing -------------------------------
+ * The FPL API sends no CORS header, so this page cannot fetch a squad itself —
+ * tested, not assumed. Two ways round it. PROXY, if you ever set it, makes the
+ * button work in one click; leave it empty and the page walks you through
+ * opening the address yourself and pasting the result back, which needs no
+ * server and works today.
+ * ---------------------------------------------------------------------- */
+const PROXY="";                                   // e.g. "https://fpl-proxy.<you>.workers.dev/?url="
+const picksUrl=id=>`https://fantasy.premierleague.com/api/entry/${id}/event/${Math.max(1,NEXT_GW-1)}/picks/`;
+
+function msg(text,kind){
+  const m=$("#importMsg"); m.textContent=text||""; m.className="msg"+(kind?" "+kind:"");
+}
+function showSteps(id){
+  const url=picksUrl(id);
+  $("#importSteps").hidden=false;
+  $("#importSteps").innerHTML=`
+    <ul class="steps">
+      <li><b>Open this address</b> — it opens your own team's data in a new tab.<br>
+        <a href="${url}" target="_blank" rel="noopener">${url}</a></li>
+      <li><b>Select everything on that page and copy it.</b> Ctrl&#8209;A then Ctrl&#8209;C.</li>
+      <li><b>Paste it here</b> and press Load.
+        <textarea id="pasteBox" placeholder="Paste the whole page here" spellcheck="false"></textarea></li>
+    </ul>
+    <button type="button" class="go" id="loadPasted">Load from what I pasted</button>`;
+  $("#loadPasted").addEventListener("click",()=>{
+    const raw=$("#pasteBox").value.trim();
+    if(!raw) return msg("Nothing pasted yet.","err");
+    try{ applyPicks(JSON.parse(raw)); }
+    catch(e){ msg("That does not look like the right page — copy everything from the address above.","err"); }
+  });
+  msg("The FPL API will not let a site like this one fetch your team directly, so it takes one copy and paste.","");
+}
+
+function applyPicks(j){
+  const picks=j&&j.picks;
+  if(!Array.isArray(picks)||!picks.length)
+    return msg("No squad in that data. Make sure you copied the whole page.","err");
+
+  const found=picks.map(pk=>({pk,p:byId(pk.element)})).filter(x=>x.p);
+  const lost=picks.length-found.length;
+  squad=found.map(x=>x.p);
+  xi=found.filter(x=>x.pk.position<=11).map(x=>x.p.i);
+  captain=(found.find(x=>x.pk.is_captain)||{}).pk?.element ?? null;
+  vice=(found.find(x=>x.pk.is_vice_captain)||{}).pk?.element ?? null;
+  if(!xi.length) autoXI();
+  realBank = j.entry_history && typeof j.entry_history.bank==="number" ? j.entry_history.bank : null;
+
+  save(); render();
+  $("#importSteps").hidden=true;
+  msg(`Loaded ${squad.length} players from gameweek ${j.entry_history?.event ?? NEXT_GW-1}.`
+      + (lost?` ${lost} could not be matched.`:"")
+      + " Prices shown are today's — FPL does not publish what you paid.","ok");
+}
+
+$("#loadTeam").addEventListener("click",async()=>{
+  const id=$("#teamId").value.trim();
+  if(!/^\d{1,10}$/.test(id)) return msg("Enter your team ID — digits only.","err");
+  try{ localStorage.setItem("fdb-team-id",id); }catch(e){}
+  if(!PROXY) return showSteps(id);
+  msg("Loading…","");
+  try{
+    const r=await fetch(PROXY+encodeURIComponent(picksUrl(id)));
+    if(!r.ok) throw new Error(r.status);
+    applyPicks(await r.json());
+  }catch(e){
+    msg("Could not reach the FPL API through the proxy. You can still do it by hand:","err");
+    showSteps(id);
+  }
+});
+$("#teamId").addEventListener("keydown",e=>{ if(e.key==="Enter") $("#loadTeam").click(); });
+
+/* --------------------------------- boot --------------------------------- */
+Promise.all([
+  fetch("data.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("data.json "+r.status);return r.json();}),
+  fetch("players.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("players.json "+r.status);return r.json();})
+]).then(([d,pl])=>{
+  for(const id in d.teams){const t=d.teams[id];
+    TEAMS[id]=[t.name,t.short];
+    REC[id]={pa:t.pa,pd:t.pd,a26:t.a26,d26:t.d26};
+    if(t.promoted) REC[id].promoted=1;}
+  FX=d.fixtures; NEXT_GW=d.nextGw; MATCHES_PLAYED=d.matchesPlayed; FIT=d.fit;
+  // The fitted constants, not sliders. The ticker is where you argue with the
+  // model; here you just want to know whether the run is kind.
+  S=strengths(FIT.kAtk,FIT.kDef,4);
+  PLAYERS=pl.players;
+  $("#stamp").textContent=`${d.season} · next GW${d.nextGw} · updated `
+    + new Date(d.generated).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+  $("#rampbar").style.background="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v)).join(",")+")";
+  load();
+  try{ const savedId=localStorage.getItem("fdb-team-id"); if(savedId) $("#teamId").value=savedId; }catch(e){}
+  if(squad.length && !xi.length) autoXI();
+  render();
+}).catch(err=>{
+  $("#pitch").innerHTML=`<div class="empty">Could not load the data files.<br>
+    If you opened this page from your own computer rather than the web address, the browser
+    blocks it from reading them — that is expected. Open it at
+    fantasy-database.github.io instead.</div>`;
+  console.error(err);
+});
+</script>
+</body>
+</html>
