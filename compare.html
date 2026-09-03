@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Compare FPL players side by side on the stats that matter for their position, and on the fixtures they are about to face.">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%231E0021'/><g fill='%2300FF87'><rect x='10' y='42' width='8' height='12' rx='2'/><rect x='22' y='34' width='8' height='20' rx='2'/><rect x='34' y='26' width='8' height='28' rx='2'/><rect x='46' y='16' width='8' height='38' rx='2'/></g></svg>">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1E0021">
+<meta name="apple-mobile-web-app-title" content="Fantasy DB">
+<title>Fantasy DataBase</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Fantasy DataBase">
+<meta property="og:title" content="Fantasy DataBase">
+<meta property="og:description" content="Compare FPL players side by side on the stats that matter for their position, and on the fixtures they are about to face.">
+<meta property="og:url" content="https://fantasy-database.github.io/compare.html">
+<meta property="og:image" content="https://fantasy-database.github.io/share.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Fantasy DataBase">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500;700&display=swap">
+<style>
+  :root{
+    --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44;
+    --border:#4B1A52; --border-strong:#663570;
+    --ink:#FFFFFF; --muted:#B9A3BE; --accent:#00FF87; --accent-ink:#1E0021;
+    --good:#05E585; --bad:#FF1751; --warn:#FFC845;
+    --easy:#116B33; --easy2:#05E585; --midc:#E7E7E7; --hard2:#FF1751; --hard:#80072D;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);
+    font-family:Barlow,Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1220px;margin:0 auto;padding:26px 18px 60px}
+
+  .mast{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 26px;
+    padding-bottom:14px;border-bottom:3px solid var(--accent)}
+  .mast h1{font-weight:800;font-size:clamp(26px,4.4vw,40px);line-height:.98;
+    letter-spacing:-.03em;margin:0}
+  .mast h1 em{font-style:normal;color:var(--accent)}
+  .brand{display:flex;align-items:center;gap:13px}
+  .brand .mark{flex:none;height:clamp(34px,5.4vw,50px);width:auto;display:block}
+  .mast .sect{margin:6px 0 0;font-family:"Roboto Mono",ui-monospace,monospace;
+    font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .eyebrow{font-family:"Roboto Mono",monospace;font-weight:600;font-size:10.5px;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px}
+  .nav{margin-left:auto;display:flex;gap:8px}
+  .nav a{font-weight:600;font-size:13px;text-decoration:none;color:var(--muted);
+    padding:7px 14px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border)}
+  .nav a[aria-current]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .nav a:hover{color:var(--ink)}
+  .nav a[aria-current]:hover{color:var(--accent-ink)}
+
+  .bar{display:flex;flex-wrap:wrap;gap:9px 18px;align-items:center;margin-top:18px}
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap}
+  .seg button{font:inherit;font-size:13px;font-weight:600;padding:6px 13px;border:0;
+    border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .seglabel{font-family:"Roboto Mono",monospace;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin-right:-10px}
+  select{font:inherit;font-size:13px;background:var(--surface-2);border:1px solid var(--border);
+    color:var(--ink);border-radius:7px;padding:6px 9px}
+  select:focus{outline:2px solid var(--accent);outline-offset:1px}
+
+  /* ---- picking ---- */
+  .pick{margin-top:14px;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:12px 14px;box-shadow:var(--shadow)}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:9px}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);
+    border:1px solid var(--border-strong);border-radius:999px;padding:4px 6px 4px 10px;font-size:13px}
+  .chip i{width:4px;height:14px;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+  .chip b{font-weight:700}
+  .chip span{font-family:"Roboto Mono",monospace;font-size:10px;color:var(--muted);text-transform:uppercase}
+  .chip button{font:inherit;border:0;background:none;color:var(--muted);cursor:pointer;
+    font-size:15px;line-height:1;padding:0 4px}
+  .chip button:hover{color:var(--bad)}
+  .chips .none{color:var(--muted);font-size:13px}
+  .search{position:relative}
+  .search input{font:inherit;font-size:13px;background:var(--surface-2);border:1px solid var(--border);
+    color:var(--ink);border-radius:7px;padding:7px 11px;width:100%;max-width:340px}
+  .search input:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .results{position:absolute;z-index:40;margin-top:4px;width:100%;max-width:340px;max-height:250px;
+    overflow-y:auto;background:var(--surface);border:1px solid var(--border-strong);
+    border-radius:8px;box-shadow:var(--shadow)}
+  .results div{display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;font-size:13px;
+    border-bottom:1px solid var(--border)}
+  .results div:last-child{border-bottom:0}
+  .results div:hover,.results div[data-on]{background:var(--surface-2)}
+  .results i{width:4px;height:14px;border-radius:2px}
+  .results .nm{font-weight:700;flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .results .tm{font-family:"Roboto Mono",monospace;font-size:10px;color:var(--muted);text-transform:uppercase}
+  .results .num{font-family:"Roboto Mono",monospace;font-size:11.5px;color:var(--muted)}
+
+  /* ---- tables ---- */
+  .card{margin-top:14px;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+  .card h2{margin:0;padding:12px 14px;font-size:12px;font-weight:700;
+    font-family:"Roboto Mono",monospace;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--muted);border-bottom:1px solid var(--border)}
+  .scroll{overflow-x:auto}
+  table{border-collapse:separate;border-spacing:0;width:100%}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+  thead th{font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:600;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);text-align:right;background:var(--surface)}
+  thead th.lft{text-align:left}
+  thead th b{display:block;font-family:Barlow,Arial,sans-serif;font-size:13.5px;
+    letter-spacing:0;text-transform:none;color:var(--ink)}
+  tbody th{text-align:left;font-weight:600;font-size:13px;color:var(--muted)}
+  tbody td{text-align:right;font-family:"Roboto Mono",monospace;font-size:13px;
+    font-variant-numeric:tabular-nums}
+  tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover th,tbody tr:hover td{background:var(--surface-2)}
+  td.win{color:var(--accent);font-weight:700}
+  td.dim{color:var(--muted)}
+  th.lft,td.lft{position:sticky;left:0;z-index:2;background:var(--surface)}
+  tbody tr:hover th.lft{background:var(--surface-2)}
+  .fxcell{text-align:center;font-family:"Roboto Mono",monospace;font-size:11.5px;
+    border-radius:5px;padding:5px 4px;min-width:66px;display:block}
+  .fxcell b{display:block;font-size:10px;font-weight:700;opacity:.85}
+  td.fx{padding:4px}
+
+  .caution{margin:0;padding:10px 14px 13px;font-size:12.5px;color:var(--warn);
+    border-top:1px solid var(--border);background:rgba(255,200,69,.06)}
+  .caution b{color:var(--ink)}
+  thead th em{display:block;font-style:normal;font-family:"Roboto Mono",monospace;
+    font-size:9.5px;letter-spacing:.06em;color:var(--muted);margin-top:2px}
+  thead th em.thin{color:var(--warn)}
+  .note{margin:12px 2px 0;font-size:12.5px;color:var(--muted)}
+  .note b{color:var(--ink)}
+  .empty{padding:34px 16px;text-align:center;color:var(--muted)}
+  .key{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:10px 14px 13px;
+    font-size:12px;color:var(--muted)}
+  .rampbar{display:inline-block;width:96px;height:9px;border-radius:99px;vertical-align:-1px}
+
+  @media (max-width:700px){
+    .wrap{padding:16px 0 44px}
+    .mast,.bar,.pick,.card,.note{margin-left:12px;margin-right:12px}
+    .nav{margin-left:0;width:100%}
+    th,td{padding:7px 8px}
+    th.lft,td.lft{min-width:104px;max-width:104px;box-shadow:6px 0 8px -6px rgba(0,0,0,.55)}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<style>html{-webkit-text-size-adjust:100%}img{max-width:100%}</style>
+
+<!-- GoatCounter: cookieless visit counting. -->
+<script data-goatcounter="https://fantasydatabase.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <div>
+      <span class="eyebrow" id="stamp">Loading…</span>
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 68 54" fill="none" aria-hidden="true" focusable="false">
+          <rect x="8" y="3" width="52" height="35" rx="4.5" stroke="#00FF87" stroke-width="4.5"/>
+          <g fill="#00FF87">
+            <rect x="17" y="26" width="5.5" height="7" rx="1.2"/>
+            <rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/>
+            <rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/>
+            <rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/>
+          </g>
+          <path d="M8 42h52l4 4.5H4L8 42Z" fill="#00FF87"/>
+          <path d="M3 47.5h62a2.5 2.5 0 0 1-2.5 2.5H5.5A2.5 2.5 0 0 1 3 47.5Z" fill="#00FF87"/>
+          <path d="M28 43.5h12l-1.5 1.8h-9L28 43.5Z" fill="#1E0021"/>
+        </svg>
+        <h1><em>Fantasy</em> DataBase</h1>
+      </div>
+      <p class="sect">Compare</p>
+    </div>
+    <nav class="nav">
+      <a href="index.html">Fixtures</a>
+      <a href="players.html">Players</a>
+      <a href="compare.html" aria-current="page">Compare</a>
+    </nav>
+  </header>
+
+  <div class="bar">
+    <span class="seglabel">Position</span>
+    <div class="seg" id="posSeg">
+      <button data-pos="1">Goalkeepers</button>
+      <button data-pos="2" aria-pressed="true">Defenders</button>
+      <button data-pos="3">Midfielders</button>
+      <button data-pos="4">Forwards</button>
+    </div>
+    <span class="seglabel">Scale</span>
+    <div class="seg" id="scaleSeg">
+      <button data-scale="tot" aria-pressed="true">Total</button>
+      <button data-scale="p90">Per 90</button>
+    </div>
+    <span class="seglabel">Fixtures</span>
+    <select id="gws">
+      <option value="3">Next 3 GWs</option>
+      <option value="6" selected>Next 6 GWs</option>
+      <option value="9">Next 9 GWs</option>
+    </select>
+  </div>
+
+  <div class="pick">
+    <div class="chips" id="chips"></div>
+    <div class="search">
+      <input type="search" id="q" placeholder="Add a player — type a name or club" autocomplete="off"
+             aria-label="Search for a player to compare">
+      <div class="results" id="results" hidden></div>
+    </div>
+  </div>
+
+  <div class="card" id="statCard">
+    <h2 id="statTitle">Stats</h2>
+    <div class="scroll"><table id="statTable"></table></div>
+    <p class="caution" id="sampleWarn" hidden></p>
+  </div>
+
+  <div class="card" id="fxCard">
+    <h2 id="fxTitle">Upcoming fixtures</h2>
+    <div class="scroll"><table id="fxTable"></table></div>
+    <p class="key">
+      <span>Hardest</span><span class="rampbar" id="rampbar"></span><span>Easiest</span>
+      <span id="fxKey"></span>
+    </p>
+  </div>
+
+  <p class="note" id="foot"></p>
+</div>
+
+<script type="module">
+import { fromData, goodClamped, shade, rampFromCss, formatVal } from "./model.js";
+
+const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
+che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
+ips:"#3A64A3",lee:"#FFCD00",liv:"#C8102E",mci:"#6CABDD",mun:"#DA291C",new:"#41B6E6",
+nfo:"#DD0000",tot:"#132257",sun:"#EB172B"};
+const POSNAME={1:"Goalkeepers",2:"Defenders",3:"Midfielders",4:"Forwards"};
+const SHORTPOS={1:"GK",2:"DEF",3:"MID",4:"FWD"};
+
+/*
+ * The stat set is the one that actually decides a transfer in that position.
+ * A keeper and a forward share almost nothing, so they do not share a table.
+ */
+const STATS={
+ 1:[["c","Price"],["min","Minutes"],["sv","Saves"],["cs","Clean sheets"],["pts","Points"]],
+ 2:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
+    ["npxgi","xGI"],["dc","DefCon"],["cs","Clean sheets"],["pts","Points"]],
+ 3:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
+    ["npxgi","xGI"],["dc","DefCon"],["sh","Shots"],["pts","Points"]],
+ 4:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
+    ["npxgi","xGI"],["sh","Shots"],["pts","Points"]]};
+
+// Price and minutes are context, not merit — no winner is marked for them.
+const NO_WINNER=new Set(["c"]);
+// Per 90 is meaningless for these two: one is a price, the other is the divisor.
+const FLAT=new Set(["c","min"]);
+// players.json has no g90/a90, so those are worked out here rather than in update.py.
+const DERIVED=new Set(["g","a"]);
+const DP={npxg:2,xa:2,npxgi:2};
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+let D=null, P=null, M=null, RAMP=null;
+let pos=2, scale="tot", horizon=6, picked=[], hi=-1;
+
+/* ------------------------------- values ---------------------------------- */
+function val(p,key){
+  if(key==="c")   return p.c/10;
+  if(key==="min") return p.min;
+  if(scale==="tot") return p[key] ?? null;
+  if(DERIVED.has(key)) return p.min ? (p[key]??0)/p.min*90 : null;
+  return p[key+"90"] ?? null;
+}
+function fmtStat(key,v){
+  if(v===null||v===undefined) return null;
+  if(key==="c")   return "£"+v.toFixed(1)+"m";
+  if(key==="min") return String(v);
+  const d = scale==="p90" ? 2 : (DP[key] ?? 0);
+  return v.toFixed(d);
+}
+// Every stat here reads "more is better" — including minutes, which is
+// availability. Price is the exception and is left unmarked.
+const winnerOf=(key,vals)=>{
+  if(NO_WINNER.has(key)) return null;
+  const real=vals.filter(v=>v!==null&&v!==undefined);
+  return real.length>1 ? Math.max(...real) : null;
+};
+
+/* ------------------------------- fixtures -------------------------------- */
+const sideFor=p=>p.p<=2 ? "def" : "atk";
+function fixturesFor(teamId){
+  const to=Math.min(38, M.nextGw+horizon-1);
+  return (M.fixtures(M.nextGw,to)[teamId]||[]);
+}
+
+/* -------------------------------- render --------------------------------- */
+function render(){
+  if(!M) return;
+  renderChips();
+
+  const players=picked.map(id=>P.players.find(x=>x.i===id)).filter(Boolean);
+  const rows=STATS[pos];
+
+  $("#statTitle").textContent = scale==="p90"
+    ? `${POSNAME[pos]} — per 90 minutes` : `${POSNAME[pos]} — season totals`;
+
+  if(players.length<2){
+    $("#statTable").innerHTML=`<tbody><tr><td class="empty">
+      Pick at least two ${POSNAME[pos].toLowerCase()} to compare.</td></tr></tbody>`;
+    $("#fxTable").innerHTML="";
+    $("#fxKey").textContent="";
+    foot(players);
+    return;
+  }
+
+  // ---- stats ----
+  // In per-90 the minutes behind each rate go in the header. Two players on
+  // wildly different samples are not really comparable, and the honest fix is to
+  // put the sample where it cannot be missed rather than to hide the player.
+  const maxMin=Math.max(...players.map(p=>p.min));
+  const head=`<thead><tr><th class="lft">Stat</th>`
+    + players.map(p=>{
+        const t=D.teams[p.t]||{name:"?",short:"?"};
+        const thin = scale==="p90" && maxMin>0 && p.min < maxMin*0.75;
+        const mins = scale==="p90"
+          ? `<em class="${thin?"thin":""}">${p.min} min · ${p.starts} start${p.starts===1?"":"s"}</em>` : "";
+        return `<th><b>${esc(p.n)}</b>${esc(t.short.toUpperCase())} · ${SHORTPOS[p.p]}${mins}</th>`;
+      }).join("") + `</tr></thead>`;
+
+  const body=rows.filter(([k])=>!(scale==="p90"&&FLAT.has(k)&&k==="min"))
+    .map(([key,label])=>{
+      const vals=players.map(p=>val(p,key));
+      const best=winnerOf(key,vals);
+      const suffix = scale==="p90" && !FLAT.has(key) ? " /90" : "";
+      return `<tr><th class="lft">${label}${suffix}</th>`
+        + vals.map(v=>{
+            const s=fmtStat(key,v);
+            if(s===null) return `<td class="dim" title="No data for this player">–</td>`;
+            const win = best!==null && v===best;
+            return `<td class="${win?"win":""}">${s}</td>`;
+          }).join("")
+        + `</tr>`;
+    }).join("");
+
+  $("#statTable").innerHTML=head+`<tbody>${body}</tbody>`;
+
+  // Say plainly what the highlight means, and when the samples are too uneven
+  // for it to mean much. A rate off one appearance will out-rank a season.
+  const warn=$("#sampleWarn");
+  const short=players.filter(p=>p.min < maxMin*0.75);
+  if(scale==="p90" && short.length && maxMin>0){
+    warn.hidden=false;
+    warn.innerHTML=`The green figure is simply the <b>highest rate</b>, not the better player. `
+      + short.map(p=>`<b>${esc(p.n)}</b> has ${p.min} minutes`).join(", ")
+      + ` against ${maxMin} for the most-played here, so ${short.length===1?"his":"their"} per-90 `
+      + `numbers rest on far less football. One good cameo out-ranks a whole season on this scale.`;
+  } else if(scale==="p90"){
+    warn.hidden=false;
+    warn.innerHTML=`The green figure is the <b>highest rate</b> per 90 minutes. `
+      + `Minutes are shown under each name so you can see what each rate is built on.`;
+  } else {
+    warn.hidden=true;
+  }
+
+  // ---- fixtures ----
+  const gws=[];
+  for(let g=M.nextGw; g<=Math.min(38,M.nextGw+horizon-1); g++) gws.push(g);
+  const fhead=`<thead><tr><th class="lft">Player</th>`
+    + gws.map(g=>`<th>GW${g}</th>`).join("") + `<th>Average</th></tr></thead>`;
+
+  const fbody=players.map(p=>{
+    const side=sideFor(p), fx=fixturesFor(p.t);
+    const byGw={}; fx.forEach(f=>{ (byGw[f.gw]=byGw[f.gw]||[]).push(f); });
+    let sum=0,n=0;
+    const cells=gws.map(g=>{
+      const list=byGw[g];
+      if(!list) return `<td class="fx"><span class="fxcell" style="background:var(--surface-2);color:var(--muted)">–<b>no game</b></span></td>`;
+      return `<td class="fx">`+list.map(f=>{
+        const v=M.rate(side,p.t,f,"proj");
+        const t=goodClamped(side,v,"proj");
+        sum+=t; n++;
+        const c=shade(t,RAMP), opp=D.teams[f.opp];
+        return `<span class="fxcell" style="background:${c.bg};color:${c.fg}">`
+             + `${esc(opp?opp.short.toUpperCase():"?")} (${f.home?"H":"A"})`
+             + `<b>${formatVal(side,v,"proj",true)}</b></span>`;
+      }).join("")+`</td>`;
+    }).join("");
+    const avg=n?sum/n:0;
+    const ac=shade(avg,RAMP);
+    const t=D.teams[p.t]||{short:"?"};
+    return `<tr><th class="lft">${esc(p.n)} <span style="color:var(--muted);font-family:'Roboto Mono',monospace;font-size:10px">${esc(t.short.toUpperCase())}</span></th>`
+      + cells
+      + `<td class="fx"><span class="fxcell" style="background:${ac.bg};color:${ac.fg}">${Math.round(avg*100)}%<b>ease</b></span></td></tr>`;
+  }).join("");
+
+  $("#fxTable").innerHTML=fhead+`<tbody>${fbody}</tbody>`;
+
+  const sides=new Set(players.map(sideFor));
+  $("#fxKey").innerHTML = sides.size===1
+    ? (sides.has("def")
+        ? `Keepers and defenders are rated on <b>clean sheet chance</b> — the percentage is how often that fixture should end 0&#8209;0 at their end.`
+        : `Midfielders and forwards are rated on <b>their team's expected goals</b> in that fixture — not their own, the side's.`)
+    : `Mixed positions: keepers and defenders show <b>clean sheet chance</b>, midfielders and forwards show <b>their team's expected goals</b>. The colours are comparable; the numbers are not.`;
+
+  foot(players);
+}
+
+function foot(players){
+  const thin=players.filter(p=>p.min<60);
+  let s=`Season totals from the FPL API; non-penalty xG, xA and shots from Understat. `
+   + `<b>xGI</b> is non-penalty xG plus xA. <b>DefCon</b> is the defensive-contribution count FPL scores on. `
+   + `Fixture ratings come from the same expected-goals model as the ticker, using its fitted constants.`;
+  if(scale==="p90")
+    s += ` <b>Per 90 divides by minutes played</b>, so a short cameo produces a huge rate off almost no football.`;
+  if(thin.length && scale==="p90")
+    s += ` <b>${thin.map(p=>esc(p.n)).join(", ")}</b> ${thin.length===1?"has":"have"} under 60 minutes — read those per-90 numbers as noise.`;
+  $("#foot").innerHTML=s;
+}
+
+/* -------------------------------- picking -------------------------------- */
+function renderChips(){
+  const c=$("#chips");
+  if(!picked.length){ c.innerHTML=`<span class="none">No one picked yet.</span>`; return; }
+  c.innerHTML=picked.map(id=>{
+    const p=P.players.find(x=>x.i===id); if(!p) return "";
+    const t=D.teams[p.t]||{short:"?"};
+    return `<span class="chip"><i style="background:${CLUB[t.short]||"#888"}"></i>`
+      + `<b>${esc(p.n)}</b><span>${esc(t.short.toUpperCase())}</span>`
+      + `<button type="button" data-drop="${p.i}" aria-label="Remove ${esc(p.n)}">&times;</button></span>`;
+  }).join("");
+}
+
+function searchResults(){
+  const q=$("#q").value.trim().toLowerCase();
+  const box=$("#results");
+  if(!q){ box.hidden=true; box.innerHTML=""; hi=-1; return; }
+  const rows=P.players
+    .filter(p=>p.p===pos && !picked.includes(p.i))
+    .filter(p=>p.n.toLowerCase().includes(q)
+             || (D.teams[p.t]&&D.teams[p.t].name.toLowerCase().includes(q)))
+    .sort((a,b)=>b.pts-a.pts).slice(0,12);
+  hi=-1;
+  box.hidden=!rows.length;
+  box.innerHTML=rows.map(p=>{
+    const t=D.teams[p.t]||{short:"?"};
+    return `<div data-add="${p.i}"><i style="background:${CLUB[t.short]||"#888"}"></i>`
+      + `<span class="nm">${esc(p.n)}</span><span class="tm">${esc(t.short.toUpperCase())}</span>`
+      + `<span class="num">£${(p.c/10).toFixed(1)}m · ${p.pts}pts</span></div>`;
+  }).join("");
+}
+function add(id){
+  if(picked.includes(id)) return;
+  if(picked.length>=4) picked.shift();      // four columns is as many as stays readable
+  picked.push(id);
+  $("#q").value=""; $("#results").hidden=true;
+  render();
+}
+
+/* -------------------------------- events --------------------------------- */
+$("#posSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  pos=+b.dataset.pos;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));
+  // The stat set changes with the position, so a leftover forward in a keeper
+  // table would have nothing to show. Keep only those that still fit.
+  picked=picked.filter(id=>{const p=P.players.find(x=>x.i===id); return p&&p.p===pos;});
+  $("#q").value=""; $("#results").hidden=true;
+  render();});
+$("#scaleSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  scale=b.dataset.scale;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));
+  render();});
+$("#gws").addEventListener("change",e=>{horizon=+e.target.value; render();});
+$("#q").addEventListener("input",searchResults);
+$("#results").addEventListener("click",e=>{
+  const row=e.target.closest("[data-add]"); if(row) add(+row.dataset.add);});
+$("#chips").addEventListener("click",e=>{
+  const b=e.target.closest("[data-drop]"); if(!b) return;
+  picked=picked.filter(id=>id!==+b.dataset.drop); render();});
+$("#q").addEventListener("keydown",e=>{
+  const items=[...$("#results").querySelectorAll("[data-add]")];
+  if(!items.length) return;
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+    e.preventDefault();
+    hi=(hi+(e.key==="ArrowDown"?1:items.length-1))%items.length;
+    items.forEach((x,i)=>i===hi?x.setAttribute("data-on","1"):x.removeAttribute("data-on"));
+  } else if(e.key==="Enter"){
+    e.preventDefault(); add(+items[Math.max(0,hi)].dataset.add);
+  } else if(e.key==="Escape"){ $("#results").hidden=true; }
+});
+document.addEventListener("click",e=>{
+  if(!e.target.closest(".search")) $("#results").hidden=true;});
+
+/* --------------------------------- boot ---------------------------------- */
+Promise.all([
+  fetch("data.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("data.json "+r.status);return r.json();}),
+  fetch("players.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("players.json "+r.status);return r.json();})
+]).then(([d,pl])=>{
+  D=d; P=pl; M=fromData(d); RAMP=rampFromCss();
+  $("#rampbar").style.background="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v,RAMP).bg).join(",")+")";
+  $("#stamp").textContent=`${d.season} · next GW${d.nextGw} · updated `
+    + new Date(d.generated).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+
+  // Open on something worth looking at rather than an empty table: the two
+  // highest-scoring defenders so far.
+  const seed=pl.players.filter(p=>p.p===pos).sort((a,b)=>b.pts-a.pts).slice(0,2);
+  picked=seed.map(p=>p.i);
+  render();
+}).catch(err=>{
+  $("#statTable").innerHTML=`<tbody><tr><td class="empty">Could not load the data files.<br>
+    If you opened this page from your own computer rather than the web address, the browser
+    blocks it from reading them — that is expected. Open it at
+    fantasy-database.github.io instead.</td></tr></tbody>`;
+  console.error(err);
+});
+</script>
+</body>
+</html>
