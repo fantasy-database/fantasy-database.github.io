@@ -76,7 +76,7 @@
   .panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);margin-top:14px}
   .ctrls{display:grid;grid-template-columns:1.1fr 1fr 1fr}
   @media (max-width:900px){.ctrls{grid-template-columns:1fr}}
-  .ctrl{padding:15px 17px}
+  .ctrl{padding:15px 17px;min-width:0}
   .ctrl+.ctrl{border-left:1px solid var(--border)}
   @media (max-width:900px){.ctrl+.ctrl{border-left:0;border-top:1px solid var(--border)}}
   .ctrl h2{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
@@ -96,6 +96,19 @@
   .slider-row{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:9px}
   .slider-row span{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
   .presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+  .gwpick{display:flex;gap:4px;overflow-x:auto;max-width:100%;padding:2px 0 8px;scrollbar-width:thin;
+    scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
+  .gwpick::-webkit-scrollbar{height:5px}
+  .gwpick::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:99px}
+  .gwb{flex:none;font:inherit;font-family:"Roboto Mono",ui-monospace,monospace;font-size:11.5px;
+    min-width:30px;padding:5px 0;border-radius:7px;cursor:pointer;text-align:center;
+    background:var(--surface-2);border:1px solid var(--border);color:var(--muted)}
+  .gwb:hover{border-color:var(--border-strong);color:var(--ink)}
+  .gwb:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .gwb[data-in="1"]{background:rgba(0,255,135,.13);border-color:rgba(0,255,135,.45);color:var(--ink)}
+  .gwb[data-edge="1"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+  .gwb[data-anchor="1"]{box-shadow:0 0 0 2px var(--accent) inset}
+  .gwhint{margin:0 0 8px;font-size:11.5px;color:var(--muted);min-height:1.2em}
   .chipbtn{font:inherit;font-size:12px;font-weight:500;padding:4px 10px;border-radius:99px;cursor:pointer;
     background:var(--surface-2);color:var(--ink);border:1px solid var(--border)}
   .chipbtn:hover{border-color:var(--border-strong)}
@@ -312,6 +325,8 @@
       <div class="readout" id="gwReadout"></div>
       <div class="slider-row"><span>From</span><input type="range" id="gwFrom" min="1" max="38" value="3" aria-label="First gameweek"></div>
       <div class="slider-row"><span>To</span><input type="range" id="gwTo" min="1" max="38" value="8" aria-label="Last gameweek"></div>
+      <div class="gwpick" id="gwPick" role="group" aria-label="Pick a gameweek"></div>
+      <p class="gwhint" id="gwHint"></p>
       <div class="presets" id="presets">
         <button class="chipbtn" data-next="1">This gameweek</button>
         <button class="chipbtn" data-next="3">Next 3</button>
@@ -653,6 +668,7 @@ function render(){
       <div class="pairstrip">${strip}</div></div>`;
   }).join("");
 
+  paintGwPick(from,to);
   document.querySelectorAll("#presets .chipbtn").forEach(b=>{
     let on=false;
     on = (from===NEXT_GW && to===Math.min(38, NEXT_GW+(+b.dataset.next)-1));
@@ -660,9 +676,61 @@ function render(){
   });
 }
 
+// Gameweek picker. Dragging two sliders to reach GW9 is the wrong tool for
+// "show me GW9", so the strip is the primary control: first click picks a single
+// gameweek, a second click on a later one extends it into a range.
+let gwAnchor=null;              // set after a single-gameweek click, cleared once a range closes
+
+function buildGwPick(){
+  const el=$("#gwPick"); if(!el) return;
+  let h="";
+  for(let g=NEXT_GW; g<=38; g++)
+    h+=`<button type="button" class="gwb" data-gw="${g}" aria-label="Gameweek ${g}">${g}</button>`;
+  el.innerHTML=h;
+}
+
+function paintGwPick(from,to){
+  const el=$("#gwPick"); if(!el) return;
+  for(const b of el.children){
+    const g=+b.dataset.gw;
+    b.dataset.in   = (g>=from && g<=to) ? "1" : "0";
+    b.dataset.edge = (g===from || g===to) ? "1" : "0";
+    b.dataset.anchor = (gwAnchor!==null && g===gwAnchor) ? "1" : "0";
+    b.setAttribute("aria-pressed", g>=from&&g<=to ? "true" : "false");
+  }
+  $("#gwHint").textContent = gwAnchor!==null
+    ? `GW${gwAnchor} selected — click a later gameweek to see the run, or a preset below.`
+    : "Click a gameweek to jump to it. Click a second, later one to span a range.";
+}
+
+function scrollGwIntoView(from){
+  const el=$("#gwPick"); if(!el) return;
+  const b=el.querySelector(`[data-gw="${from}"]`); if(!b) return;
+  const l=b.offsetLeft, w=b.offsetWidth, s=el.scrollLeft, cw=el.clientWidth;
+  if(l < s+8) el.scrollLeft = Math.max(0, l-8);
+  else if(l+w > s+cw-8) el.scrollLeft = l+w-cw+8;
+}
+
+$("#gwPick").addEventListener("click",e=>{
+  const b=e.target.closest(".gwb"); if(!b) return;
+  const g=+b.dataset.gw;
+  if(gwAnchor===null || g<=gwAnchor){        // start fresh on a single week
+    gwAnchor=g;
+    $("#gwFrom").value=g; $("#gwTo").value=g;
+  }else{                                      // close the range
+    $("#gwFrom").value=gwAnchor; $("#gwTo").value=g;
+    gwAnchor=null;
+  }
+  render(); scrollGwIntoView(+$("#gwFrom").value);
+});
+
+// Order matters: abandon a half-finished range BEFORE render paints the strip,
+// or the hint and the anchor ring repaint from stale state.
+["#gwFrom","#gwTo"].forEach(s=>$(s).addEventListener("input",()=>{gwAnchor=null;}));
 ["#gwFrom","#gwTo","#kAtk","#kDef","#kpval","#hval"].forEach(s=>$(s).addEventListener("input",render));
 document.querySelectorAll("#presets .chipbtn").forEach(b=>b.addEventListener("click",()=>{
   const from=NEXT_GW, to=Math.min(38, NEXT_GW+(+b.dataset.next)-1);
+  gwAnchor=null;
   $("#gwFrom").value=from;$("#gwTo").value=to;render();}));
 $("#sideSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   SIDE=b.dataset.side;[...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
@@ -695,6 +763,7 @@ function applyData(d){
   const to=Math.min(38, NEXT_GW+5);
   $("#gwFrom").min=NEXT_GW; $("#gwTo").min=NEXT_GW;
   $("#gwFrom").value=NEXT_GW; $("#gwTo").value=to;
+  buildGwPick();
   const when=new Date(d.generated);
   $("#stamp").textContent=`${d.season} · ${d.matchesPlayed} match${d.matchesPlayed===1?"":"es"} played · data updated ${when.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`;
   render();
