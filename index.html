@@ -184,6 +184,20 @@
   .pcell{flex:1 1 0;border-radius:3px;padding:4px 1px;text-align:center;
     font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;font-weight:600;line-height:1.2}
   .pcell u{display:block;text-decoration:none;font-size:8px;opacity:.8;font-weight:500}
+  .pcell b{display:block;font-size:8px;font-weight:600;opacity:.7;letter-spacing:.03em;margin-bottom:1px}
+  .pcell.blank{background:var(--surface-2);color:var(--muted);border:1px dashed var(--border)}
+
+  /* build your own pair */
+  .rotpick{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:13px}
+  .rotpick select{font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:var(--surface-2);
+    border:1px solid var(--border);border-radius:8px;padding:7px 10px;cursor:pointer;
+    flex:0 1 168px;min-width:0;max-width:100%}
+  .rotpick select:hover{border-color:var(--border-strong)}
+  .rotpick select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .rotpick option{background:var(--surface);color:var(--ink)}
+  .rothint{margin:0;font-size:12.5px;color:var(--muted);max-width:70ch}
+  .rotwhen{margin:10px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
+  .rotwhen strong{color:var(--ink);font-weight:600}
 
   .notes{margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:16px 30px}
   .notes h3{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
@@ -255,6 +269,7 @@
     .ctrl{padding:13px 14px}
     .grow{gap:3px}
     .pairs{grid-template-columns:1fr}
+    .rotpick select{flex:1 1 132px}
     .gloss{padding:14px 15px 6px}
     .notes{gap:14px}
   }
@@ -382,6 +397,18 @@
     <div class="pairs" id="pairs"></div>
   </section>
 
+  <section class="rot">
+    <h2>Build your own pair</h2>
+    <p id="myRotIntro">Two sides you are thinking of rotating. Same maths as the ranked pairs above, over the gameweek window and the view you have set.</p>
+    <div class="rotpick">
+      <select id="rotA" aria-label="First team of your rotation"></select>
+      <select id="rotB" aria-label="Second team of your rotation"></select>
+      <button class="chipbtn" id="rotSwap" type="button">Swap</button>
+      <button class="chipbtn" id="rotClear" type="button">Clear</button>
+    </div>
+    <div id="rotOut"></div>
+  </section>
+
 
   <section class="gloss">
     <h2>What every number on this page means</h2>
@@ -419,6 +446,10 @@
       <div class="grow"><span class="gname">Rotation pair</span><span class="gwhen">Below the table</span>
         <span class="gcalc"><code>mean of max(A, B) per gameweek</code></span>
         <span>The first figure is the average of whichever of the two has the better fixture each week. The second, in grey, is the <em>gain</em> &mdash; what rotating adds over simply holding the stronger of the pair throughout. A large first number with a small gain means one team is carrying the pair and you may as well just own them.</span></div>
+
+      <div class="grow"><span class="gname">Your own pair</span><span class="gwhen">Below the rotation pairs</span>
+        <span class="gcalc"><code>mean of max(A, B) per gameweek</code></span>
+        <span>The same two numbers, for any two sides you name rather than the six the model ranks highest. Each cell is labelled with its gameweek and the team you would field that week, and the line beneath spells out which weeks fall to which side. A dashed cell is a <strong>blank gameweek</strong> for both. Your choice is remembered in this browser.</span></div>
     </div>
   </section>
 
@@ -662,15 +693,9 @@ function render(){
   const ids=Object.keys(TEAMS);
   const byGw={}; ids.forEach(id=>{byGw[id]={}; data[id].fx.forEach((f,j)=>{
     byGw[id][f.gw] = SIDE==="all" ? (data[id].atk[j]+data[id].def[j])/2 : data[id][SIDE][j];});});
-  const solo={}; ids.forEach(id=>solo[id]=gws.reduce((s,g)=>s+(byGw[id][g]??0),0)/gws.length);
   const pairs=[];
-  for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){
-    const A=ids[i],B=ids[j]; let sum=0; const pick=[];
-    gws.forEach(g=>{const a=byGw[A][g]??-9, b=byGw[B][g]??-9;
-      const useA=a>=b; sum+=Math.max(a,b); pick.push({gw:g,team:useA?A:B,v:Math.max(a,b)});});
-    const avg=sum/gws.length;
-    pairs.push({A,B,avg,pick,gain:avg-Math.max(solo[A],solo[B])});
-  }
+  for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++)
+    pairs.push(pairStats(byGw,gws,ids[i],ids[j]));
   pairs.sort((x,y)=>y.avg-x.avg);
   const top=pairs.slice(0,6);
   const noun = SIDE==="def"?"clean sheets":SIDE==="atk"?"attacking returns":"returns at both ends";
@@ -687,6 +712,8 @@ function render(){
       <div class="pairstrip">${strip}</div></div>`;
   }).join("");
 
+  renderMyPair(byGw,data,gws,from,to);
+
   paintGwPick(from,to);
   document.querySelectorAll("#presets .chipbtn").forEach(b=>{
     let on=false;
@@ -694,6 +721,91 @@ function render(){
     b.setAttribute("aria-pressed",on?"true":"false");
   });
 }
+
+/* ---- build your own pair -------------------------------------------------
+ * The same calculation as the ranked pairs, for two sides the user names. It
+ * reuses byGw and data from render() rather than recomputing, so it can never
+ * disagree with the cards above it — if the window, the side or the blend
+ * changes, this changes with them.
+ */
+// Shared by the ranked pairs and the one you build yourself, so the two can
+// never disagree about the same two teams.
+function pairStats(byGw,gws,A,B){
+  let sum=0,sa=0,sb=0; const pick=[];
+  gws.forEach(g=>{
+    // A blank gameweek is worth nothing, so it scores 0, not a sentinel. Using
+    // one dragged the headline average below zero as soon as both sides of a
+    // pair were blank, which an expected-goals figure can never be. Scoring it 0
+    // also gets the point of rotating right: a pair where one side covers the
+    // other's blank should beat holding either alone, and now it does.
+    const a=byGw[A][g]??0, b=byGw[B][g]??0;
+    sa+=a; sb+=b; sum+=Math.max(a,b);
+    pick.push({gw:g,team:a>=b?A:B,v:Math.max(a,b)});
+  });
+  const n=gws.length||1, avg=sum/n;
+  return {A,B,avg,pick,gain:avg-Math.max(sa/n,sb/n)};
+}
+
+function renderMyPair(byGw,data,gws,from,to){
+  const out=$("#rotOut"), A=$("#rotA").value, B=$("#rotB").value;
+  const hint=t=>{out.innerHTML=`<p class="rothint">${t}</p>`;};
+  if(!A||!B) return hint(`Pick two teams to see how well they cover each other across GW${from}\u2013${to}.`);
+  if(A===B)  return hint("Those are the same side. Pick a different second team.");
+
+  const {avg,pick,gain}=pairStats(byGw,gws,A,B);
+
+  const fxOf=(t,gw)=>data[t].fx.find(f=>f.gw===gw);
+  const strip=pick.map(x=>{
+    const f=fxOf(x.team,x.gw);
+    if(!f) return `<div class="pcell blank" title="GW${x.gw}: neither side plays">`
+      +`<b>GW${x.gw}</b>&mdash;<u>blank</u></div>`;
+    const sh=shade(x.v), nm=TEAMS[f.opp][1].toUpperCase();
+    return `<div class="pcell" style="background:${sh.bg};color:${sh.fg}"`
+      +` title="GW${x.gw}: play ${TEAMS[x.team][0]} vs ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"}">`
+      +`<b>GW${x.gw}</b>${TEAMS[x.team][1].toUpperCase()}<u>${nm} (${f.home?"H":"A"})</u></div>`;
+  }).join("");
+
+  // Spell the split out in words. Reading it off the strip is the thing people
+  // get wrong, and it is the whole point of picking the pair.
+  const played=pick.filter(x=>fxOf(x.team,x.gw));
+  const weeks=t=>played.filter(x=>x.team===t).map(x=>"GW"+x.gw).join(", ");
+  const wa=weeks(A), wb=weeks(B);
+  let when;
+  if(!played.length) when=`Neither side has a fixture between GW${from} and GW${to}.`;
+  else if(!wa||!wb) when=`<strong>${TEAMS[wa?A:B][0]}</strong> has the better fixture every single week here, `
+    +`so there is nothing to rotate \u2014 you may as well just own them.`;
+  else when=`Play <strong>${TEAMS[A][0]}</strong> in ${wa}. `
+    +`Play <strong>${TEAMS[B][0]}</strong> in ${wb}.`;
+
+  out.innerHTML=`<div class="pairs"><div class="pair">
+    <div class="pairhead"><span class="pairname">${TEAMS[A][0]}<s>/</s>${TEAMS[B][0]}</span>
+    <span class="pairval">${avg.toFixed(2)} <span class="sub">${gain<0?"":"+"}${gain.toFixed(2)}</span></span></div>
+    <div class="pairstrip">${strip}</div>
+    <p class="rotwhen">${when}</p></div></div>`;
+}
+
+function fillRotPicks(){
+  const opts=Object.keys(TEAMS).map(id=>[id,TEAMS[id][0]]).sort((a,b)=>a[1].localeCompare(b[1]));
+  let saved={a:"",b:""};
+  try{ saved={a:localStorage.getItem("fdb-rot-a")||"",b:localStorage.getItem("fdb-rot-b")||""}; }catch(e){}
+  [["#rotA",saved.a,"First team\u2026"],["#rotB",saved.b,"Second team\u2026"]].forEach(([sel,cur,ph])=>{
+    const el=$(sel);
+    el.innerHTML=`<option value="">${ph}</option>`
+      +opts.map(([id,nm])=>`<option value="${id}">${nm}</option>`).join("");
+    if(TEAMS[cur]) el.value=cur;
+  });
+}
+
+function saveRot(){
+  try{ localStorage.setItem("fdb-rot-a",$("#rotA").value);
+       localStorage.setItem("fdb-rot-b",$("#rotB").value); }catch(e){}
+  render();
+}
+["#rotA","#rotB"].forEach(s=>$(s).addEventListener("change",saveRot));
+$("#rotSwap").addEventListener("click",()=>{
+  const a=$("#rotA").value; $("#rotA").value=$("#rotB").value; $("#rotB").value=a; saveRot();});
+$("#rotClear").addEventListener("click",()=>{
+  $("#rotA").value=""; $("#rotB").value=""; saveRot();});
 
 // Gameweek picker. Dragging two sliders to reach GW9 is the wrong tool for
 // "show me GW9", so the strip is the primary control: first click picks a single
@@ -783,6 +895,7 @@ function applyData(d){
   $("#gwFrom").min=NEXT_GW; $("#gwTo").min=NEXT_GW;
   $("#gwFrom").value=NEXT_GW; $("#gwTo").value=to;
   buildGwPick();
+  fillRotPicks();
   const when=new Date(d.generated);
   $("#stamp").textContent=`${d.season} · ${d.matchesPlayed} match${d.matchesPlayed===1?"":"es"} played · data updated ${when.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`;
   render();
