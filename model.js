@@ -146,6 +146,31 @@ export function recordsFrom(teams) {
  * Everything a page needs from one data.json, with the fitted constants as
  * defaults. Pass different k values to override them.
  */
+/**
+ * The next gameweek you can still transfer into.
+ *
+ * data.json carries a `nextGw`, but a scheduled build is hours old at best --
+ * and on 7 Sep 2026 it sat on GW3 for a full day after GW3 had been played,
+ * because FPL had not yet flipped that round's `finished` flag. So take
+ * whichever is later, the file or the deadline calendar. It can only ever move
+ * the window forward, never back.
+ */
+export function nextGwFrom(d) {
+  const list = (d.deadlineTimes && d.deadlineTimes.length === d.deadlines.length)
+    ? d.deadlineTimes : d.deadlines;
+  const now = Date.now();
+  let cal = 38;
+  for (let i = 0; i < list.length; i++) {
+    // A date with no time of day cannot tell us the cut-off hour, so the
+    // deadline day itself still counts as upcoming.
+    const t = list[i].length > 10
+      ? Date.parse(list[i]) : Date.parse(list[i] + "T23:59:59Z");
+    if (t > now) { cal = i + 1; break; }
+  }
+  return Math.min(38, Math.max(d.nextGw || 1, cal));
+}
+
+
 export function fromData(d, { kAtk, kDef, kPromoted = 4 } = {}) {
   const rec = recordsFrom(d.teams);
   const S = strengths(rec, d.matchesPlayed,
@@ -154,7 +179,7 @@ export function fromData(d, { kAtk, kDef, kPromoted = 4 } = {}) {
     S, rec,
     home: d.fit.home,
     pen: d.fit.pen,
-    nextGw: d.nextGw,
+    nextGw: nextGwFrom(d),
     teamIds: Object.keys(d.teams),
     fixtures: (from, to) => collect(d.fixtures, Object.keys(d.teams), from, to),
     rate: (side, teamId, fixture, mode = "proj") =>

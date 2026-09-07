@@ -301,6 +301,60 @@ def build_players(boot, season, short2name, short2id, played):
 
 
 
+def derive_next_gw(events, now=None):
+    """
+    The gameweek the site should point at: the next one you can still transfer
+    into.  Everything on the front end hangs off this, so it has to roll over
+    the moment a deadline passes.
+
+    Do NOT use ``event["finished"]``.  FPL only sets it once bonus points are
+    confirmed and the round is data-checked, which lags the last kick-off by a
+    day or more -- and stays False indefinitely if a fixture is postponed.  On
+    7 Sep 2026 all ten GW3 matches were finished and ``finished`` was still
+    False, which pinned the whole site to GW3.
+
+    In order of trust:
+      1. ``is_next`` -- FPL's own answer, flipped at each deadline.
+      2. The first deadline still in the future.  Deterministic, and right even
+         when the flags are mid-update.
+      3. The first round not marked finished (the old behaviour, last resort).
+      4. 38.
+    """
+    if not events:
+        return 38
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+
+    nxt = next((e["id"] for e in events if e.get("is_next")), None)
+    if nxt:
+        return nxt
+
+    for e in events:
+        raw = e.get("deadline_time")
+        if not raw:
+            continue
+        when = datetime.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=datetime.timezone.utc)
+        if when > now:
+            return e["id"]
+
+    # Past the last deadline of the season, or the calendar is unusable.
+    cur = next((e["id"] for e in events if e.get("is_current")), None)
+    if cur:
+        return min(38, cur + 1) if cur < 38 else 38
+    return next((e["id"] for e in events if not e.get("finished")), 38)
+
+
+def next_gw_from_deadlines(deadlines, today=None):
+    """
+    Fallback for when FPL is unreachable and all we have is the date-only
+    deadline list from the previous data.json.  A deadline dated today has not
+    necessarily passed, so today still counts as upcoming.
+    """
+    today = today or datetime.date.today().isoformat()
+    return next((i + 1 for i, d in enumerate(deadlines) if d[:10] >= today), 38)
+
+
 def load_fpl(previous):
     """
     Fixtures, deadlines and difficulty ratings from the FPL API.
@@ -322,8 +376,8 @@ def load_fpl(previous):
                                "short": t["short_name"].lower()}
                      for t in boot["teams"]},
             "deadlines": [e["deadline_time"][:10] for e in boot["events"]],
-            "nextGw": next((e["id"] for e in boot["events"]
-                            if not e["finished"]), 38),
+            "deadlineTimes": [e["deadline_time"] for e in boot["events"]],
+            "nextGw": derive_next_gw(boot["events"]),
             "fixtures": [[f["event"], f["team_h"], f["team_a"],
                           f["team_h_difficulty"], f["team_a_difficulty"]]
                          for f in raw if f["event"]],
@@ -341,6 +395,7 @@ def load_fpl(previous):
             "short2id": {v["short"].upper(): k for k, v in meta.items()},
             "meta": meta,
             "deadlines": previous["deadlines"],
+            "deadlineTimes": previous.get("deadlineTimes", []),
             "nextGw": None,          # worked out from the calendar below
             "fixtures": previous["fixtures"],
         }
@@ -388,8 +443,7 @@ def main():
     played = max((len(v) for v in cur_matches.values()), default=0)
     next_gw = fpl["nextGw"]
     if next_gw is None:
-        today = datetime.date.today().isoformat()
-        next_gw = next((i + 1 for i, d in enumerate(deadlines) if d >= today), 38)
+        next_gw = next_gw_from_deadlines(deadlines)
     log(f"{played} matches played, next GW{next_gw}"
         + ("" if fpl["live"] else "  (derived — FPL was unavailable)"))
 
@@ -436,6 +490,7 @@ def main():
         "promotedPrior": PROMOTED_PRIOR,
         "teams": teams,
         "deadlines": deadlines,
+        "deadlineTimes": fpl["deadlineTimes"] or deadlines,
         "fixtures": fixtures,
         "fplLive": fpl["live"],
     }
@@ -448,6 +503,19 @@ def main():
         problems.append(f"only {len(data['fixtures'])} fixtures")
     if len(data["deadlines"]) != 38:
         problems.append(f"{len(data['deadlines'])} deadlines, expected 38")
+    if not (1 <= data["nextGw"] <= 38):
+        problems.append(f"nextGw={data['nextGw']} is outside 1-38")
+    # A gameweek whose own deadline has been and gone cannot be the next one.
+    # This is the check that would have caught the GW3 stall on 7 Sep 2026:
+    # GW3's deadline was the 4th, and nextGw was still 3.  Rescheduled matches
+    # can put a team's played count ahead of the round number, so the calendar
+    # is the thing to test against, not matchesPlayed.
+    earliest = next_gw_from_deadlines(data["deadlines"])
+    if data["nextGw"] < earliest:
+        problems.append(
+            f"nextGw={data['nextGw']} but its deadline "
+            f"({data['deadlines'][data['nextGw'] - 1]}) has passed — "
+            f"the calendar says GW{earliest}")
     for tid, t in data["teams"].items():
         for key in ("pa", "pd", "a26", "d26"):
             v = t.get(key)

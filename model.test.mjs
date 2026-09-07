@@ -10,10 +10,16 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import * as M from "./model.js";
 
-const HTML = "/home/claude/site/index.html";
-const DATA = "/home/claude/site/data.json";
+// Resolved against this file, not the shell's working directory, so the test
+// runs from anywhere and on any machine. It used to carry absolute paths from
+// the container it was written in, which made it unrunnable everywhere else.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const HTML = path.join(HERE, "index.html");
+const DATA = path.join(HERE, "data.json");
 
 const d = JSON.parse(fs.readFileSync(DATA, "utf8"));
 const html = fs.readFileSync(HTML, "utf8");
@@ -125,7 +131,7 @@ test("defaults to the fitted constants", () => {
   const S = M.strengths(REC, d.matchesPlayed, d.fit.kAtk, d.fit.kDef, 4);
   for (const id of ids) close(m.S.ATK[id], S.ATK[id], `ATK[${id}]`);
   assert.equal(m.home, d.fit.home);
-  assert.equal(m.nextGw, d.nextGw);
+  assert.equal(m.nextGw, M.nextGwFrom(d));
 });
 test("rate() agrees with rawVal()", () => {
   const m = M.fromData(d);
@@ -136,6 +142,48 @@ test("rate() agrees with rawVal()", () => {
     close(m.rate("def", id, f, "proj"),
           M.rawVal("def", id, f, m.S, d.fit.home, "proj", d.fit.pen), "rate def");
   }
+});
+
+/* -- the gameweek window rolls over --------------------------------------- */
+// A scheduled build can be a day stale, and FPL leaves a round's `finished`
+// flag False long after it has been played, so nextGw in the file is not
+// trusted on its own. These pin the rule: never behind the calendar, never
+// dragged backwards, and never past 38.
+console.log("\nnextGwFrom");
+const cal = (nextGw, deadlines, deadlineTimes) =>
+  M.nextGwFrom({ nextGw, deadlines, ...(deadlineTimes ? { deadlineTimes } : {}) });
+
+const past = new Date(Date.now() - 3 * 864e5).toISOString();
+const soon = new Date(Date.now() + 5 * 864e5).toISOString();
+const later = new Date(Date.now() + 12 * 864e5).toISOString();
+
+test("moves past a gameweek whose deadline has gone", () => {
+  assert.equal(cal(3, [past, past, past, soon, later]), 4);
+});
+test("stays put when the file is already right", () => {
+  assert.equal(cal(4, [past, past, past, soon, later]), 4);
+});
+test("never drags the window backwards", () => {
+  assert.equal(cal(5, [past, past, past, soon, later]), 5);
+});
+test("uses deadlineTimes when they are there", () => {
+  assert.equal(cal(3, ["x", "x", "x", "x", "x"].map(() => past.slice(0, 10)),
+                   [past, past, past, soon, later]), 4);
+});
+test("a date-only deadline keeps the deadline day itself upcoming", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  assert.equal(cal(2, [past.slice(0, 10), today, later.slice(0, 10)]), 2);
+});
+test("clamps to 38 once the season is out of deadlines", () => {
+  assert.equal(cal(37, Array(38).fill(past)), 38);
+});
+test("the live data.json is never behind its own calendar", () => {
+  const n = M.nextGwFrom(d);
+  assert.ok(n >= 1 && n <= 38, `nextGw ${n} out of range`);
+  const dl = d.deadlines[n - 1];
+  const cutoff = dl.length > 10 ? Date.parse(dl) : Date.parse(dl + "T23:59:59Z");
+  assert.ok(cutoff > Date.now(),
+    `GW${n} is offered as next but its deadline (${dl}) has passed`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

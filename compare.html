@@ -503,7 +503,7 @@ Promise.all([
 ]).then(([d,pl])=>{
   D=d; P=pl; M=fromData(d); RAMP=rampFromCss();
   $("#rampbar").style.background="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v,RAMP).bg).join(",")+")";
-  $("#stamp").textContent=`${d.season} · next GW${d.nextGw} · updated `
+  $("#stamp").textContent=`${d.season} · next GW${M.nextGw} · updated `
     + new Date(d.generated).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
 
   // Open on something worth looking at rather than an empty table: the two

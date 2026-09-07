@@ -362,6 +362,25 @@ function kit(short){
 const SAVE_KEY="fdb-squad-v1";
 
 const $=s=>document.querySelector(s);
+// The next gameweek you can still transfer into. data.json carries one, but a
+// scheduled build is hours old at best -- and on 7 Sep 2026 it sat on GW3 for a
+// full day after GW3 had been played, because FPL had not yet flipped that
+// round's `finished` flag. So take whichever is later, the file or the deadline
+// calendar. It can only ever move the window forward, never back.
+const nextGwFrom=d=>{
+  const list=(d.deadlineTimes&&d.deadlineTimes.length===d.deadlines.length)
+    ? d.deadlineTimes : d.deadlines;
+  const now=Date.now();
+  let cal=38;
+  for(let i=0;i<list.length;i++){
+    // A date with no time of day cannot tell us the cut-off hour, so the
+    // deadline day itself still counts as upcoming.
+    const t=list[i].length>10 ? Date.parse(list[i]) : Date.parse(list[i]+"T23:59:59Z");
+    if(t>now){ cal=i+1; break; }
+  }
+  return Math.min(38, Math.max(d.nextGw||1, cal));
+};
+
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 let TEAMS={}, REC={}, FX=[], NEXT_GW=1, MATCHES_PLAYED=0, FIT={}, PLAYERS=[], S=null;
@@ -739,12 +758,12 @@ Promise.all([
     TEAMS[id]=[t.name,t.short];
     REC[id]={pa:t.pa,pd:t.pd,a26:t.a26,d26:t.d26};
     if(t.promoted) REC[id].promoted=1;}
-  FX=d.fixtures; NEXT_GW=d.nextGw; MATCHES_PLAYED=d.matchesPlayed; FIT=d.fit;
+  FX=d.fixtures; NEXT_GW=nextGwFrom(d); MATCHES_PLAYED=d.matchesPlayed; FIT=d.fit;
   // The fitted constants, not sliders. The ticker is where you argue with the
   // model; here you just want to know whether the run is kind.
   S=strengths(FIT.kAtk,FIT.kDef,4);
   PLAYERS=pl.players;
-  $("#stamp").textContent=`${d.season} · next GW${d.nextGw} · updated `
+  $("#stamp").textContent=`${d.season} · next GW${NEXT_GW} · updated `
     + new Date(d.generated).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
   $("#rampbar").style.background="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v)).join(",")+")";
   load();

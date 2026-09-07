@@ -457,7 +457,26 @@ nfo:"#DD0000",tot:"#132257",sun:"#EB172B"};
 let TEAMS={}, REC={}, FX=[], DEADLINES=[], NEXT_GW=1, MATCHES_PLAYED=0, FIT={}, PEN=1;
 const $=s=>document.querySelector(s);
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const fmtDate=iso=>{const[y,m,d]=iso.split("-").map(Number);
+// The next gameweek you can still transfer into. data.json carries one, but a
+// scheduled build is hours old at best -- and on 7 Sep 2026 it sat on GW3 for a
+// full day after GW3 had been played, because FPL had not yet flipped that
+// round's `finished` flag. So take whichever is later, the file or the deadline
+// calendar. It can only ever move the window forward, never back.
+const nextGwFrom=d=>{
+  const list=(d.deadlineTimes&&d.deadlineTimes.length===d.deadlines.length)
+    ? d.deadlineTimes : d.deadlines;
+  const now=Date.now();
+  let cal=38;
+  for(let i=0;i<list.length;i++){
+    // A date with no time of day cannot tell us the cut-off hour, so the
+    // deadline day itself still counts as upcoming.
+    const t=list[i].length>10 ? Date.parse(list[i]) : Date.parse(list[i]+"T23:59:59Z");
+    if(t>now){ cal=i+1; break; }
+  }
+  return Math.min(38, Math.max(d.nextGw||1, cal));
+};
+
+const fmtDate=iso=>{const[y,m,d]=iso.slice(0,10).split("-").map(Number);
   return d+" "+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1];};
 
 /* ---- continuous diverging colour ---- */
@@ -757,7 +776,7 @@ function applyData(d){
     REC[id]={pa:t.pa, pd:t.pd, a26:t.a26, d26:t.d26};
     if(t.promoted) REC[id].promoted=1;
   }
-  FX=d.fixtures; DEADLINES=d.deadlines; NEXT_GW=d.nextGw;
+  FX=d.fixtures; DEADLINES=d.deadlines; NEXT_GW=nextGwFrom(d);
   MATCHES_PLAYED=d.matchesPlayed; FIT=d.fit; PEN=d.fit.pen;
   $("#kAtk").value=FIT.kAtk; $("#kDef").value=FIT.kDef; $("#hval").value=FIT.home;
   const to=Math.min(38, NEXT_GW+5);
