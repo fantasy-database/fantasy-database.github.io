@@ -140,9 +140,82 @@
     font-size:12px;color:var(--muted)}
   .rampbar{display:inline-block;width:96px;height:9px;border-radius:99px;vertical-align:-1px}
 
+  /* ---- fixture window: the same strip the fixtures page uses ---- */
+  .gwctrl{margin-top:14px;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;box-shadow:var(--shadow);padding:14px 16px;min-width:0}
+  .gwctrl h2{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  .gwread{font-weight:700;font-size:17px;letter-spacing:-.01em;font-variant-numeric:tabular-nums;
+    display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+  .gwread small{font-weight:400;font-size:12px;color:var(--muted);letter-spacing:0}
+  .gwpick{display:flex;gap:4px;overflow-x:auto;max-width:100%;padding:2px 0 8px;scrollbar-width:thin;
+    scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
+  .gwpick::-webkit-scrollbar{height:5px}
+  .gwpick::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:99px}
+  .gwb{flex:none;font:inherit;font-family:"Roboto Mono",ui-monospace,monospace;font-size:11.5px;
+    min-width:30px;padding:5px 0;border-radius:7px;cursor:pointer;text-align:center;
+    background:var(--surface-2);border:1px solid var(--border);color:var(--muted)}
+  .gwb:hover{border-color:var(--border-strong);color:var(--ink)}
+  .gwb:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .gwb[data-in="1"]{background:rgba(0,255,135,.13);border-color:rgba(0,255,135,.45);color:var(--ink)}
+  .gwb[data-edge="1"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+  .gwb[data-anchor="1"]{box-shadow:0 0 0 2px var(--accent) inset}
+  .gwhint{margin:0 0 8px;font-size:11.5px;color:var(--muted);min-height:1.2em}
+  .presets{display:flex;flex-wrap:wrap;gap:5px}
+  .chipbtn{font:inherit;font-size:12px;font-weight:500;padding:4px 10px;border-radius:99px;cursor:pointer;
+    background:var(--surface-2);color:var(--ink);border:1px solid var(--border)}
+  .chipbtn:hover{border-color:var(--border-strong)}
+  .chipbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .chipbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* ---- rotation ---- */
+  .rot{margin-top:14px;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;box-shadow:var(--shadow);padding:16px 18px;min-width:0}
+  .rot h2{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+  .rot > p{margin:0 0 13px;font-size:12.5px;color:var(--muted);max-width:70ch}
+  .rotpick{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:13px}
+  .rotpick select{font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:var(--surface-2);
+    border:1px solid var(--border);border-radius:8px;padding:7px 10px;cursor:pointer;
+    flex:0 1 190px;min-width:0;max-width:100%}
+  .rotpick select:hover{border-color:var(--border-strong)}
+  .rotpick select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .rotpick option{background:var(--surface);color:var(--ink)}
+  .rotpick .vs{font-family:"Roboto Mono",monospace;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted)}
+  .pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:9px}
+  .pair{border:1px solid var(--border);border-radius:8px;padding:10px 11px;background:var(--surface-2)}
+  .pairhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .pairname{font-weight:700;font-size:13.5px;letter-spacing:-.01em}
+  .pairname s{text-decoration:none;color:var(--muted);font-weight:600;margin:0 3px}
+  .pairval{font-family:"Roboto Mono",ui-monospace,monospace;font-size:12.5px;font-weight:600;
+    font-variant-numeric:tabular-nums}
+  .pairval .sub{font-size:10.5px;color:var(--muted);font-weight:400}
+  .pairs{min-width:0}
+  .pair{min-width:0}
+  /* Player names are long where team codes were three letters, so the cells get a
+     floor and the strip scrolls inside itself rather than letting a name spill
+     out of its cell — which is exactly what nine gameweeks did at phone width. */
+  .pairstrip{display:flex;gap:2px;overflow-x:auto;scrollbar-width:thin;
+    -webkit-overflow-scrolling:touch}
+  .pairstrip::-webkit-scrollbar{height:5px}
+  .pairstrip::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:99px}
+  .pcell{flex:1 0 56px;min-width:0;overflow:hidden;border-radius:3px;padding:4px 2px;text-align:center;
+    font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;font-weight:600;line-height:1.2}
+  .pcell i{display:block;font-style:normal;overflow-wrap:anywhere;line-height:1.15}
+  .pcell u{display:block;text-decoration:none;font-size:8px;opacity:.8;font-weight:500;
+    overflow-wrap:anywhere}
+  .pcell b{display:block;font-size:8px;font-weight:600;opacity:.7;letter-spacing:.03em;margin-bottom:1px}
+  .pcell.blank{background:var(--surface-2);color:var(--muted);border:1px dashed var(--border)}
+  .rothint{margin:0;font-size:12.5px;color:var(--muted);max-width:70ch}
+  .rotwhen{margin:10px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
+  .rotwhen strong{color:var(--ink);font-weight:600}
+  .rotnote{margin:10px 0 0;font-size:12px;color:var(--warn)}
+
   @media (max-width:700px){
     .wrap{padding:16px 0 44px}
-    .mast,.bar,.pick,.card,.note{margin-left:12px;margin-right:12px}
+    .mast,.bar,.pick,.card,.note,.gwctrl,.rot{margin-left:12px;margin-right:12px}
+    .rotpick select{flex:1 1 150px}
     .nav{margin-left:0;width:100%}
     th,td{padding:7px 8px}
     th.lft,td.lft{min-width:104px;max-width:104px;box-shadow:6px 0 8px -6px rgba(0,0,0,.55)}
@@ -197,12 +270,6 @@
       <button data-scale="tot" aria-pressed="true">Total</button>
       <button data-scale="p90">Per 90</button>
     </div>
-    <span class="seglabel">Fixtures</span>
-    <select id="gws">
-      <option value="3">Next 3 GWs</option>
-      <option value="6" selected>Next 6 GWs</option>
-      <option value="9">Next 9 GWs</option>
-    </select>
   </div>
 
   <div class="pick">
@@ -220,6 +287,19 @@
     <p class="caution" id="sampleWarn" hidden></p>
   </div>
 
+  <section class="gwctrl">
+    <h2>Fixture window</h2>
+    <div class="gwread" id="gwRead"></div>
+    <div class="gwpick" id="gwPick" role="group" aria-label="Pick a gameweek"></div>
+    <p class="gwhint" id="gwHint"></p>
+    <div class="presets" id="presets">
+      <button class="chipbtn" type="button" data-next="1">This gameweek</button>
+      <button class="chipbtn" type="button" data-next="3">Next 3</button>
+      <button class="chipbtn" type="button" data-next="6">Next 6</button>
+      <button class="chipbtn" type="button" data-next="9">Next 9</button>
+    </div>
+  </section>
+
   <div class="card" id="fxCard">
     <h2 id="fxTitle">Upcoming fixtures</h2>
     <div class="scroll"><table id="fxTable"></table></div>
@@ -228,6 +308,18 @@
       <span id="fxKey"></span>
     </p>
   </div>
+
+  <section class="rot" id="rotSec">
+    <h2>Rotate two of them</h2>
+    <p id="rotIntro"></p>
+    <div class="rotpick" id="rotPickRow" hidden>
+      <select id="rotA" aria-label="First player of the rotation"></select>
+      <span class="vs">with</span>
+      <select id="rotB" aria-label="Second player of the rotation"></select>
+      <button class="chipbtn" id="rotSwap" type="button">Swap</button>
+    </div>
+    <div id="rotOut"></div>
+  </section>
 
   <p class="note" id="foot"></p>
 </div>
@@ -267,7 +359,11 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 let D=null, P=null, M=null, RAMP=null;
-let pos=2, scale="tot", horizon=6, picked=[], hi=-1;
+let pos=2, scale="tot", picked=[], hi=-1;
+// The fixture window is a from/to pair now, not a fixed horizon, so the strip can
+// name a single gameweek or any run of them — same control as the fixtures page.
+let gwFrom=1, gwTo=6, gwAnchor=null;
+let rotA=null, rotB=null;
 
 /* ------------------------------- values ---------------------------------- */
 function val(p,key){
@@ -295,8 +391,23 @@ const winnerOf=(key,vals)=>{
 /* ------------------------------- fixtures -------------------------------- */
 const sideFor=p=>p.p<=2 ? "def" : "atk";
 function fixturesFor(teamId){
-  const to=Math.min(38, M.nextGw+horizon-1);
-  return (M.fixtures(M.nextGw,to)[teamId]||[]);
+  return (M.fixtures(gwFrom,gwTo)[teamId]||[]);
+}
+// One entry per gameweek in the window for one player: the mean of his side's
+// fixtures that week, in both the 0-1 goodness the colours use and the raw
+// number the cells print. A gameweek he does not play scores 0 and is flagged
+// blank — never a sentinel, which is what put a negative average on screen once.
+function gwSeries(p,gws){
+  const side=sideFor(p), fx=fixturesFor(p.t);
+  const byGw={}; fx.forEach(f=>{(byGw[f.gw]=byGw[f.gw]||[]).push(f);});
+  return gws.map(g=>{
+    const list=byGw[g]||[];
+    if(!list.length) return {gw:g,t:0,raw:null,fx:[],blank:true};
+    const raws=list.map(f=>M.rate(side,p.t,f,"proj"));
+    const ts=raws.map(v=>goodClamped(side,v,"proj"));
+    const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+    return {gw:g,t:mean(ts),raw:mean(raws),fx:list,blank:false};
+  });
 }
 
 /* -------------------------------- render --------------------------------- */
@@ -315,7 +426,10 @@ function render(){
       Pick at least two ${POSNAME[pos].toLowerCase()} to compare.</td></tr></tbody>`;
     $("#fxTable").innerHTML="";
     $("#fxKey").textContent="";
+    $("#fxTitle").textContent="Upcoming fixtures";
     foot(players);
+    paintGwPick();
+    renderRot(players,[]);
     return;
   }
 
@@ -370,7 +484,10 @@ function render(){
 
   // ---- fixtures ----
   const gws=[];
-  for(let g=M.nextGw; g<=Math.min(38,M.nextGw+horizon-1); g++) gws.push(g);
+  for(let g=gwFrom; g<=gwTo; g++) gws.push(g);
+  $("#fxTitle").textContent = gwFrom===gwTo
+    ? `Upcoming fixtures — GW${gwFrom}`
+    : `Upcoming fixtures — GW${gwFrom} to GW${gwTo}`;
   const fhead=`<thead><tr><th class="lft">Player</th>`
     + gws.map(g=>`<th>GW${g}</th>`).join("") + `<th>Average</th></tr></thead>`;
 
@@ -409,6 +526,102 @@ function render(){
     : `Mixed positions: keepers and defenders show <b>clean sheet chance</b>, midfielders and forwards show <b>their team's expected goals</b>. The colours are comparable; the numbers are not.`;
 
   foot(players);
+  paintGwPick();
+  renderRot(players,gws);
+}
+
+/* ------------------------------- rotation --------------------------------
+ * Two of the players on screen, week by week: start whichever has the better
+ * fixture. Same shape as "Build your own pair" on the fixtures page, and the
+ * same arithmetic — the score is the mean of the better man's rating across the
+ * window, and the gain is what that adds over simply starting the better player
+ * every single week. Everything follows the window and the position above it.
+ */
+function fillRotPicks(players){
+  [["#rotA",rotA],["#rotB",rotB]].forEach(([sel,cur])=>{
+    const el=$(sel);
+    el.innerHTML=players.map(p=>{
+      const t=D.teams[p.t]||{short:"?"};
+      return `<option value="${p.i}">${esc(p.n)} \u2014 ${esc(t.short.toUpperCase())}</option>`;
+    }).join("");
+    el.value=String(cur);
+  });
+}
+
+function renderRot(players,gws){
+  const out=$("#rotOut"), row=$("#rotPickRow"), intro=$("#rotIntro");
+  const noun = pos<=2 ? "clean sheet chance" : "their team's expected goals";
+
+  if(players.length<2){
+    row.hidden=true;
+    intro.textContent="Start whichever of two players has the better week, every week.";
+    out.innerHTML=`<p class="rothint">Pick at least two ${POSNAME[pos].toLowerCase()} above,`
+      + ` then choose two of them here to see who to start each gameweek.</p>`;
+    return;
+  }
+
+  // Keep the two slots pointing at players who are still on screen.
+  const ids=players.map(p=>p.i);
+  if(!ids.includes(rotA)) rotA=ids[0];
+  if(!ids.includes(rotB)||rotB===rotA) rotB=ids.find(i=>i!==rotA);
+  row.hidden=false;
+  fillRotPicks(players);
+
+  const A=players.find(p=>p.i===rotA), B=players.find(p=>p.i===rotB);
+  if(!A||!B||!gws.length){ out.innerHTML=""; return; }
+
+  intro.innerHTML=`Start whichever of the two has the better week. The score is the average`
+    + ` <b>${noun}</b> of whoever you would have started across GW${gwFrom}\u2013GW${gwTo};`
+    + ` the gain is what rotating adds over simply starting the better of the two every week.`
+    + ` <b>Higher is better</b> in both.`;
+
+  const sa=gwSeries(A,gws), sb=gwSeries(B,gws);
+  let sum=0,ta=0,tb=0; const pick=[];
+  gws.forEach((g,k)=>{
+    const a=sa[k], b=sb[k];
+    ta+=a.t; tb+=b.t; sum+=Math.max(a.t,b.t);
+    // A side that plays always beats a side that does not, even when the fixture
+    // it plays rates 0 — otherwise a blank week can win on a tie and the strip
+    // tells you to start nobody.
+    const takeA = (a.blank!==b.blank) ? !a.blank : a.t>=b.t;
+    pick.push(Object.assign({},takeA?a:b,{who:takeA?A:B}));
+  });
+  const n=gws.length, avg=sum/n, gain=avg-Math.max(ta/n,tb/n);
+
+  const side=sideFor(A);
+  const strip=pick.map(x=>{
+    if(x.blank) return `<div class="pcell blank" title="GW${x.gw}: neither one plays">`
+      + `<b>GW${x.gw}</b>\u2014<u>blank</u></div>`;
+    const sh=shade(x.t,RAMP);
+    const opps=x.fx.map(f=>{const o=D.teams[f.opp];
+      return `${esc(o?o.short.toUpperCase():"?")} (${f.home?"H":"A"})`;}).join(" + ");
+    return `<div class="pcell" style="background:${sh.bg};color:${sh.fg}"`
+      + ` title="GW${x.gw}: start ${esc(x.who.n)} \u2014 ${opps}">`
+      + `<b>GW${x.gw}</b><i>${esc(x.who.n)}</i><u>${opps}</u>`
+      + `<u>${formatVal(side,x.raw,"proj",true)}</u></div>`;
+  }).join("");
+
+  const played=pick.filter(x=>!x.blank);
+  const weeks=p=>played.filter(x=>x.who.i===p.i).map(x=>"GW"+x.gw).join(", ");
+  const wa=weeks(A), wb=weeks(B);
+  let when;
+  if(!played.length) when=`Neither of them has a fixture between GW${gwFrom} and GW${gwTo}.`;
+  else if(!wa||!wb) when=`<strong>${esc((wa?A:B).n)}</strong> has the better fixture every week here,`
+    + ` so there is nothing to rotate \u2014 you may as well just own him.`;
+  else when=`Start <strong>${esc(A.n)}</strong> in ${wa}.`
+    + ` Start <strong>${esc(B.n)}</strong> in ${wb}.`;
+
+  const sameTeam = A.t===B.t;
+  const note = sameTeam
+    ? `<p class="rotnote">Both play for ${esc((D.teams[A.t]||{name:"the same club"}).name)}, so they share every`
+      + ` fixture \u2014 there is nothing here to rotate. Pick two from different clubs.</p>` : "";
+
+  out.innerHTML=`<div class="pairs"><div class="pair">
+    <div class="pairhead"><span class="pairname">${esc(A.n)}<s>/</s>${esc(B.n)}</span>
+      <span class="pairval">${Math.round(avg*100)}%
+        <span class="sub">${gain<0?"":"+"}${Math.round(gain*100)}</span></span></div>
+    <div class="pairstrip">${strip}</div>
+    <p class="rotwhen">${when}</p>${note}</div></div>`;
 }
 
 function foot(players){
@@ -475,7 +688,73 @@ $("#scaleSeg").addEventListener("click",e=>{const b=e.target.closest("button");i
   scale=b.dataset.scale;
   [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));
   render();});
-$("#gws").addEventListener("change",e=>{horizon=+e.target.value; render();});
+
+/* ----------------------------- gameweek strip -----------------------------
+ * Lifted from the fixtures page so the two behave identically: one click picks a
+ * single gameweek, a second click on a later one spans the range, an earlier one
+ * starts again. The presets underneath are the old dropdown's three choices plus
+ * "this gameweek", and any of them abandons a half-made range.
+ */
+function buildGwPick(){
+  const el=$("#gwPick"); if(!el) return;
+  let h="";
+  for(let g=M.nextGw; g<=38; g++)
+    h+=`<button type="button" class="gwb" data-gw="${g}" aria-label="Gameweek ${g}">${g}</button>`;
+  el.innerHTML=h;
+}
+
+function paintGwPick(){
+  const el=$("#gwPick"); if(!el||!el.children.length) return;
+  for(const b of el.children){
+    const g=+b.dataset.gw;
+    b.dataset.in     = (g>=gwFrom && g<=gwTo) ? "1" : "0";
+    b.dataset.edge   = (g===gwFrom || g===gwTo) ? "1" : "0";
+    b.dataset.anchor = (gwAnchor!==null && g===gwAnchor) ? "1" : "0";
+    b.setAttribute("aria-pressed", g>=gwFrom&&g<=gwTo ? "true" : "false");
+  }
+  const n=gwTo-gwFrom+1;
+  $("#gwRead").innerHTML = gwFrom===gwTo
+    ? `GW${gwFrom} <small>one gameweek</small>`
+    : `GW${gwFrom}\u2013GW${gwTo} <small>${n} gameweeks</small>`;
+  $("#gwHint").textContent = gwAnchor!==null
+    ? `GW${gwAnchor} selected \u2014 click a later gameweek to see the run, or a preset below.`
+    : "Click a gameweek to jump to it. Click a second, later one to span a range.";
+  document.querySelectorAll("#presets .chipbtn").forEach(b=>{
+    const on = gwFrom===M.nextGw && gwTo===Math.min(38, M.nextGw+(+b.dataset.next)-1);
+    b.setAttribute("aria-pressed", on?"true":"false");
+  });
+}
+
+function scrollGwIntoView(g){
+  const el=$("#gwPick"); if(!el) return;
+  const b=el.querySelector(`[data-gw="${g}"]`); if(!b) return;
+  const l=b.offsetLeft, w=b.offsetWidth, sl=el.scrollLeft, cw=el.clientWidth;
+  if(l < sl+8) el.scrollLeft=Math.max(0,l-8);
+  else if(l+w > sl+cw-8) el.scrollLeft=l+w-cw+8;
+}
+
+$("#gwPick").addEventListener("click",e=>{
+  const b=e.target.closest(".gwb"); if(!b) return;
+  const g=+b.dataset.gw;
+  if(gwAnchor===null || g<=gwAnchor){ gwAnchor=g; gwFrom=g; gwTo=g; }
+  else { gwFrom=gwAnchor; gwTo=g; gwAnchor=null; }
+  render(); scrollGwIntoView(gwFrom);
+});
+document.querySelectorAll("#presets .chipbtn").forEach(b=>b.addEventListener("click",()=>{
+  gwAnchor=null;
+  gwFrom=M.nextGw; gwTo=Math.min(38, M.nextGw+(+b.dataset.next)-1);
+  render(); scrollGwIntoView(gwFrom);
+}));
+
+$("#rotA").addEventListener("change",e=>{
+  rotA=+e.target.value;
+  if(rotB===rotA){ const o=picked.find(i=>i!==rotA); if(o!==undefined) rotB=o; }
+  render();});
+$("#rotB").addEventListener("change",e=>{
+  rotB=+e.target.value;
+  if(rotA===rotB){ const o=picked.find(i=>i!==rotB); if(o!==undefined) rotA=o; }
+  render();});
+$("#rotSwap").addEventListener("click",()=>{const a=rotA; rotA=rotB; rotB=a; render();});
 $("#q").addEventListener("input",searchResults);
 $("#results").addEventListener("click",e=>{
   const row=e.target.closest("[data-add]"); if(row) add(+row.dataset.add);});
@@ -502,6 +781,8 @@ Promise.all([
   fetch("players.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("players.json "+r.status);return r.json();})
 ]).then(([d,pl])=>{
   D=d; P=pl; M=fromData(d); RAMP=rampFromCss();
+  gwFrom=M.nextGw; gwTo=Math.min(38, M.nextGw+5);   // the old default: the next six
+  buildGwPick();
   $("#rampbar").style.background="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v,RAMP).bg).join(",")+")";
   $("#stamp").textContent=`${d.season} · next GW${M.nextGw} · updated `
     + new Date(d.generated).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
