@@ -157,21 +157,28 @@ def solve(event):
     }
 
 
-def market_table(api_key=None):
-    """{short_code: expected goals} for every upcoming fixture the books price."""
+def priced_fixtures(api_key=None):
+    """
+    Every fixture the books have priced, as
+    {home: short, away: short, home_xg, away_xg, kickoff}.
+
+    Returned per fixture rather than per team so the caller can join each one to
+    its gameweek: bookmakers price whatever is next, which is usually one round
+    but can be two, and a team with a double gameweek appears twice.
+    """
     api_key = api_key or os.environ["ODDS_API_KEY"]
     events, remaining = fetch(api_key)
-    out, unmapped = {}, set()
+    out, unmapped = [], set()
     for ev in events:
         s = solve(ev)
         if not s:
             continue
-        for team, xg in ((s["home"], s["home_xg"]), (s["away"], s["away_xg"])):
-            short = NAME_TO_SHORT.get(team)
-            if short is None:
-                unmapped.add(team)
-                continue
-            out.setdefault(short, []).append({"xg": xg, "kickoff": s["commence"]})
+        h, a = NAME_TO_SHORT.get(s["home"]), NAME_TO_SHORT.get(s["away"])
+        if h is None or a is None:
+            unmapped.update(t for t, k in ((s["home"], h), (s["away"], a)) if k is None)
+            continue
+        out.append({"home": h, "away": a, "home_xg": s["home_xg"],
+                    "away_xg": s["away_xg"], "kickoff": s["commence"]})
     if unmapped:
         raise SystemExit(
             "Unmapped team names from the odds feed: " + ", ".join(sorted(unmapped))

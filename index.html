@@ -124,16 +124,10 @@
   .blendoff{opacity:.4;pointer-events:none}
   .readout.sub2{font-size:15px;margin-top:14px;margin-bottom:8px}
   .hint{font-size:11.5px;color:var(--muted);margin:8px 0 0;line-height:1.45}
-  .mkt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:7px;margin-top:12px}
-  .mkt-row{display:flex;align-items:baseline;gap:8px;padding:7px 10px;border-radius:7px;
-    background:var(--surface-2);border:1px solid var(--border);min-width:0}
-  .mkt-row b{font-family:"Roboto Mono",ui-monospace,monospace;font-size:11px;font-weight:700;
-    letter-spacing:.06em;flex:none;width:34px}
-  .mkt-row .xg{font-weight:700;font-size:15px;flex:none}
-  .mkt-row .gap{margin-left:auto;font-family:"Roboto Mono",ui-monospace,monospace;
-    font-size:10.5px;color:var(--muted);white-space:nowrap}
-  .mkt-row .gap.big{color:var(--bar)}
-  .mkt-note{font-size:11.5px;color:var(--muted);margin:11px 0 0;line-height:1.45}
+  .cell.priced{position:relative}
+  .cell.priced::after{content:"";position:absolute;top:3px;right:3px;width:4px;height:4px;
+    border-radius:50%;background:currentColor;opacity:.55}
+  .pricedkey{color:var(--bar)}
   .mixbar{display:flex;height:7px;border-radius:99px;overflow:hidden;border:1px solid var(--border);margin-top:8px}
   .mixbar i{display:block;height:100%}
   .mixbar i:first-child{background:var(--accent)}
@@ -369,13 +363,6 @@
     </table></div>
   </div>
 
-  <section class="rot" id="mktCard" hidden>
-    <h2>This gameweek &middot; the bookmakers</h2>
-    <p id="mktIntro"></p>
-    <div class="mkt-grid" id="mktGrid"></div>
-    <p class="mkt-note" id="mktNote"></p>
-  </section>
-
   <section class="rot">
     <h2>Rotation pairs</h2>
     <p id="rotIntro"></p>
@@ -465,7 +452,7 @@
 
 <script>
 
-let SIDE="atk", MODE="proj", SORT="best", MARKET=null;
+let SIDE="atk", MODE="proj", SORT="best", MKT=null;
 const PROMOTED_K=4;
 const OVR=(()=>{const q=new URLSearchParams(location.search), o={};
   for(const k of ["kAtk","kDef","kp","home"]){const v=parseFloat(q.get(k)); if(Number.isFinite(v)) o[k]=v;}
@@ -529,8 +516,31 @@ function collect(from,to){
   for(const id in out) out[id].sort((x,y)=>x.gw-y.gw);
   return out;
 }
+/* The bookmakers' expected goals for one fixture, when they have priced it.
+   Over a single round the market is the better forecast -- it sees the team news,
+   the suspensions and the rest days that a ratings model cannot -- so where a
+   price exists we use it and keep our own ratings for the weeks beyond it.
+   A clean sheet is the Poisson complement of what the OPPONENT is expected to
+   score, exactly as in the model, so both sides stay on one scale. */
+function mktVal(side,t,f){
+  // typeof-guarded so the function still stands alone when model.test.mjs lifts
+  // it out of this file: with no market in scope it simply falls through to the
+  // model, which is the behaviour the parity test is there to check.
+  if(MODE!=="proj" || typeof MKT==="undefined" || !MKT) return null;
+  const g=MKT[f.gw]; if(!g) return null;
+  const v = side==="atk" ? g[TEAMS[t][1]] : g[TEAMS[f.opp][1]];
+  if(v==null) return null;
+  return side==="atk" ? v : Math.exp(-v)*100;
+}
 /* raw value for one fixture, per side+mode */
 function rawVal(side,t,f,S,h){
+  const mk=mktVal(side,t,f); if(mk!=null) return mk;
+  const m=f.home?h:1/h;
+  if(side==="atk") return MODE==="ease" ? S.DEF[f.opp]*m : S.base*S.ATK[t]*S.DEF[f.opp]*m*PEN;
+  return MODE==="ease" ? m/S.ATK[f.opp] : Math.exp(-(S.base*S.ATK[f.opp]*S.DEF[t]/m*PEN))*100;
+}
+/* our own number, ignoring the market — for the tooltip on a priced cell */
+function modelVal(side,t,f,S,h){
   const m=f.home?h:1/h;
   if(side==="atk") return MODE==="ease" ? S.DEF[f.opp]*m : S.base*S.ATK[t]*S.DEF[f.opp]*m*PEN;
   return MODE==="ease" ? m/S.ATK[f.opp] : Math.exp(-(S.base*S.ATK[f.opp]*S.DEF[t]/m*PEN))*100;
@@ -581,7 +591,13 @@ function render(){
     def_proj:"<b>Higher is better</b> &mdash; a bigger number means a better chance of a clean sheet.",
     all_ease:"<b>Higher is better</b> &mdash; a bigger number means weaker opposition at both ends.",
     all_proj:"<b>Higher is better</b> &mdash; a bigger number means more expected at both ends."};
-  $("#kbtext").innerHTML = DIR[SIDE+"_"+MODE] + ' Green is an easier fixture, red a harder one.';
+  // from/to, not gws: gws is built further down and this runs before it
+  const pricedGws=[];
+  if(MODE==="proj" && MKT) for(let g=from; g<=to; g++) if(MKT[g]) pricedGws.push("GW"+g);
+  $("#kbtext").innerHTML = DIR[SIDE+"_"+MODE] + " Green is an easier fixture, red a harder one."
+    + (pricedGws.length
+        ? ` <b class="pricedkey">${pricedGws.join(" and ")}</b> come from bookmakers' odds rather than our ratings &mdash; over one round the market knows the team news and we do not. Hover a marked cell to see what our own model said.`
+        : "");
 
   const fixtures=collect(from,to);
   const gws=[]; for(let g=from;g<=to;g++) gws.push(g);
@@ -643,8 +659,10 @@ function render(){
       const nm=TEAMS[f.opp][1].toUpperCase(), label=`${nm} (${f.home?"H":"A"})`;
       const pct=Math.round(Math.max(0,Math.min(1,r.cells[j]))*100);
       const val=(MODE==="proj"&&r.raws)?fmt(SIDE,r.raws[j],true):pct;
-      return `<td><span class="cell" style="background:${sh.bg};color:${sh.fg}"
-        title="GW${f.gw} · ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"} · score ${pct}/100${r.raws?" · "+colName+" "+fmt(SIDE,r.raws[j]):""}">${label}<u>${val}</u></span></td>`;
+      const priced = SIDE!=="all" && mktVal(SIDE,r.id,f)!=null;
+      const ours = priced ? fmt(SIDE,modelVal(SIDE,r.id,f,S,h)) : null;
+      return `<td><span class="cell${priced?" priced":""}" style="background:${sh.bg};color:${sh.fg}"
+        title="GW${f.gw} · ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"} · score ${pct}/100${r.raws?" · "+colName+" "+fmt(SIDE,r.raws[j]):""}${priced?` · from the bookmakers' odds; our own model says ${ours}`:""}">${label}<u>${val}</u></span></td>`;
     }).join("");
     // every column says whether the headline number is a total or an average
     const per = r.games ? r.shownVal / r.games : 0;
@@ -859,55 +877,18 @@ function applyData(d){
   $("#gwFrom").value=NEXT_GW; $("#gwTo").value=to;
   buildGwPick();
   fillRotPicks();
-  if(MARKET) renderMarket(MARKET);
   const when=new Date(d.generated);
   $("#stamp").textContent=`${d.season} · ${d.matchesPlayed} match${d.matchesPlayed===1?"":"es"} played · data updated ${when.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`;
   render();
 }
 
-function renderMarket(m){
-  // Only for the gameweek the odds were priced for. A market.json left over from
-  // last week is worse than none at all -- it would sit under a heading that says
-  // "this gameweek" showing last gameweek's numbers.
-  if(!m || !m.market || m.nextGw!==NEXT_GW) return;
-  const short2id={}; for(const id in TEAMS) short2id[TEAMS[id][1]]=id;
-  const rows=Object.keys(m.market)
-    .filter(sh=>short2id[sh])
-    .map(sh=>({sh, name:TEAMS[short2id[sh]][0], mkt:m.market[sh], mine:(m.model||{})[sh]}))
-    .sort((a,b)=>b.mkt-a.mkt);
-  if(!rows.length) return;
-
-  $("#mktGrid").innerHTML = rows.map(r=>{
-    const d = (r.mine==null) ? null : r.mine-r.mkt;
-    const gap = d==null ? "" :
-      `<span class="gap${Math.abs(d)>=0.30?" big":""}" title="our projection ${r.mine.toFixed(2)}">`
-      + `${d>=0?"+":""}${d.toFixed(2)} vs ours</span>`;
-    return `<div class="mkt-row" title="${r.name}"><b>${r.sh.toUpperCase()}</b>`
-         + `<span class="xg">${r.mkt.toFixed(2)}</span>${gap}</div>`;
-  }).join("");
-
-  $("#mktIntro").textContent =
-    `Expected goals for GW${m.nextGw}, taken from bookmakers' odds rather than from our model. `
-    + `Over a single gameweek the betting market is the sharper forecast — it prices in team news, `
-    + `suspensions and rest that a ratings model cannot see. Use it for a Free Hit or a Wildcard; `
-    + `use the table above for anything further out, where no odds exist yet.`;
-
-  const sc=m.scorecard||{}, when=m.generated?new Date(m.generated):null;
-  $("#mktNote").innerHTML =
-    `${rows.length} sides priced${when?` · odds read ${when.toLocaleDateString("en-GB",{day:"numeric",month:"short"})} `
-      + `${when.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}`:""}`
-    + (sc.rmse!=null
-        ? ` · our projections sit <b>${sc.rmse.toFixed(2)}</b> goals from the market on average this week`
-        : "")
-    + `. A gap is not necessarily our mistake — but the biggest ones are where to be most careful.`;
-
-  $("#mktCard").hidden=false;
-}
-
+// Bookmakers' expected goals, by gameweek. Absent, stale or unreachable simply
+// means the ticker falls back to our own ratings everywhere, which is the
+// normal state for every gameweek beyond the next one or two.
 fetch("market.json?t="+Date.now())
   .then(r=>r.ok?r.json():null)
-  .then(m=>{ MARKET=m; if(FX.length) renderMarket(m); })
-  .catch(()=>{});   // the card simply stays hidden
+  .then(m=>{ MKT=(m&&m.gw)||null; if(MKT&&FX.length) render(); })
+  .catch(()=>{});
 
 fetch("data.json?t="+Date.now())
   .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })

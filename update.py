@@ -624,10 +624,32 @@ def main():
         if not os.environ.get("ODDS_API_KEY"):
             raise RuntimeError("ODDS_API_KEY is not set")
         import odds as odds_mod
-        table, remaining = odds_mod.market_table()
-        if not table:
+        priced, remaining = odds_mod.priced_fixtures()
+        if not priced:
             raise ValueError("the odds feed returned no priced fixtures")
-        market = {sh: round(v[0]["xg"], 3) for sh, v in table.items() if v}
+
+        # Join each priced fixture to its gameweek through data.json's own
+        # fixture list, keyed on (home id, away id) -- unique within a season.
+        # Joining on the fixture rather than the date means a rearranged game
+        # lands in the right gameweek, which a date lookup would get wrong.
+        id_by_short = {t["short"]: tid for tid, t in teams.items()}
+        pair_gw = {(str(f[1]), str(f[2])): f[0] for f in fixtures}
+        by_gw, unjoined = {}, []
+        for pf in priced:
+            h, a = id_by_short.get(pf["home"]), id_by_short.get(pf["away"])
+            gw = pair_gw.get((h, a)) if h and a else None
+            if gw is None:
+                unjoined.append(f"{pf['home']}-{pf['away']}")
+                continue
+            slot = by_gw.setdefault(str(gw), {})
+            slot[pf["home"]] = round(pf["home_xg"], 3)
+            slot[pf["away"]] = round(pf["away_xg"], 3)
+        if unjoined:
+            log(f"   odds: {len(unjoined)} priced fixtures matched no scheduled "
+                f"game and were dropped ({', '.join(unjoined[:5])})")
+        if not by_gw:
+            raise ValueError("no priced fixture could be joined to a gameweek")
+        market = by_gw.get(str(next_gw), {})
 
         # score the model against it, so every build leaves a record
         scored = score_against_market(data, market)
@@ -635,7 +657,8 @@ def main():
             "generated": data["generated"],
             "nextGw": next_gw,
             "creditsRemaining": remaining,
-            "market": market,
+            "gw": by_gw,                  # every priced gameweek, for the ticker
+            "market": market,             # the next one alone, for the scorecard
             "model": scored["model"],
             "scorecard": scored["scorecard"],
         }, separators=(",", ":")))
@@ -643,7 +666,8 @@ def main():
         card = ("not enough priced fixtures to score" if sc["rmse"] is None else
                 f"bias {sc['bias']:+.3f}, RMSE {sc['rmse']:.3f}, "
                 f"r {sc['r']:.3f}, slope {sc['slope']:.3f}")
-        log(f"wrote {OUT_M.name}: {len(market)} teams priced, {card} "
+        log(f"wrote {OUT_M.name}: GW{'/GW'.join(sorted(by_gw, key=int))} priced "
+            f"({sum(len(v) for v in by_gw.values())} team-fixtures), {card} "
             f"({remaining} credits left)")
         for row in scored["worst"]:
             log(f"    {row['team'].upper():5} model {row['model']:.2f}  "
