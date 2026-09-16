@@ -127,7 +127,12 @@
   .cell.priced{position:relative}
   .cell.priced::after{content:"";position:absolute;top:3px;right:3px;width:4px;height:4px;
     border-radius:50%;background:currentColor;opacity:.55}
-  .pricedkey{color:var(--bar)}
+  /* Its own line under the scale, so the dot is explained in words rather than
+     left to be guessed at — there is no hover to fall back on on a phone. */
+  .kbsrc{flex:1 0 100%;margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
+  .kbsrc .dot{display:inline-block;width:5px;height:5px;border-radius:50%;
+    background:var(--bar);vertical-align:middle;margin:0 1px 2px}
+  .kbsrc b{color:var(--ink)}
   .mixbar{display:flex;height:7px;border-radius:99px;overflow:hidden;border:1px solid var(--border);margin-top:8px}
   .mixbar i{display:block;height:100%}
   .mixbar i:first-child{background:var(--accent)}
@@ -356,7 +361,8 @@
   </section>
 
   <div class="tablecard">
-    <div class="keybar"><span class="kbramp" id="kbramp"></span><span id="kbtext"></span></div>
+    <div class="keybar"><span class="kbramp" id="kbramp"></span><span id="kbtext"></span>
+      <p class="kbsrc" id="kbsrc"></p></div>
     <div class="tscroll"><table>
       <thead><tr id="thead"></tr></thead>
       <tbody id="rows"></tbody>
@@ -539,12 +545,6 @@ function rawVal(side,t,f,S,h){
   if(side==="atk") return MODE==="ease" ? S.DEF[f.opp]*m : S.base*S.ATK[t]*S.DEF[f.opp]*m*PEN;
   return MODE==="ease" ? m/S.ATK[f.opp] : Math.exp(-(S.base*S.ATK[f.opp]*S.DEF[t]/m*PEN))*100;
 }
-/* our own number, ignoring the market — for the tooltip on a priced cell */
-function modelVal(side,t,f,S,h){
-  const m=f.home?h:1/h;
-  if(side==="atk") return MODE==="ease" ? S.DEF[f.opp]*m : S.base*S.ATK[t]*S.DEF[f.opp]*m*PEN;
-  return MODE==="ease" ? m/S.ATK[f.opp] : Math.exp(-(S.base*S.ATK[f.opp]*S.DEF[t]/m*PEN))*100;
-}
 /* anchors map raw value -> 0..1 goodness, fixed so colours mean the same across windows */
 const ANCHOR={atk_ease:[0.70,1.32], atk_proj:[0.85,2.45], def_ease:[0.72,1.42], def_proj:[8,50]};
 const good=(side,v)=>{const[lo,hi]=ANCHOR[side+"_"+MODE]; return (v-lo)/(hi-lo);};
@@ -593,11 +593,22 @@ function render(){
     all_proj:"<b>Higher is better</b> &mdash; a bigger number means more expected at both ends."};
   // from/to, not gws: gws is built further down and this runs before it
   const pricedGws=[];
-  if(MODE==="proj" && MKT) for(let g=from; g<=to; g++) if(MKT[g]) pricedGws.push("GW"+g);
-  $("#kbtext").innerHTML = DIR[SIDE+"_"+MODE] + " Green is an easier fixture, red a harder one."
-    + (pricedGws.length
-        ? ` <b class="pricedkey">${pricedGws.join(" and ")}</b> come from bookmakers' odds rather than our ratings &mdash; over one round the market knows the team news and we do not. Hover a marked cell to see what our own model said.`
-        : "");
+  if(MODE==="proj" && MKT) for(let g=from; g<=to; g++) if(MKT[g]) pricedGws.push(g);
+  $("#kbtext").innerHTML = DIR[SIDE+"_"+MODE] + " Green is an easier fixture, red a harder one.";
+
+  // Which weeks are the market's and which are ours. Only the priced weeks inside
+  // the window are named, so the line always matches what is actually on screen.
+  const last=pricedGws[pricedGws.length-1];
+  const rest=(last!=null && last<to)
+    ? (last+1===to ? `GW${to}` : `GW${last+1} to GW${to}`) : null;
+  const many = pricedGws.length>1;
+  $("#kbsrc").innerHTML = !pricedGws.length ? "" :
+      `<b>GW${many?pricedGws[0]+" and GW"+last:pricedGws[0]}</b> `
+    + `${many?"come":"comes"} from bookmakers' odds &mdash; marked <span class="dot"></span> &mdash; because over `
+    + `the next round or two the market sees the team news, injuries and rotation that our ratings cannot. `
+    + (rest ? `<b>${rest}</b> ${rest.includes(" to ")?"come":"comes"} from our own expected-goals model, `
+              + `which is all there is that far ahead.`
+            : "Everything further out comes from our own expected-goals model.");
 
   const fixtures=collect(from,to);
   const gws=[]; for(let g=from;g<=to;g++) gws.push(g);
@@ -660,9 +671,8 @@ function render(){
       const pct=Math.round(Math.max(0,Math.min(1,r.cells[j]))*100);
       const val=(MODE==="proj"&&r.raws)?fmt(SIDE,r.raws[j],true):pct;
       const priced = SIDE!=="all" && mktVal(SIDE,r.id,f)!=null;
-      const ours = priced ? fmt(SIDE,modelVal(SIDE,r.id,f,S,h)) : null;
       return `<td><span class="cell${priced?" priced":""}" style="background:${sh.bg};color:${sh.fg}"
-        title="GW${f.gw} · ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"} · score ${pct}/100${r.raws?" · "+colName+" "+fmt(SIDE,r.raws[j]):""}${priced?` · from the bookmakers' odds; our own model says ${ours}`:""}">${label}<u>${val}</u></span></td>`;
+        title="GW${f.gw} · ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"} · score ${pct}/100${r.raws?" · "+colName+" "+fmt(SIDE,r.raws[j]):""}${priced?" · bookmakers' odds":""}">${label}<u>${val}</u></span></td>`;
     }).join("");
     // every column says whether the headline number is a total or an average
     const per = r.games ? r.shownVal / r.games : 0;
