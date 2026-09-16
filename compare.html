@@ -139,6 +139,15 @@
   .key{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:10px 14px 13px;
     font-size:12px;color:var(--muted)}
   .rampbar{display:inline-block;width:96px;height:9px;border-radius:99px;vertical-align:-1px}
+  /* Where each column's number came from. Spelled out rather than left to a
+     marker alone, since there is no hover on a phone. */
+  .srcnote{margin:-4px 14px 13px;font-size:12px;line-height:1.5;color:var(--muted)}
+  .srcnote b{color:var(--ink)}
+  .srcnote .dot{display:inline-block;width:5px;height:5px;border-radius:50%;
+    background:var(--bar,#04F5FF);vertical-align:middle;margin:0 1px 2px}
+  td.priced{position:relative}
+  td.priced::after{content:"";position:absolute;top:3px;right:3px;width:4px;height:4px;
+    border-radius:50%;background:currentColor;opacity:.55}
 
   /* ---- fixture window: the same strip the fixtures page uses ---- */
   .gwctrl{margin-top:14px;background:var(--surface);border:1px solid var(--border);
@@ -307,6 +316,7 @@
       <span>Hardest</span><span class="rampbar" id="rampbar"></span><span>Easiest</span>
       <span id="fxKey"></span>
     </p>
+    <p class="srcnote" id="fxSrc"></p>
   </div>
 
   <section class="rot" id="rotSec">
@@ -358,7 +368,7 @@ const DP={npxg:2,xa:2,npxgi:2};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-let D=null, P=null, M=null, RAMP=null;
+let D=null, P=null, M=null, RAMP=null, MARKET=null;
 let pos=2, scale="tot", picked=[], hi=-1;
 // The fixture window is a from/to pair now, not a fixed horizon, so the strip can
 // name a single gameweek or any run of them — same control as the fixtures page.
@@ -426,6 +436,7 @@ function render(){
       Pick at least two ${POSNAME[pos].toLowerCase()} to compare.</td></tr></tbody>`;
     $("#fxTable").innerHTML="";
     $("#fxKey").textContent="";
+    $("#fxSrc").innerHTML="";
     $("#fxTitle").textContent="Upcoming fixtures";
     foot(players);
     paintGwPick();
@@ -498,7 +509,8 @@ function render(){
     const cells=gws.map(g=>{
       const list=byGw[g];
       if(!list) return `<td class="fx"><span class="fxcell" style="background:var(--surface-2);color:var(--muted)">–<b>no game</b></span></td>`;
-      return `<td class="fx">`+list.map(f=>{
+      const anyPriced=list.some(f=>M.priced(p.t,f));
+      return `<td class="fx${anyPriced?" priced":""}">`+list.map(f=>{
         const v=M.rate(side,p.t,f,"proj");
         const t=goodClamped(side,v,"proj");
         sum+=t; n++;
@@ -524,6 +536,20 @@ function render(){
         ? `Keepers and defenders are rated on <b>clean sheet chance</b> — the percentage is how often that fixture should end 0&#8209;0 at their end.`
         : `Midfielders and forwards are rated on <b>their team's expected goals</b> in that fixture — not their own, the side's.`)
     : `Mixed positions: keepers and defenders show <b>clean sheet chance</b>, midfielders and forwards show <b>their team's expected goals</b>. The colours are comparable; the numbers are not.`;
+
+  // Which of the columns on screen came from the odds, in words.
+  const priced=[]; for(let g=gwFrom; g<=gwTo; g++) if(MARKET&&MARKET[g]) priced.push(g);
+  const lastP=priced[priced.length-1];
+  const rest=(lastP!=null&&lastP<gwTo)
+    ? (lastP+1===gwTo ? `GW${gwTo}` : `GW${lastP+1} to GW${gwTo}`) : null;
+  const many=priced.length>1;
+  $("#fxSrc").innerHTML = !priced.length ? "" :
+      `<b>GW${many?priced[0]+" and GW"+lastP:priced[0]}</b> `
+    + `${many?"come":"comes"} from bookmakers' odds &mdash; marked <span class="dot"></span> &mdash; because over `
+    + `the next round or two the market sees the team news, injuries and rotation that our ratings cannot. `
+    + (rest ? `<b>${rest}</b> ${rest.includes(" to ")?"come":"comes"} from our own expected-goals model, `
+              + `which is all there is that far ahead.`
+            : "Everything further out comes from our own expected-goals model.");
 
   foot(players);
   paintGwPick();
@@ -778,9 +804,25 @@ document.addEventListener("click",e=>{
 /* --------------------------------- boot ---------------------------------- */
 Promise.all([
   fetch("data.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("data.json "+r.status);return r.json();}),
-  fetch("players.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("players.json "+r.status);return r.json();})
-]).then(([d,pl])=>{
-  D=d; P=pl; M=fromData(d); RAMP=rampFromCss();
+  fetch("players.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("players.json "+r.status);return r.json();}),
+  // Optional: absent or unreachable simply means every gameweek uses the model,
+  // which is the normal state beyond the next round or two.
+  fetch("market.json?t="+Date.now()).then(r=>r.ok?r.json():null).catch(()=>null)
+]).then(([d,pl,mk])=>{
+  D=d; P=pl; RAMP=rampFromCss();
+  // market.json is keyed by short code; the model works in FPL team ids.
+  MARKET=null;
+  if(mk&&mk.gw){
+    const idOf={}; for(const id in d.teams) idOf[d.teams[id].short]=id;
+    MARKET={};
+    for(const gw in mk.gw){
+      const row={};
+      for(const sh in mk.gw[gw]) if(idOf[sh]) row[idOf[sh]]=mk.gw[gw][sh];
+      if(Object.keys(row).length) MARKET[gw]=row;
+    }
+    if(!Object.keys(MARKET).length) MARKET=null;
+  }
+  M=fromData(d,{market:MARKET});
   gwFrom=M.nextGw; gwTo=Math.min(38, M.nextGw+5);   // the old default: the next six
   buildGwPick();
   $("#rampbar").style.background="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v,RAMP).bg).join(",")+")";

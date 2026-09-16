@@ -59,7 +59,19 @@ export function collect(fixtures, teamIds, from, to) {
  *   ease — an opponent-quality index, comparable across gameweeks
  *   proj — the actual quantity: expected goals for, or clean sheet percentage
  * ------------------------------------------------------------------------- */
-export function rawVal(side, teamId, fixture, S, home, mode, pen = 1) {
+export function rawVal(side, teamId, fixture, S, home, mode, pen = 1, market = null) {
+  // Where the bookmakers have priced the round, their number wins: over one or
+  // two gameweeks the market sees the team news and rotation the ratings cannot.
+  // `market` is { gameweek: { teamId: expected goals } }; a clean sheet is the
+  // Poisson complement of what the OPPONENT is expected to score, exactly as
+  // below, so both sources stay on one scale.
+  if (mode === "proj" && market) {
+    const g = market[fixture.gw];
+    if (g) {
+      const v = side === "atk" ? g[teamId] : g[fixture.opp];
+      if (v != null) return side === "atk" ? v : Math.exp(-v) * 100;
+    }
+  }
   const m = fixture.home ? home : 1 / home;
   if (side === "atk") {
     return mode === "ease"
@@ -171,7 +183,7 @@ export function nextGwFrom(d) {
 }
 
 
-export function fromData(d, { kAtk, kDef, kPromoted = 4 } = {}) {
+export function fromData(d, { kAtk, kDef, kPromoted = 4, market = null } = {}) {
   const rec = recordsFrom(d.teams);
   const S = strengths(rec, d.matchesPlayed,
     kAtk ?? d.fit.kAtk, kDef ?? d.fit.kDef, kPromoted);
@@ -182,7 +194,14 @@ export function fromData(d, { kAtk, kDef, kPromoted = 4 } = {}) {
     nextGw: nextGwFrom(d),
     teamIds: Object.keys(d.teams),
     fixtures: (from, to) => collect(d.fixtures, Object.keys(d.teams), from, to),
+    market,
+    /** true when this fixture's number came from the odds rather than the model */
+    priced: (teamId, fixture) => {
+      if (!market) return false;
+      const g = market[fixture.gw];
+      return !!g && (g[teamId] != null || g[fixture.opp] != null);
+    },
     rate: (side, teamId, fixture, mode = "proj") =>
-      rawVal(side, teamId, fixture, S, d.fit.home, mode, d.fit.pen),
+      rawVal(side, teamId, fixture, S, d.fit.home, mode, d.fit.pen, market),
   };
 }
