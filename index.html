@@ -124,6 +124,16 @@
   .blendoff{opacity:.4;pointer-events:none}
   .readout.sub2{font-size:15px;margin-top:14px;margin-bottom:8px}
   .hint{font-size:11.5px;color:var(--muted);margin:8px 0 0;line-height:1.45}
+  .mkt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:7px;margin-top:12px}
+  .mkt-row{display:flex;align-items:baseline;gap:8px;padding:7px 10px;border-radius:7px;
+    background:var(--surface-2);border:1px solid var(--border);min-width:0}
+  .mkt-row b{font-family:"Roboto Mono",ui-monospace,monospace;font-size:11px;font-weight:700;
+    letter-spacing:.06em;flex:none;width:34px}
+  .mkt-row .xg{font-weight:700;font-size:15px;flex:none}
+  .mkt-row .gap{margin-left:auto;font-family:"Roboto Mono",ui-monospace,monospace;
+    font-size:10.5px;color:var(--muted);white-space:nowrap}
+  .mkt-row .gap.big{color:var(--bar)}
+  .mkt-note{font-size:11.5px;color:var(--muted);margin:11px 0 0;line-height:1.45}
   .mixbar{display:flex;height:7px;border-radius:99px;overflow:hidden;border:1px solid var(--border);margin-top:8px}
   .mixbar i{display:block;height:100%}
   .mixbar i:first-child{background:var(--accent)}
@@ -359,6 +369,13 @@
     </table></div>
   </div>
 
+  <section class="rot" id="mktCard" hidden>
+    <h2>This gameweek &middot; the bookmakers</h2>
+    <p id="mktIntro"></p>
+    <div class="mkt-grid" id="mktGrid"></div>
+    <p class="mkt-note" id="mktNote"></p>
+  </section>
+
   <section class="rot">
     <h2>Rotation pairs</h2>
     <p id="rotIntro"></p>
@@ -448,7 +465,7 @@
 
 <script>
 
-let SIDE="atk", MODE="proj", SORT="best";
+let SIDE="atk", MODE="proj", SORT="best", MARKET=null;
 const PROMOTED_K=4;
 const OVR=(()=>{const q=new URLSearchParams(location.search), o={};
   for(const k of ["kAtk","kDef","kp","home"]){const v=parseFloat(q.get(k)); if(Number.isFinite(v)) o[k]=v;}
@@ -842,10 +859,55 @@ function applyData(d){
   $("#gwFrom").value=NEXT_GW; $("#gwTo").value=to;
   buildGwPick();
   fillRotPicks();
+  if(MARKET) renderMarket(MARKET);
   const when=new Date(d.generated);
   $("#stamp").textContent=`${d.season} · ${d.matchesPlayed} match${d.matchesPlayed===1?"":"es"} played · data updated ${when.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`;
   render();
 }
+
+function renderMarket(m){
+  // Only for the gameweek the odds were priced for. A market.json left over from
+  // last week is worse than none at all -- it would sit under a heading that says
+  // "this gameweek" showing last gameweek's numbers.
+  if(!m || !m.market || m.nextGw!==NEXT_GW) return;
+  const short2id={}; for(const id in TEAMS) short2id[TEAMS[id][1]]=id;
+  const rows=Object.keys(m.market)
+    .filter(sh=>short2id[sh])
+    .map(sh=>({sh, name:TEAMS[short2id[sh]][0], mkt:m.market[sh], mine:(m.model||{})[sh]}))
+    .sort((a,b)=>b.mkt-a.mkt);
+  if(!rows.length) return;
+
+  $("#mktGrid").innerHTML = rows.map(r=>{
+    const d = (r.mine==null) ? null : r.mine-r.mkt;
+    const gap = d==null ? "" :
+      `<span class="gap${Math.abs(d)>=0.30?" big":""}" title="our projection ${r.mine.toFixed(2)}">`
+      + `${d>=0?"+":""}${d.toFixed(2)} vs ours</span>`;
+    return `<div class="mkt-row" title="${r.name}"><b>${r.sh.toUpperCase()}</b>`
+         + `<span class="xg">${r.mkt.toFixed(2)}</span>${gap}</div>`;
+  }).join("");
+
+  $("#mktIntro").textContent =
+    `Expected goals for GW${m.nextGw}, taken from bookmakers' odds rather than from our model. `
+    + `Over a single gameweek the betting market is the sharper forecast — it prices in team news, `
+    + `suspensions and rest that a ratings model cannot see. Use it for a Free Hit or a Wildcard; `
+    + `use the table above for anything further out, where no odds exist yet.`;
+
+  const sc=m.scorecard||{}, when=m.generated?new Date(m.generated):null;
+  $("#mktNote").innerHTML =
+    `${rows.length} sides priced${when?` · odds read ${when.toLocaleDateString("en-GB",{day:"numeric",month:"short"})} `
+      + `${when.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}`:""}`
+    + (sc.rmse!=null
+        ? ` · our projections sit <b>${sc.rmse.toFixed(2)}</b> goals from the market on average this week`
+        : "")
+    + `. A gap is not necessarily our mistake — but the biggest ones are where to be most careful.`;
+
+  $("#mktCard").hidden=false;
+}
+
+fetch("market.json?t="+Date.now())
+  .then(r=>r.ok?r.json():null)
+  .then(m=>{ MARKET=m; if(FX.length) renderMarket(m); })
+  .catch(()=>{});   // the card simply stays hidden
 
 fetch("data.json?t="+Date.now())
   .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
