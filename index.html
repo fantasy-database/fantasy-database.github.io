@@ -349,38 +349,6 @@
         <button class="chipbtn" data-next="9">Next 9</button>
       </div>
     </div>
-    <div class="ctrl">
-      <h2>Season blend</h2>
-      <div class="seg mini" id="blendSeg">
-        <button data-blend="on" aria-pressed="true">Blend</button>
-        <button data-blend="off" aria-pressed="false">This season only</button>
-      </div>
-      <div class="krows" id="krows">
-        <div class="kb"><h3>Attack ratings<em id="kAtkFit"></em></h3>
-          <input type="range" id="kAtk" min="0" max="40" step="1" value="8" aria-label="How much of this season to use for attack ratings">
-          <div class="mixbar"><i id="bA"></i><i id="bAo"></i></div>
-          <div class="mixkey"><span id="lA"></span><span id="lAo"></span></div></div>
-        <div class="kb"><h3>Defence ratings<em id="kDefFit"></em></h3>
-          <input type="range" id="kDef" min="0" max="40" step="1" value="26" aria-label="How much of this season to use for defence ratings">
-          <div class="mixbar"><i id="bD"></i><i id="bDo"></i></div>
-          <div class="mixkey"><span id="lD"></span><span id="lDo"></span></div></div>
-        <div class="kb"><h3>Promoted sides<em id="kpFit"></em></h3>
-          <input type="range" id="kpval" min="0" max="40" step="1" value="4" aria-label="How much of this season to use for promoted sides">
-          <div class="mixbar"><i id="bP"></i><i id="bPo"></i></div>
-          <div class="mixkey"><span id="lP"></span><span id="lPo"></span></div></div>
-      </div>
-      <p class="hint" id="blendHint"></p>
-    </div>
-    <div class="ctrl">
-      <h2>Home advantage</h2>
-      <div class="seg mini" id="homeSeg">
-        <button data-home="on" aria-pressed="true">On</button>
-        <button data-home="off" aria-pressed="false">Off</button>
-      </div>
-      <div class="readout" id="hReadout"></div>
-      <div id="hwrap"><input type="range" id="hval" min="1" max="1.3" step="0.01" value="1.11" aria-label="Home advantage multiplier"></div>
-      <p class="hint" id="homeHint"></p>
-    </div>
   </section>
 
   <div class="tablecard">
@@ -480,7 +448,11 @@
 
 <script>
 
-let SIDE="atk", MODE="proj", BLEND=true, HOME=true, SORT="best";
+let SIDE="atk", MODE="proj", SORT="best";
+const PROMOTED_K=4;
+const OVR=(()=>{const q=new URLSearchParams(location.search), o={};
+  for(const k of ["kAtk","kDef","kp","home"]){const v=parseFloat(q.get(k)); if(Number.isFinite(v)) o[k]=v;}
+  return o;})();
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
 ips:"#3A64A3",lee:"#FFCD00",liv:"#C8102E",mci:"#6CABDD",mun:"#DA291C",new:"#41B6E6",
@@ -561,36 +533,17 @@ function fmt(side,v,withUnit){
 
 function render(){
   let from=+$("#gwFrom").value, to=+$("#gwTo").value; if(from>to)[from,to]=[to,from];
-  const hSet=+$("#hval").value, h=HOME?hSet:1;
-  const kA=BLEND?+$("#kAtk").value:0, kD=BLEND?+$("#kDef").value:0, kp=BLEND?+$("#kpval").value:0;
+  // The fitted constants are not a user setting: update.py measures them from last
+  // season's split-half reliability and writes them into data.json's fit block.
+  // ?kAtk=16&kDef=50&home=1.05&kp=4 overrides them for testing. No UI.
+  const h=OVR.home??FIT.home;
+  const kA=OVR.kAtk??FIT.kAtk, kD=OVR.kDef??FIT.kDef, kp=OVR.kp??PROMOTED_K;
   const S=strengths(kA,kD,kp), span=to-from+1;
 
   // "GW3 – GW3, 1 gameweek" reads like a mistake; a single week says itself.
   $("#gwReadout").innerHTML = span===1
     ? `GW${from} <small>this gameweek · ${fmtDate(DEADLINES[from-1])}</small>`
     : `GW${from} – GW${to} <small>${span} gameweeks · ${fmtDate(DEADLINES[from-1])} – ${fmtDate(DEADLINES[to-1])}</small>`;
-  $("#krows").classList.toggle("blendoff", !BLEND);
-  const kout=(tag,w,old,k,fit)=>{
-    const p=Math.round(w*100);
-    $("#b"+tag).style.flexBasis=p+"%"; $("#b"+tag+"o").style.flexBasis=(100-p)+"%";
-    $("#l"+tag).innerHTML=`<b style="color:var(--ink)">${p}%</b> this season`;
-    $("#l"+tag+"o").innerHTML=`<b style="color:var(--ink)">${100-p}%</b> ${old}`;
-    if(fit!=null) $("#k"+({A:"Atk",D:"Def",P:"p"})[tag]+"Fit").innerHTML=
-      k===fit?`fitted at k&nbsp;${fit}`:`k&nbsp;${k} · fitted at ${fit}`;
-  };
-  kout("A",S.wA,"last season",kA,BLEND?FIT.kAtk:null);
-  kout("D",S.wD,"last season",kD,BLEND?FIT.kDef:null);
-  kout("P",S.wP,"borrowed prior",kp,null);
-  $("#blendHint").innerHTML = BLEND
-    ? `<code>w = n/(n+k)</code>. Attack and defence get different constants because they are not equally repeatable — fitted from last season, attack settles at <b>k&nbsp;${FIT.kAtk}</b> and defence at <b>k&nbsp;${FIT.kDef}</b>. Defence needs about three times the evidence before a sample means much. Promoted sides have no record of their own, so theirs stays a judgement call.`
-    : `Ratings come from this season alone — <strong>2 matches</strong>. Nothing is regressed toward last season, so one result moves a team a long way. Read it as current form, not as a ranking.`;
-  $("#hwrap").classList.toggle("blendoff", !HOME);
-  $("#hReadout").innerHTML = HOME
-    ? `${h.toFixed(2)}× <small>home side scores ${(h*h).toFixed(2)}× what the away side would</small>`
-    : `Off <small>every fixture rated as a neutral venue</small>`;
-  $("#homeHint").innerHTML = HOME
-    ? `Multiplies expected goals, so the benefit scales with what a side was going to score anyway — worth more against a leaky defence than an elite one. Fitted from last season at <b>1.11×</b>.`
-    : `Venue ignored. Useful for seeing a run purely on opponent quality — the (H) and (A) labels still show, they just stop counting.`;
   const RAMP="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v).bg).join(",")+")";
   $("#rampbar").style.background="linear-gradient(90deg,"+
     [1,.75,.5,.25,0].map(v=>shade(v).bg).join(",")+")";
@@ -606,7 +559,7 @@ function render(){
   $("#viewNote").innerHTML=NOTE[SIDE+"_"+MODE];
   const DIR={
     atk_ease:"<b>Higher is better</b> &mdash; a bigger number means softer defences to attack.",
-    atk_proj:"<b>Higher is better</b> &mdash; a bigger number means more expected goals, penalties excluded.",
+    atk_proj:"<b>Higher is better</b> &mdash; a bigger number means more goals expected.",
     def_ease:"<b>Higher is better</b> &mdash; a bigger number means weaker attacks to keep out.",
     def_proj:"<b>Higher is better</b> &mdash; a bigger number means a better chance of a clean sheet.",
     all_ease:"<b>Higher is better</b> &mdash; a bigger number means weaker opposition at both ends.",
@@ -858,7 +811,7 @@ $("#gwPick").addEventListener("click",e=>{
 // Order matters: abandon a half-finished range BEFORE render paints the strip,
 // or the hint and the anchor ring repaint from stale state.
 ["#gwFrom","#gwTo"].forEach(s=>$(s).addEventListener("input",()=>{gwAnchor=null;}));
-["#gwFrom","#gwTo","#kAtk","#kDef","#kpval","#hval"].forEach(s=>$(s).addEventListener("input",render));
+["#gwFrom","#gwTo"].forEach(s=>$(s).addEventListener("input",render));
 document.querySelectorAll("#presets .chipbtn").forEach(b=>b.addEventListener("click",()=>{
   const from=NEXT_GW, to=Math.min(38, NEXT_GW+(+b.dataset.next)-1);
   gwAnchor=null;
@@ -867,12 +820,6 @@ $("#sideSeg").addEventListener("click",e=>{const b=e.target.closest("button");if
   SIDE=b.dataset.side;[...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
 $("#sortSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   SORT=b.dataset.sort;
-  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
-$("#homeSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
-  HOME=b.dataset.home==="on";
-  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
-$("#blendSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
-  BLEND=b.dataset.blend==="on";
   [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
 $("#modeSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   MODE=b.dataset.mode;[...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
@@ -890,7 +837,6 @@ function applyData(d){
   }
   FX=d.fixtures; DEADLINES=d.deadlines; NEXT_GW=nextGwFrom(d);
   MATCHES_PLAYED=d.matchesPlayed; FIT=d.fit; PEN=d.fit.pen;
-  $("#kAtk").value=FIT.kAtk; $("#kDef").value=FIT.kDef; $("#hval").value=FIT.home;
   const to=Math.min(38, NEXT_GW+5);
   $("#gwFrom").min=NEXT_GW; $("#gwTo").min=NEXT_GW;
   $("#gwFrom").value=NEXT_GW; $("#gwTo").value=to;
