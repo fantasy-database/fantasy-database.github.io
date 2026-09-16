@@ -24,6 +24,8 @@ jobs:
           python-version: "3.12"
 
       - name: Rebuild data.json
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: python update.py
 
       - name: Commit if anything changed
@@ -31,7 +33,7 @@ jobs:
           git config user.name "fpl-ticker bot"
           git config user.email "actions@github.com"
           git add data.json
-          [ -f players.json ] && git add players.json
+          [ -f market.json ] && git add market.json
           if git diff --cached --quiet; then
             echo "Nothing changed this week."
           else
