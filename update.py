@@ -10,12 +10,13 @@ the checks at the bottom, so a bad run leaves the live site on the last good
 version rather than breaking it.
 """
 
-import json, math, sys, time, gzip, zlib, re, unicodedata, urllib.request, urllib.error, datetime, pathlib
+import json, math, os, sys, time, gzip, zlib, re, unicodedata, urllib.request, urllib.error, datetime, pathlib
 
 FPL = "https://fantasy.premierleague.com/api"
 UND = "https://understat.com"
 OUT = pathlib.Path(__file__).parent / "data.json"
 OUT_P = pathlib.Path(__file__).parent / "players.json"
+OUT_M = pathlib.Path(__file__).parent / "market.json"
 
 # Understat's full team names -> FPL's short codes. Covers every side to appear
 # in the Premier League recently, so promotion and relegation need no edits.
@@ -35,6 +36,9 @@ SLUG = {n: n.replace(" ", "_") for n in NAME2SHORT}
 # Averaged over the fifteen sides promoted in the five seasons to 2025/26,
 # in their first year up. Non-penalty xG and xGA per game.
 PROMOTED_PRIOR = {"a": 1.1145, "d": 1.9492}
+# Promoted sides have no record of their own, so their blend constant is a
+# judgement rather than a fitted value. Matches the front end.
+PROMOTED_K = 4
 
 # Both sources sit behind Cloudflare and refuse traffic that does not look like
 # a browser, so present as one and retry a few times before giving up.
@@ -184,6 +188,70 @@ def fit_k(matches, A, D, base, hfac):
         r = corr(halves[0][i], halves[1][i])
         out[key] = max(0, round(n * (1 - r) / r)) if r > 0 else 40
     return out
+
+
+def score_against_market(data, market):
+    """
+    Put the model's next-gameweek projection beside the market's and score it.
+
+    bias  - do we project more goals than the market, on average
+    rmse  - typical distance from it; the number to watch week to week
+    r     - do we rank the teams the same way
+    slope - regress market on model; ~1 means our spread is right, >1 too flat
+
+    Deliberately read-only: it never touches a rating. Where we disagree is a
+    prompt to go and look, not a correction to apply.
+    """
+    gw = data["nextGw"]
+    n_played = data["matchesPlayed"]
+    fit = data["fit"]
+    b = {}
+    for tid, t in data["teams"].items():
+        promoted = bool(t.get("promoted"))
+        wa = n_played / (n_played + (PROMOTED_K if promoted else fit["kAtk"]))
+        wd = n_played / (n_played + (PROMOTED_K if promoted else fit["kDef"]))
+        b[tid] = [wa * t["a26"] + (1 - wa) * t["pa"],
+                  wd * t["d26"] + (1 - wd) * t["pd"]]
+    ma = sum(v[0] for v in b.values()) / len(b)
+    md = sum(v[1] for v in b.values()) / len(b)
+    atk = {k: v[0] / ma for k, v in b.items()}
+    dfn = {k: v[1] / md for k, v in b.items()}
+    base = (ma + md) / 2
+
+    model = {}
+    for fx in data["fixtures"]:
+        if fx[0] != gw:
+            continue
+        h, a = str(fx[1]), str(fx[2])
+        model[data["teams"][h]["short"]] = round(
+            base * atk[h] * dfn[a] * fit["home"] * fit["pen"], 3)
+        model[data["teams"][a]["short"]] = round(
+            base * atk[a] * dfn[h] / fit["home"] * fit["pen"], 3)
+
+    pairs = [(model[k], market[k]) for k in model if k in market]
+    card = {"n": len(pairs)}
+    if len(pairs) >= 4:
+        n = len(pairs)
+        errs = [x - y for x, y in pairs]
+        mx = sum(x for x, _ in pairs) / n
+        my = sum(y for _, y in pairs) / n
+        sxy = sum((x - mx) * (y - my) for x, y in pairs)
+        sxx = sum((x - mx) ** 2 for x, _ in pairs)
+        syy = sum((y - my) ** 2 for _, y in pairs)
+        card.update(
+            bias=round(sum(errs) / n, 4),
+            rmse=round(math.sqrt(sum(e * e for e in errs) / n), 4),
+            r=round(sxy / math.sqrt(sxx * syy), 4) if sxx and syy else None,
+            slope=round(sxy / sxx, 4) if sxx else None,
+        )
+    else:
+        card.update(bias=None, rmse=None, r=None, slope=None)
+
+    rows = sorted(({"team": k, "model": model[k], "market": market[k],
+                    "diff": round(model[k] - market[k], 3)}
+                   for k in model if k in market),
+                  key=lambda r: -abs(r["diff"]))
+    return {"model": model, "scorecard": card, "worst": rows[:5]}
 
 
 def log(msg):
@@ -547,6 +615,42 @@ def main():
         log(f"wrote {OUT_P.name}: {len(players)} players")
     except Exception as e:
         log(f"!! players not rebuilt ({e}) — keeping the previous players.json")
+    # --- bookmaker odds ----------------------------------------------------
+    # A reference forecast, fetched the same way the players are: in its own
+    # try, so a third-party outage or an exhausted quota never stops the site
+    # rebuilding. Nothing here feeds the model -- it is the scorecard the model
+    # is measured against (claude/backtest-odds-benchmark.md).
+    try:
+        if not os.environ.get("ODDS_API_KEY"):
+            raise RuntimeError("ODDS_API_KEY is not set")
+        import odds as odds_mod
+        table, remaining = odds_mod.market_table()
+        if not table:
+            raise ValueError("the odds feed returned no priced fixtures")
+        market = {sh: round(v[0]["xg"], 3) for sh, v in table.items() if v}
+
+        # score the model against it, so every build leaves a record
+        scored = score_against_market(data, market)
+        OUT_M.write_text(json.dumps({
+            "generated": data["generated"],
+            "nextGw": next_gw,
+            "creditsRemaining": remaining,
+            "market": market,
+            "model": scored["model"],
+            "scorecard": scored["scorecard"],
+        }, separators=(",", ":")))
+        sc = scored["scorecard"]
+        card = ("not enough priced fixtures to score" if sc["rmse"] is None else
+                f"bias {sc['bias']:+.3f}, RMSE {sc['rmse']:.3f}, "
+                f"r {sc['r']:.3f}, slope {sc['slope']:.3f}")
+        log(f"wrote {OUT_M.name}: {len(market)} teams priced, {card} "
+            f"({remaining} credits left)")
+        for row in scored["worst"]:
+            log(f"    {row['team'].upper():5} model {row['model']:.2f}  "
+                f"market {row['market']:.2f}  {row['diff']:+.2f}")
+    except Exception as e:
+        log(f"!! odds not fetched ({e}) - keeping the previous market.json")
+
     print(f"wrote {OUT.name}: {len(data['teams'])} teams, "
           f"{data['matchesPlayed']} matches played, next GW{data['nextGw']}, "
           f"kAtk={data['fit']['kAtk']} kDef={data['fit']['kDef']} "
