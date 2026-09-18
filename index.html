@@ -124,8 +124,8 @@
   .blendoff{opacity:.4;pointer-events:none}
   .readout.sub2{font-size:15px;margin-top:14px;margin-bottom:8px}
   .hint{font-size:11.5px;color:var(--muted);margin:8px 0 0;line-height:1.45}
-  .cell.priced{position:relative}
-  .cell.priced::after{content:"";position:absolute;top:3px;right:3px;width:4px;height:4px;
+  .cell.priced,.mv.priced{position:relative}
+  .cell.priced::after,.mv.priced::after{content:"";position:absolute;top:3px;right:3px;width:4px;height:4px;
     border-radius:50%;background:currentColor;opacity:.55}
   /* Its own line under the scale, so the dot is explained in words rather than
      left to be guessed at — there is no hover to fall back on on a phone. */
@@ -218,31 +218,41 @@
   .ramp{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:11.5px;color:var(--muted)}
   .rampbar{flex:1 1 auto;height:11px;border-radius:3px;max-width:190px}
 
-  .gloss{margin-top:20px;background:var(--surface);border:1px solid var(--border);
-    border-radius:10px;box-shadow:var(--shadow);padding:17px 19px 8px}
-  .gloss h2{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
-    text-transform:uppercase;color:var(--muted);margin:0 0 12px}
-  .gtable{display:flex;flex-direction:column}
-  .grow{display:grid;grid-template-columns:118px 150px 1fr 1.55fr;gap:14px;
-    padding:11px 0;border-top:1px solid var(--border);font-size:13px;color:var(--muted);align-items:start}
-  .grow.ghead{border-top:0;padding-top:0;font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;
-    letter-spacing:.11em;text-transform:uppercase;padding-bottom:7px}
-  .gname{font-family:Barlow,Arial,Helvetica,sans-serif;font-weight:700;font-size:13px;color:var(--ink);letter-spacing:-.01em}
-  .gwhen{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10.5px;letter-spacing:.02em}
-  .gcalc code{font-family:"Roboto Mono",ui-monospace,monospace;font-size:11px;color:var(--ink);
-    background:var(--surface-2);padding:2px 6px;border-radius:4px;border:1px solid var(--border);
-    display:inline-block;line-height:1.5}
-  .grow strong{color:var(--ink);font-weight:600}
-  @media (max-width:820px){
-    .grow{grid-template-columns:1fr;gap:5px}
-    .grow.ghead{display:none}
-  }
+  /* ---- this gameweek, match by match ----
+     The same numbers as the table, laid out a fixture at a time: both sides,
+     goals expected and clean sheet chance, all four at once. */
+  .gwv{margin-top:20px;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;box-shadow:var(--shadow);padding:17px 19px 15px}
+  .gwv h2{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 4px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+  .gwv h2 span{color:var(--accent);letter-spacing:.06em}
+  .gwv > p{margin:0 0 13px;font-size:12.5px;color:var(--muted);max-width:74ch}
+  .gwv > p b{color:var(--ink);font-weight:600}
+  .gwv .kbsrc{margin-top:11px}
+  .mlist{display:grid;grid-template-columns:repeat(auto-fit,minmax(318px,1fr));gap:8px}
+  .mrow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:9px;align-items:center;
+    border:1px solid var(--border);border-radius:8px;background:var(--surface-2);padding:7px 9px}
+  .mteam{display:flex;align-items:center;gap:7px;min-width:0}
+  .mteam.r{flex-direction:row-reverse}
+  .mteam i{flex:none;width:4px;height:26px;border-radius:2px}
+  .mtxt{min-width:0}
+  .mteam.r .mtxt{text-align:right}
+  .mtxt b{display:block;font-family:Barlow,Arial,Helvetica,sans-serif;font-weight:800;font-size:13.5px;
+    letter-spacing:.01em;color:var(--ink);line-height:1.1}
+  .mtxt em{display:block;font-style:normal;font-size:10px;color:var(--muted);line-height:1.3;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mnums{flex:none;display:grid;grid-template-columns:48px 28px 48px;gap:3px}
+  .mv{border-radius:4px;padding:3px 2px;text-align:center;
+    font-family:"Roboto Mono",ui-monospace,monospace;font-size:11.5px;font-weight:600;
+    font-variant-numeric:tabular-nums;line-height:1.3}
+  .mlab{align-self:center;text-align:center;font-family:"Roboto Mono",ui-monospace,monospace;
+    font-size:9px;font-weight:600;letter-spacing:.09em;color:var(--muted)}
 
   .mrank,.mscore{display:none}
   /* ---- phones: pin the team, scroll the fixtures ---- */
   @media (max-width:700px){
     .wrap{padding:16px 0 44px}
-    .mast,.views,.viewnote,.panel,.tablecard,.rot,.notes,.gloss{margin-left:12px;margin-right:12px}
+    .mast,.views,.viewnote,.panel,.tablecard,.rot,.notes,.gwv{margin-left:12px;margin-right:12px}
     .mast h1{font-size:30px}
     .mast p{font-size:12.5px}
     .views{gap:8px 12px}
@@ -276,10 +286,11 @@
     thead th b{font-size:9.5px}
 
     .ctrl{padding:13px 14px}
-    .grow{gap:3px}
     .pairs{grid-template-columns:1fr}
     .rotpick select{flex:1 1 132px}
-    .gloss{padding:14px 15px 6px}
+    .gwv{padding:14px 15px 13px}
+    .mlist{grid-template-columns:1fr}
+    .mnums{grid-template-columns:44px 24px 44px}
     .notes{gap:14px}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -388,47 +399,15 @@
   </section>
 
 
-  <section class="gloss">
-    <h2>What every number on this page means</h2>
-    <div class="gtable">
-      <div class="grow ghead"><span>Column</span><span>Shown when</span><span>How it is worked out</span><span>How to read it</span></div>
-
-      <div class="grow"><span class="gname">Defences faced</span><span class="gwhen">Attack · Opponents</span>
-        <span class="gcalc"><code>DEF[opponent] &times; home</code></span>
-        <span>How much the defences this side faces concede, against the league average. <strong>1.00</strong> is an average defence; <strong>1.30</strong> means the opponents leak 30% more than average. Higher is better for your attackers. It says nothing about whether the team itself can finish.</span></div>
-
-      <div class="grow"><span class="gname">Attacks faced</span><span class="gwhen">Defence · Opponents</span>
-        <span class="gcalc"><code>home &divide; ATK[opponent]</code></span>
-        <span>How toothless the attacks this side faces are. <strong>1.00</strong> is an average attack; above 1.00 means weaker than average, so a better shot at a clean sheet. Higher is better.</span></div>
-
-      <div class="grow"><span class="gname">Goals expected</span><span class="gwhen">Attack · Expected returns</span>
-        <span class="gcalc"><code>base &times; ATK[team] &times; DEF[opponent] &times; home</code></span>
-        <span>Expected goals this side scores in that fixture. The column is the total across the window, with a per-game figure beneath. Unlike the ease columns, this folds in how good the team actually is.</span></div>
-
-      <div class="grow"><span class="gname">Clean sheet</span><span class="gwhen">Defence · Expected returns</span>
-        <span class="gcalc"><code>e<sup>&minus;xGA</sup></code></span>
-        <span>The Poisson probability of conceding exactly zero, given the expected goals against. The column is the average across the window.</span></div>
-
-      <div class="grow"><span class="gname">Overall</span><span class="gwhen">Overall · either</span>
-        <span class="gcalc"><code>(attack score + defence score) &divide; 2</code></span>
-        <span>Every fixture is scored 0&ndash;100 for attack and 0&ndash;100 for defence on a fixed scale, then the two are averaged. The column is the mean across the window. <strong>100</strong> is as good as a fixture gets at both ends at once; <strong>50</strong> is unremarkable. It rewards runs that are kind to attackers and defenders alike, rather than lopsided ones.</span></div>
-
-      <div class="grow"><span class="gname">Cell numbers</span><span class="gwhen">Every view</span>
-        <span class="gcalc">&mdash;</span>
-        <span>The same metric as the column, for that one fixture. Shading uses fixed anchors rather than the current window, so a colour means the same thing whichever gameweeks you pick.</span></div>
-
-      <div class="grow"><span class="gname">&#9650;&#9660; chip</span><span class="gwhen">Every view</span>
-        <span class="gcalc">&mdash;</span>
-        <span>Places gained or lost against FPL's own 1&ndash;5 difficulty rating over the same window. A big number is where this model and FPL genuinely disagree.</span></div>
-
-      <div class="grow"><span class="gname">Rotation pair</span><span class="gwhen">Below the table</span>
-        <span class="gcalc"><code>mean of max(A, B) per gameweek</code></span>
-        <span>The first figure is the average of whichever of the two has the better fixture each week. The second, in grey, is the <em>gain</em> &mdash; what rotating adds over simply holding the stronger of the pair throughout. A large first number with a small gain means one team is carrying the pair and you may as well just own them.</span></div>
-
-      <div class="grow"><span class="gname">Your own pair</span><span class="gwhen">Below the rotation pairs</span>
-        <span class="gcalc"><code>mean of max(A, B) per gameweek</code></span>
-        <span>The same two numbers, for any two sides you name rather than the six the model ranks highest. Each cell is labelled with its gameweek and the team you would field that week, and the line beneath spells out which weeks fall to which side. A dashed cell is a <strong>blank gameweek</strong> for both. Your choice is remembered in this browser.</span></div>
-    </div>
+  <section class="gwv">
+    <h2>This gameweek, match by match <span id="mvWhen"></span></h2>
+    <p>Every fixture in the round, both sides at once &mdash; the same numbers as the table above,
+      a match at a time rather than a team at a time. <b>xG</b> is what that side is expected to
+      score; <b>CS</b> is its chance of a clean sheet, which is the other side&rsquo;s xG read the
+      other way round. Green is good for the team on that side of the row. Always the next
+      gameweek, whatever window you set up there.</p>
+    <div class="mlist" id="mlist"></div>
+    <p class="kbsrc" id="mvSrc"></p>
   </section>
 
   <section class="notes">
@@ -701,6 +680,12 @@ function render(){
   $("#pairs").innerHTML=top.map(p=>{
     const strip=p.pick.map(x=>{const sh=shade(x.v);
       const f=data[x.team].fx.find(f=>f.gw===x.gw);
+      // Neither side plays that week. "Build your own pair" has always drawn this
+      // as a dashed cell; up here it read f.opp off nothing and took the whole
+      // page down with it, error message and all. A pair can reach the top six
+      // with a doubly-blank week in it -- the week scores 0, it does not
+      // disqualify them -- so this was reachable, just not by clicking.
+      if(!f) return `<div class="pcell blank" title="GW${x.gw}: neither side plays">&mdash;<u>blank</u></div>`;
       const nm=TEAMS[f.opp][1].toUpperCase(), label=`${nm} (${f.home?"H":"A"})`;
       return `<div class="pcell" style="background:${sh.bg};color:${sh.fg}" title="GW${x.gw}: play ${TEAMS[x.team][0]} vs ${TEAMS[f.opp][0]}">${TEAMS[x.team][1].toUpperCase()}<u>${label}</u></div>`;
     }).join("");
@@ -711,6 +696,7 @@ function render(){
   }).join("");
 
   renderMyPair(byGw,data,gws,from,to);
+  renderMatches(S,h);
 
   paintGwPick(from,to);
   document.querySelectorAll("#presets .chipbtn").forEach(b=>{
@@ -742,6 +728,67 @@ function pairStats(byGw,gws,A,B){
   });
   const n=gws.length||1, avg=sum/n;
   return {A,B,avg,pick,gain:avg-Math.max(sa/n,sb/n)};
+}
+
+/* ---- this gameweek, match by match ---------------------------------------
+ * The comprehensive view: one row per fixture, carrying all four numbers that
+ * matter for it at once -- both sides' expected goals and both sides' clean
+ * sheet chance. The table above answers "who has the best run"; this answers
+ * "what is happening this week", which is a different question and was costing
+ * three clicks and a mental join to get at.
+ *
+ * It deliberately ignores the gameweek window and the Show / Based on
+ * settings. It is always the next round and always expected returns, because
+ * the opponent-index view has no meaning on a single match and a window has no
+ * meaning on a fixture list.
+ *
+ * Every value comes out of rawVal(), the same call the table cells make, so a
+ * number here can never disagree with the number up there -- market odds
+ * included. A clean sheet is the Poisson complement of the OTHER side's
+ * expected goals, so the two columns of a row are one calculation seen twice.
+ */
+function renderMatches(S,h){
+  const gw=NEXT_GW, box=$("#mlist");
+  $("#mvWhen").textContent = `GW${gw}` + (DEADLINES[gw-1] ? ` · ${fmtDate(DEADLINES[gw-1])}` : "");
+  const fx=FX.filter(f=>f[0]===gw);      // fixtures are [gw, home, away, homeFdr, awayFdr]
+  if(!fx.length){
+    box.innerHTML=`<p class="rothint">No fixtures are listed for GW${gw}.</p>`;
+    $("#mvSrc").innerHTML=""; return;
+  }
+
+  // Both numbers are expected returns whichever way the page is set, so the mode
+  // is forced for the length of this function and put back afterwards. Nothing
+  // here awaits, so nothing else can catch MODE mid-flight.
+  const saved=MODE; MODE="proj";
+  try{
+    const chip=(side,team,f,other)=>{
+      const v=rawVal(side,team,f,S,h), sh=shade(good(side,v));
+      const priced=mktVal(side,team,f)!=null;
+      const what = side==="atk" ? `${fmt("atk",v)} expected goals`
+                                : `a ${fmt("def",v)} chance of a clean sheet against ${TEAMS[other][0]}`;
+      return `<span class="mv${priced?" priced":""}" style="background:${sh.bg};color:${sh.fg}"
+        title="${TEAMS[team][0]}: ${what}${priced?" · bookmakers' odds":""}">${fmt(side,v)}</span>`;
+    };
+    const name=(id,right)=>{
+      const bar=`<i style="background:${CLUB[TEAMS[id][1]]||"#888"}"></i>`;
+      return `<span class="mteam${right?" r":""}" title="${TEAMS[id][0]} ${right?"away":"at home"}">`
+        +`${bar}<span class="mtxt"><b>${TEAMS[id][1].toUpperCase()}</b><em>${TEAMS[id][0]}</em></span></span>`;
+    };
+    box.innerHTML=fx.map(([g,H,A])=>{
+      const hf={gw:g,opp:A,home:true}, af={gw:g,opp:H,home:false};
+      return `<div class="mrow">${name(H,false)}
+        <div class="mnums">
+          ${chip("atk",H,hf,A)}<span class="mlab">xG</span>${chip("atk",A,af,H)}
+          ${chip("def",H,hf,A)}<span class="mlab">CS</span>${chip("def",A,af,H)}
+        </div>${name(A,true)}</div>`;
+    }).join("");
+    // Same wording as the scale above the table, so the dot means one thing on
+    // this page rather than two.
+    $("#mvSrc").innerHTML = (MKT && MKT[gw])
+      ? `<b>GW${gw}</b> comes from bookmakers' odds &mdash; marked <span class="dot"></span> &mdash; `
+        + `because over the next round the market sees the team news and rotation that our ratings cannot.`
+      : `From our own expected-goals model. The bookmakers have not priced GW${gw} yet.`;
+  } finally { MODE=saved; }
 }
 
 function renderMyPair(byGw,data,gws,from,to){
