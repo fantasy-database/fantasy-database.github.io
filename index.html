@@ -208,15 +208,9 @@
   .rotwhen{margin:10px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
   .rotwhen strong{color:var(--ink);font-weight:600}
 
-  .notes{margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:16px 30px}
-  .notes h3{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
-    text-transform:uppercase;color:var(--muted);margin:0 0 6px}
-  .notes p{margin:0 0 8px;font-size:13px;color:var(--muted);max-width:62ch}
-  .notes code{font-family:"Roboto Mono",ui-monospace,monospace;font-size:12px;color:var(--ink);
-    background:var(--surface-2);padding:1px 5px;border-radius:4px;border:1px solid var(--border)}
-  .notes strong{color:var(--ink);font-weight:600}
-  .ramp{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:11.5px;color:var(--muted)}
-  .rampbar{flex:1 1 auto;height:11px;border-radius:3px;max-width:190px}
+  .foot{margin:18px 2px 0;font-size:12px;line-height:1.6;color:var(--muted);max-width:78ch}
+  .foot a{color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+  .foot a:hover{color:var(--ink)}
 
   /* ---- this gameweek, match by match ----
      The same numbers as the table, laid out a fixture at a time: both sides,
@@ -252,7 +246,7 @@
   /* ---- phones: pin the team, scroll the fixtures ---- */
   @media (max-width:700px){
     .wrap{padding:16px 0 44px}
-    .mast,.views,.viewnote,.panel,.tablecard,.rot,.notes,.gwv{margin-left:12px;margin-right:12px}
+    .mast,.views,.viewnote,.panel,.tablecard,.rot,.gwv,.foot{margin-left:12px;margin-right:12px}
     .mast h1{font-size:30px}
     .mast p{font-size:12.5px}
     .views{gap:8px 12px}
@@ -291,7 +285,6 @@
     .gwv{padding:14px 15px 13px}
     .mlist{grid-template-columns:1fr}
     .mnums{grid-template-columns:44px 24px 44px}
-    .notes{gap:14px}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -410,29 +403,9 @@
     <p class="kbsrc" id="mvSrc"></p>
   </section>
 
-  <section class="notes">
-    <div>
-      <h3>Reading the grid</h3>
-      <p>Each cell is the opponent and where it is played &mdash; <strong>(H)</strong> home, <strong>(A)</strong> away &mdash; over the model's rating for that fixture.</p>
-      <p>Shading is continuous rather than five buckets. The model produces a real number for every fixture, so bucketing it into bands would throw away the precision that made it worth building.</p>
-      <div class="ramp"><span>easier</span><div class="rampbar" id="rampbar"></div><span>harder</span></div>
-    </div>
-    <div>
-      <h3>The two settings</h3>
-      <p><strong>Opponents</strong> asks how bad the teams they play are, and nothing else. It is the direct replacement for FDR, and it will happily put a poor side at the top if their fixtures are kind.</p>
-      <p><strong>Expected returns</strong> asks what this team should get out of those fixtures, using their own attack and defence too. Most of the time this is the one you want. A side can top one list and sit near the bottom of the other.</p>
-    </div>
-    <div>
-      <h3>How it is built</h3>
-      <p>Teams are rated on <strong>non-penalty</strong> expected goals, because a penalty belongs to whoever takes it rather than to a side's ability to create chances. Penalties are added back at league rate (<code>&times;1.06</code>) when a rating becomes a goal projection.</p>
-      <p><strong>The constants are fitted, not chosen.</strong> Splitting last season's 760 matches into odd and even halves and correlating each team against itself measures how much of a sample is signal; <code>k = n(1&minus;r)/r</code> turns that into a blend constant. Attack came out at <strong>8</strong>, defence at <strong>26</strong>, home advantage at <strong>1.11&times;</strong>.</p>
-      <p>Every rating is <strong>opponent-adjusted</strong>: each match is measured against what an average side would have managed versus that opponent, at that venue, so a soft or brutal run of fixtures does not masquerade as form.</p>
-<p>The three promoted sides, marked <span class="prov"></span>, have no Premier League record. Their prior is what promoted sides have actually managed in their first season up, averaged over the <strong>fifteen teams promoted in the last five seasons</strong> — 1.11 npxG and 1.95 npxGA per game. Their <em>k</em> is the one constant still set by judgement rather than fitted.</p>
-      <h3 style="margin-top:14px">Caveats</h3>
-      <p>Two matches is a very small sample. Squad turnover is not modelled at all &mdash; a side that sold its striker in August is not last season's side, and no amount of xG history knows that.</p>
-      <p class="sub">xG from Understat (2025/26 full season, 2026/27 to date). Fixtures and difficulty ratings from the Fantasy Premier League API. Data is a snapshot, not live.</p>
-    </div>
-  </section>
+  <p class="foot">xG from <a href="https://understat.com/" rel="noopener">Understat</a> (2025/26 full season, 2026/27 to date).
+    Fixtures and difficulty ratings from the Fantasy Premier League API. Data is a snapshot, not live.</p>
+
 </div>
 
 <script>
@@ -550,10 +523,8 @@ function render(){
   $("#gwReadout").innerHTML = span===1
     ? `GW${from} <small>this gameweek · ${fmtDate(DEADLINES[from-1])}</small>`
     : `GW${from} – GW${to} <small>${span} gameweeks · ${fmtDate(DEADLINES[from-1])} – ${fmtDate(DEADLINES[to-1])}</small>`;
-  const RAMP="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v).bg).join(",")+")";
-  $("#rampbar").style.background="linear-gradient(90deg,"+
-    [1,.75,.5,.25,0].map(v=>shade(v).bg).join(",")+")";
-  $("#kbramp").style.background=RAMP;
+  $("#kbramp").style.background=
+    "linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v).bg).join(",")+")";
 
   const NOTE={
     atk_ease:"<b>How bad are the defences they play?</b> Scored <b>0&ndash;100</b> per fixture, opponents only &mdash; how good the team itself is does not come into it, so a poor side can sit top.",
