@@ -212,7 +212,7 @@
   .foot a{color:var(--muted);text-decoration:underline;text-underline-offset:2px}
   .foot a:hover{color:var(--ink)}
 
-  /* ---- this gameweek, match by match ----
+  /* ---- next gameweek, match by match ----
      The same numbers as the table, laid out a fixture at a time: both sides,
      goals expected and clean sheet chance, all four at once. */
   .gwv{margin-top:20px;background:var(--surface);border:1px solid var(--border);
@@ -356,7 +356,7 @@
       <div class="gwpick" id="gwPick" role="group" aria-label="Pick a gameweek"></div>
       <p class="gwhint" id="gwHint"></p>
       <div class="presets" id="presets">
-        <button class="chipbtn" data-next="1">This gameweek</button>
+        <button class="chipbtn" data-next="1">Next gameweek</button>
         <button class="chipbtn" data-next="3">Next 3</button>
         <button class="chipbtn" data-next="6">Next 6</button>
         <button class="chipbtn" data-next="9">Next 9</button>
@@ -393,7 +393,7 @@
 
 
   <section class="gwv">
-    <h2>This gameweek, match by match <span id="mvWhen"></span></h2>
+    <h2>Next gameweek, match by match <span id="mvWhen"></span></h2>
     <p>Every fixture in the round, both sides at once &mdash; the same numbers as the table above,
       a match at a time rather than a team at a time. <b>xG</b> is what that side is expected to
       score; <b>CS</b> is its chance of a clean sheet, which is the other side&rsquo;s xG read the
@@ -520,8 +520,10 @@ function render(){
   const S=strengths(kA,kD,kp), span=to-from+1;
 
   // "GW3 – GW3, 1 gameweek" reads like a mistake; a single week says itself.
+  // Only the round that has not started yet is "next"; any other single week
+  // just names itself, because "this gameweek" would point at the wrong one.
   $("#gwReadout").innerHTML = span===1
-    ? `GW${from} <small>this gameweek · ${fmtDate(DEADLINES[from-1])}</small>`
+    ? `GW${from} <small>${from===NEXT_GW?"next gameweek":"one gameweek"} · ${fmtDate(DEADLINES[from-1])}</small>`
     : `GW${from} – GW${to} <small>${span} gameweeks · ${fmtDate(DEADLINES[from-1])} – ${fmtDate(DEADLINES[to-1])}</small>`;
   $("#kbramp").style.background=
     "linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v).bg).join(",")+")";
@@ -701,12 +703,12 @@ function pairStats(byGw,gws,A,B){
   return {A,B,avg,pick,gain:avg-Math.max(sa/n,sb/n)};
 }
 
-/* ---- this gameweek, match by match ---------------------------------------
+/* ---- next gameweek, match by match ---------------------------------------
  * The comprehensive view: one row per fixture, carrying all four numbers that
  * matter for it at once -- both sides' expected goals and both sides' clean
  * sheet chance. The table above answers "who has the best run"; this answers
- * "what is happening this week", which is a different question and was costing
- * three clicks and a mental join to get at.
+ * "what is happening in the coming round", which is a different question and
+ * was costing three clicks and a mental join to get at.
  *
  * It deliberately ignores the gameweek window and the Show / Based on
  * settings. It is always the next round and always expected returns, because

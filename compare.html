@@ -302,7 +302,7 @@
     <div class="gwpick" id="gwPick" role="group" aria-label="Pick a gameweek"></div>
     <p class="gwhint" id="gwHint"></p>
     <div class="presets" id="presets">
-      <button class="chipbtn" type="button" data-next="1">This gameweek</button>
+      <button class="chipbtn" type="button" data-next="1">Next gameweek</button>
       <button class="chipbtn" type="button" data-next="3">Next 3</button>
       <button class="chipbtn" type="button" data-next="6">Next 6</button>
       <button class="chipbtn" type="button" data-next="9">Next 9</button>
@@ -719,7 +719,7 @@ $("#scaleSeg").addEventListener("click",e=>{const b=e.target.closest("button");i
  * Lifted from the fixtures page so the two behave identically: one click picks a
  * single gameweek, a second click on a later one spans the range, an earlier one
  * starts again. The presets underneath are the old dropdown's three choices plus
- * "this gameweek", and any of them abandons a half-made range.
+ * "next gameweek", and any of them abandons a half-made range.
  */
 function buildGwPick(){
   const el=$("#gwPick"); if(!el) return;
