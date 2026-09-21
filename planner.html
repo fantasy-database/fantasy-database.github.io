@@ -227,6 +227,7 @@
     <nav class="nav">
       <a href="index.html">Fixtures</a>
       <a href="players.html">Players</a>
+      <a href="compare.html">Compare</a>
       <a href="planner.html" aria-current="page">Planner</a>
     </nav>
   </header>
@@ -324,8 +325,9 @@
   </p>
 </div>
 
-<script type="module">
+<script type="module" id="app">
 import { DEFAULT_RULES, sellPrice, validateSquad, validateXI, legalFormations } from "./planner.js";
+import { fromData, goodClamped, shade as shadeOn, rampFromCss } from "./model.js";
 
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
@@ -362,78 +364,33 @@ function kit(short){
 const SAVE_KEY="fdb-squad-v1";
 
 const $=s=>document.querySelector(s);
-// The next gameweek you can still transfer into. data.json carries one, but a
-// scheduled build is hours old at best -- and on 7 Sep 2026 it sat on GW3 for a
-// full day after GW3 had been played, because FPL had not yet flipped that
-// round's `finished` flag. So take whichever is later, the file or the deadline
-// calendar. It can only ever move the window forward, never back.
-const nextGwFrom=d=>{
-  const list=(d.deadlineTimes&&d.deadlineTimes.length===d.deadlines.length)
-    ? d.deadlineTimes : d.deadlines;
-  const now=Date.now();
-  let cal=38;
-  for(let i=0;i<list.length;i++){
-    // A date with no time of day cannot tell us the cut-off hour, so the
-    // deadline day itself still counts as upcoming.
-    const t=list[i].length>10 ? Date.parse(list[i]) : Date.parse(list[i]+"T23:59:59Z");
-    if(t>now){ cal=i+1; break; }
-  }
-  return Math.min(38, Math.max(d.nextGw||1, cal));
-};
-
-const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-
-let TEAMS={}, REC={}, FX=[], NEXT_GW=1, MATCHES_PLAYED=0, FIT={}, PLAYERS=[], S=null;
+// M is the shared model, built from data.json. The ticker builds the same
+// object from the same file, so a fixture reads identically on both pages.
+let TEAMS={}, FX=[], NEXT_GW=1, PLAYERS=[], M=null;
 let squad=[], xi=[], captain=null, vice=null, realBank=null;
 let pos=2, horizon=6;
 
 /* ---------------------------------------------------------------------------
- * The model. These four are lifted from index.html unchanged — the same blend,
- * the same anchors, the same colour ramp, so a fixture reads identically on
- * both pages. They belong in a shared model.js; until that extraction happens
- * this is a copy, and any change to one must be made to the other.
+ * The model is model.js, the same file the ticker and the comparison page use.
+ * These two lines are all this page needs of it: a colour, and how kind one
+ * fixture is.
+ *
+ * "Ease" only, and a keeper or defender is rated on the clean sheet while
+ * everyone else is rated on the goals -- because those two do not move
+ * together, which is the whole argument behind this site.
+ *
+ * The ramp is read from the CSS on every call rather than cached, so the
+ * colours follow the theme without the page having to be told it changed.
  * ------------------------------------------------------------------------- */
-const hex2rgb=h=>{h=h.replace("#","");return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16));};
-const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
-const ramp=()=>["--hard","--hard2","--midc","--easy2","--easy"].map(n=>hex2rgb(css(n)));
-function shade(t){
-  t=Math.max(0,Math.min(1,t));
-  const s=ramp(), x=t*4, i=Math.min(3,Math.floor(x));
-  return `rgb(${mix(s[i],s[i+1],x-i).join(",")})`;
-}
-function strengths(kA,kD,kp){
-  const b={}, n=MATCHES_PLAYED;
-  for(const id in REC){const r=REC[id];
-    const wa=n/(n+(r.promoted?kp:kA)), wd=n/(n+(r.promoted?kp:kD));
-    b[id]=[wa*r.a26+(1-wa)*r.pa, wd*r.d26+(1-wd)*r.pd];}
-  const ids=Object.keys(b);
-  const la=ids.reduce((s,i)=>s+b[i][0],0)/ids.length, ld=ids.reduce((s,i)=>s+b[i][1],0)/ids.length;
-  const ATK={},DEF={}; ids.forEach(i=>{ATK[i]=b[i][0]/la; DEF[i]=b[i][1]/ld;});
-  return {ATK,DEF,base:(la+ld)/2};
-}
-function collect(from,to){
-  const out={}; for(const id in TEAMS) out[id]=[];
-  for(const[gw,h,a] of FX){ if(gw<from||gw>to) continue;
-    out[h].push({gw,opp:a,home:true}); out[a].push({gw,opp:h,home:false}); }
-  for(const id in out) out[id].sort((x,y)=>x.gw-y.gw);
-  return out;
-}
-// "Ease" only. A keeper or defender is rated on the clean sheet, everyone else
-// on the goals — because those two do not move together, which is the whole
-// argument behind this site.
-const ANCHOR={atk:[0.70,1.32], def:[0.72,1.42]};
-function ease(side,team,f){
-  const m=f.home?FIT.home:1/FIT.home;
-  const v = side==="atk" ? S.DEF[f.opp]*m : m/S.ATK[f.opp];
-  const [lo,hi]=ANCHOR[side];
-  return Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
-}
+const shade=t=>shadeOn(t,rampFromCss()).bg;
+const ease=(side,team,f)=>goodClamped(side, M.rate(side,team,f,"ease"), "ease");
+
 const sideFor=p=>p.p<=2 ? "def" : "atk";
 
 /* --------------------------------- state --------------------------------- */
 function fixturesFor(teamId){
   const to=Math.min(38,NEXT_GW+horizon-1);
-  return (collect(NEXT_GW,to)[teamId]||[]);
+  return (M.fixtures(NEXT_GW,to)[teamId]||[]);
 }
 function runScore(p){
   const fx=fixturesFor(p.t);
@@ -523,7 +480,8 @@ function slot(p,role){
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 function render(){
-  if(!S) return;
+  // Nothing can be drawn before data.json has landed and the model is built.
+  if(!M) return;
   const inXI=id=>xi.includes(id);
   const starters=xi.map(byId).filter(Boolean);
   const benched=squad.filter(p=>!inXI(p.i));
@@ -754,14 +712,15 @@ Promise.all([
   fetch("data.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("data.json "+r.status);return r.json();}),
   fetch("players.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("players.json "+r.status);return r.json();})
 ]).then(([d,pl])=>{
-  for(const id in d.teams){const t=d.teams[id];
-    TEAMS[id]=[t.name,t.short];
-    REC[id]={pa:t.pa,pd:t.pd,a26:t.a26,d26:t.d26};
-    if(t.promoted) REC[id].promoted=1;}
-  FX=d.fixtures; NEXT_GW=nextGwFrom(d); MATCHES_PLAYED=d.matchesPlayed; FIT=d.fit;
+  for(const id in d.teams) TEAMS[id]=[d.teams[id].name,d.teams[id].short];
+  FX=d.fixtures;
   // The fitted constants, not sliders. The ticker is where you argue with the
   // model; here you just want to know whether the run is kind.
-  S=strengths(FIT.kAtk,FIT.kDef,4);
+  M=fromData(d);
+  // Never d.nextGw raw: a scheduled build can be a day stale, and FPL leaves a
+  // round's `finished` flag false long after it has been played. fromData takes
+  // whichever is further ahead, the file or the deadline calendar.
+  NEXT_GW=M.nextGw;
   PLAYERS=pl.players;
   $("#stamp").textContent=`${d.season} · next GW${NEXT_GW} · updated `
     + new Date(d.generated).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
@@ -778,5 +737,21 @@ Promise.all([
   console.error(err);
 });
 </script>
+<script>
+/* model.js is a separate file now. If it ever fails to arrive -- a browser
+   holding a cached page from before a deploy, say -- the module never runs and
+   this page would sit on "Loading..." for ever with nothing to explain it. The
+   error fires on the script element itself, so this catches exactly that and
+   nothing else. */
+addEventListener("error",function(e){
+  if(!e.target||e.target.id!=="app") return;
+  var s=document.querySelector("#stamp"); if(s) s.textContent="Could not load";
+  var box=document.querySelector("#pitch"); if(!box) return;
+  box.innerHTML='<div class="empty">'
+    +"Could not load the ratings model. Refresh the page \u2014 if it keeps happening, "
+    +"the site is probably mid-update.</div>";
+},true);
+</script>
+
 </body>
 </html>

@@ -334,8 +334,9 @@
   <p class="note" id="foot"></p>
 </div>
 
-<script type="module">
-import { fromData, goodClamped, shade, rampFromCss, formatVal } from "./model.js";
+<script type="module" id="app">
+import { fromData, marketByTeamId, rotate,
+         goodClamped, shade, rampFromCss, formatVal } from "./model.js";
 
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
@@ -602,17 +603,13 @@ function renderRot(players,gws){
     + ` <b>Higher is better</b> in both.`;
 
   const sa=gwSeries(A,gws), sb=gwSeries(B,gws);
-  let sum=0,ta=0,tb=0; const pick=[];
-  gws.forEach((g,k)=>{
-    const a=sa[k], b=sb[k];
-    ta+=a.t; tb+=b.t; sum+=Math.max(a.t,b.t);
-    // A side that plays always beats a side that does not, even when the fixture
-    // it plays rates 0 — otherwise a blank week can win on a tie and the strip
-    // tells you to start nobody.
-    const takeA = (a.blank!==b.blank) ? !a.blank : a.t>=b.t;
-    pick.push(Object.assign({},takeA?a:b,{who:takeA?A:B}));
-  });
-  const n=gws.length, avg=sum/n, gain=avg-Math.max(ta/n,tb/n);
+  // The rule is rotate() in model.js, the same one the ticker uses for two
+  // teams. It works in plain numbers with null for a week the side does not
+  // play, so the series go in stripped down and come back as picks, which are
+  // put back together here with the entries this page needs to draw a cell.
+  const {avg,gain,pick:picks}=rotate(sa.map(x=>x.blank?null:x.t),
+                                     sb.map(x=>x.blank?null:x.t));
+  const pick=picks.map(p=>Object.assign({}, p.take?sb[p.i]:sa[p.i], {who:p.take?B:A}));
 
   const side=sideFor(A);
   const strip=pick.map(x=>{
@@ -811,17 +808,7 @@ Promise.all([
 ]).then(([d,pl,mk])=>{
   D=d; P=pl; RAMP=rampFromCss();
   // market.json is keyed by short code; the model works in FPL team ids.
-  MARKET=null;
-  if(mk&&mk.gw){
-    const idOf={}; for(const id in d.teams) idOf[d.teams[id].short]=id;
-    MARKET={};
-    for(const gw in mk.gw){
-      const row={};
-      for(const sh in mk.gw[gw]) if(idOf[sh]) row[idOf[sh]]=mk.gw[gw][sh];
-      if(Object.keys(row).length) MARKET[gw]=row;
-    }
-    if(!Object.keys(MARKET).length) MARKET=null;
-  }
+  MARKET=marketByTeamId(mk&&mk.gw, d.teams);
   M=fromData(d,{market:MARKET});
   gwFrom=M.nextGw; gwTo=Math.min(38, M.nextGw+5);   // the old default: the next six
   buildGwPick();
@@ -842,5 +829,21 @@ Promise.all([
   console.error(err);
 });
 </script>
+<script>
+/* model.js is a separate file now. If it ever fails to arrive -- a browser
+   holding a cached page from before a deploy, say -- the module never runs and
+   this page would sit on "Loading..." for ever with nothing to explain it. The
+   error fires on the script element itself, so this catches exactly that and
+   nothing else. */
+addEventListener("error",function(e){
+  if(!e.target||e.target.id!=="app") return;
+  var s=document.querySelector("#stamp"); if(s) s.textContent="Could not load";
+  var box=document.querySelector("#statTable"); if(!box) return;
+  box.innerHTML='<tbody><tr><td class="empty">'
+    +"Could not load the ratings model. Refresh the page \u2014 if it keeps happening, "
+    +"the site is probably mid-update.</td></tr></tbody>";
+},true);
+</script>
+
 </body>
 </html>

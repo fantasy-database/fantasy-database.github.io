@@ -408,9 +408,11 @@
 
 </div>
 
-<script>
+<script type="module" id="app">
+import { fromData, marketByTeamId, rotate,
+         good as goodness, formatVal, shade as shadeOn, rampFromCss } from "./model.js";
 
-let SIDE="atk", MODE="proj", SORT="best", MKT=null;
+let SIDE="atk", MODE="proj", SORT="best";
 const PROMOTED_K=4;
 const OVR=(()=>{const q=new URLSearchParams(location.search), o={};
   for(const k of ["kAtk","kDef","kp","home"]){const v=parseFloat(q.get(k)); if(Number.isFinite(v)) o[k]=v;}
@@ -419,105 +421,45 @@ const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
 ips:"#3A64A3",lee:"#FFCD00",liv:"#C8102E",mci:"#6CABDD",mun:"#DA291C",new:"#41B6E6",
 nfo:"#DD0000",tot:"#132257",sun:"#EB172B"};
-let TEAMS={}, REC={}, FX=[], DEADLINES=[], NEXT_GW=1, MATCHES_PLAYED=0, FIT={}, PEN=1;
+// D is the file as it arrived; M is the model built from it. Everything the
+// page draws goes through M, so the ticker, the planner and the comparison page
+// cannot disagree about a fixture -- they run the same code, not copies of it.
+let D=null, M=null, MKT_RAW=null, MARKET=null, RAMP=null;
+let TEAMS={}, FX=[], DEADLINES=[], NEXT_GW=1;
 const $=s=>document.querySelector(s);
-const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-// The next gameweek you can still transfer into. data.json carries one, but a
-// scheduled build is hours old at best -- and on 7 Sep 2026 it sat on GW3 for a
-// full day after GW3 had been played, because FPL had not yet flipped that
-// round's `finished` flag. So take whichever is later, the file or the deadline
-// calendar. It can only ever move the window forward, never back.
-const nextGwFrom=d=>{
-  const list=(d.deadlineTimes&&d.deadlineTimes.length===d.deadlines.length)
-    ? d.deadlineTimes : d.deadlines;
-  const now=Date.now();
-  let cal=38;
-  for(let i=0;i<list.length;i++){
-    // A date with no time of day cannot tell us the cut-off hour, so the
-    // deadline day itself still counts as upcoming.
-    const t=list[i].length>10 ? Date.parse(list[i]) : Date.parse(list[i]+"T23:59:59Z");
-    if(t>now){ cal=i+1; break; }
-  }
-  return Math.min(38, Math.max(d.nextGw||1, cal));
-};
-
 const fmtDate=iso=>{const[y,m,d]=iso.slice(0,10).split("-").map(Number);
   return d+" "+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1];};
 
-/* ---- continuous diverging colour ---- */
-const hex2rgb=h=>{h=h.replace("#","");return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16));};
-const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
-const ramp=()=>["--hard","--hard2","--midc","--easy2","--easy"].map(n=>hex2rgb(css(n)));
-function shade(t){                       // t: 0 = hardest (dark red), 1 = easiest (dark green)
-  t=Math.max(0,Math.min(1,t));
-  const s=ramp(), x=t*4, i=Math.min(3,Math.floor(x));
-  const rgb=mix(s[i],s[i+1],x-i);
-  const lum=(0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2])/255;
-  return {bg:`rgb(${rgb.join(",")})`, fg: lum>0.55 ? "#1A1611" : "#FFFFFF"};
-}
+/* ---------------------------------------------------------------------------
+ * The model lives in model.js. These four are the only glue the page needs:
+ * they bind the current Show / Based on setting and the current theme's colours
+ * to the shared functions, so every call site below reads the way it always did.
+ * ------------------------------------------------------------------------- */
+const shade=t=>shadeOn(t,RAMP);                      // RAMP is refreshed by render()
+const good=(side,v)=>goodness(side,v,MODE);
+const fmt=(side,v,withUnit)=>formatVal(side,v,MODE,withUnit);
+const rate=(side,t,f)=>M.rate(side,+t,f,MODE);
+/* Whether the number this cell shows came from the bookmakers rather than the
+   model. Only the expected-returns view uses the odds at all, which is why the
+   mode is part of the question. */
+const priced=(side,t,f)=>MODE==="proj"&&M.priced(+t,f,side);
 
-function strengths(kA,kD,kp){
-  const b={}, n=MATCHES_PLAYED;
-  for(const id in REC){const r=REC[id];
-    const wa=n/(n+(r.promoted?kp:kA)), wd=n/(n+(r.promoted?kp:kD));
-    b[id]=[wa*r.a26+(1-wa)*r.pa, wd*r.d26+(1-wd)*r.pd];}
-  const ids=Object.keys(b);
-  const la=ids.reduce((s,i)=>s+b[i][0],0)/ids.length, ld=ids.reduce((s,i)=>s+b[i][1],0)/ids.length;
-  const ATK={},DEF={}; ids.forEach(i=>{ATK[i]=b[i][0]/la; DEF[i]=b[i][1]/ld;});
-  const w=x=>MATCHES_PLAYED/(MATCHES_PLAYED+x);
-  return {ATK,DEF,base:(la+ld)/2, wA:w(kA), wD:w(kD), wP:w(kp)};
-}
-function collect(from,to){
-  const out={}; for(const id in TEAMS) out[id]=[];
-  for(const[gw,h,a,hd,ad] of FX){ if(gw<from||gw>to) continue;
-    out[h].push({gw,opp:a,home:true,fdr:hd}); out[a].push({gw,opp:h,home:false,fdr:ad}); }
-  for(const id in out) out[id].sort((x,y)=>x.gw-y.gw);
-  return out;
-}
-/* The bookmakers' expected goals for one fixture, when they have priced it.
-   Over a single round the market is the better forecast -- it sees the team news,
-   the suspensions and the rest days that a ratings model cannot -- so where a
-   price exists we use it and keep our own ratings for the weeks beyond it.
-   A clean sheet is the Poisson complement of what the OPPONENT is expected to
-   score, exactly as in the model, so both sides stay on one scale. */
-function mktVal(side,t,f){
-  // typeof-guarded so the function still stands alone when model.test.mjs lifts
-  // it out of this file: with no market in scope it simply falls through to the
-  // model, which is the behaviour the parity test is there to check.
-  if(MODE!=="proj" || typeof MKT==="undefined" || !MKT) return null;
-  const g=MKT[f.gw]; if(!g) return null;
-  const v = side==="atk" ? g[TEAMS[t][1]] : g[TEAMS[f.opp][1]];
-  if(v==null) return null;
-  return side==="atk" ? v : Math.exp(-v)*100;
-}
-/* raw value for one fixture, per side+mode */
-function rawVal(side,t,f,S,h){
-  const mk=mktVal(side,t,f); if(mk!=null) return mk;
-  const m=f.home?h:1/h;
-  if(side==="atk") return MODE==="ease" ? S.DEF[f.opp]*m : S.base*S.ATK[t]*S.DEF[f.opp]*m*PEN;
-  return MODE==="ease" ? m/S.ATK[f.opp] : Math.exp(-(S.base*S.ATK[f.opp]*S.DEF[t]/m*PEN))*100;
-}
-/* anchors map raw value -> 0..1 goodness, fixed so colours mean the same across windows */
-const ANCHOR={atk_ease:[0.70,1.32], atk_proj:[0.85,2.45], def_ease:[0.72,1.42], def_proj:[8,50]};
-const good=(side,v)=>{const[lo,hi]=ANCHOR[side+"_"+MODE]; return (v-lo)/(hi-lo);};
-const UNIT={atk_ease:"index", atk_proj:"xG", def_ease:"index", def_proj:"CS"};
-function fmt(side,v,withUnit){
-  const u=UNIT[side+"_"+MODE];
-  const n = MODE==="ease" ? v.toFixed(2) : (side==="atk" ? v.toFixed(2) : Math.round(v)+"%");
-  if(!withUnit) return n;
-  return side==="atk" && MODE==="proj" ? `${n} xG`
-       : side==="def" && MODE==="proj" ? `${n} CS`
-       : n;
+/* The fitted constants are not a user setting: update.py measures them from last
+   season's split-half reliability and writes them into data.json's fit block.
+   ?kAtk=16&kDef=50&home=1.05&kp=4 overrides them for testing. No UI. */
+function buildModel(){
+  if(!D) return;
+  MARKET=marketByTeamId(MKT_RAW, D.teams);
+  M=fromData(D,{kAtk:OVR.kAtk, kDef:OVR.kDef, kPromoted:OVR.kp??PROMOTED_K,
+                home:OVR.home, market:MARKET});
 }
 
 function render(){
   let from=+$("#gwFrom").value, to=+$("#gwTo").value; if(from>to)[from,to]=[to,from];
-  // The fitted constants are not a user setting: update.py measures them from last
-  // season's split-half reliability and writes them into data.json's fit block.
-  // ?kAtk=16&kDef=50&home=1.05&kp=4 overrides them for testing. No UI.
-  const h=OVR.home??FIT.home;
-  const kA=OVR.kAtk??FIT.kAtk, kD=OVR.kDef??FIT.kDef, kp=OVR.kp??PROMOTED_K;
-  const S=strengths(kA,kD,kp), span=to-from+1;
+  // The theme can change between renders, and the ramp is read from CSS, so it
+  // is refreshed here rather than cached at load.
+  RAMP=rampFromCss();
+  const span=to-from+1;
 
   // "GW3 – GW3, 1 gameweek" reads like a mistake; a single week says itself.
   // Only the round that has not started yet is "next"; any other single week
@@ -545,7 +487,7 @@ function render(){
     all_proj:"<b>Higher is better</b> &mdash; a bigger number means more expected at both ends."};
   // from/to, not gws: gws is built further down and this runs before it
   const pricedGws=[];
-  if(MODE==="proj" && MKT) for(let g=from; g<=to; g++) if(MKT[g]) pricedGws.push(g);
+  if(MODE==="proj" && MARKET) for(let g=from; g<=to; g++) if(MARKET[g]) pricedGws.push(g);
   $("#kbtext").innerHTML = DIR[SIDE+"_"+MODE] + " Green is an easier fixture, red a harder one.";
 
   // Which weeks are the market's and which are ours. Only the priced weeks inside
@@ -562,7 +504,7 @@ function render(){
               + `which is all there is that far ahead.`
             : "Everything further out comes from our own expected-goals model.");
 
-  const fixtures=collect(from,to);
+  const fixtures=M.fixtures(from,to);
   const gws=[]; for(let g=from;g<=to;g++) gws.push(g);
 
   // per-team, per-side goodness
@@ -570,10 +512,10 @@ function render(){
   for(const id in TEAMS){
     const fx=fixtures[id];
     data[id]={fx,
-      atk:fx.map(f=>good("atk",rawVal("atk",+id,f,S,h))),
-      def:fx.map(f=>good("def",rawVal("def",+id,f,S,h))),
-      atkRaw:fx.map(f=>rawVal("atk",+id,f,S,h)),
-      defRaw:fx.map(f=>rawVal("def",+id,f,S,h))};
+      atk:fx.map(f=>good("atk",rate("atk",id,f))),
+      def:fx.map(f=>good("def",rate("def",id,f))),
+      atkRaw:fx.map(f=>rate("atk",id,f)),
+      defRaw:fx.map(f=>rate("def",id,f))};
   }
   // team-level aggregate per side
   const agg=s=>{const o={}; for(const id in TEAMS){const v=data[id][s];
@@ -598,7 +540,7 @@ function render(){
       ? overall_or_mean(cells)
       : (SIDE==="atk" ? rawA[id] : rawD[id]);
     return {id:+id,name:TEAMS[id][0],fx:d.fx,cells,raws,score,shownVal,
-      fdrScore:d.fx.reduce((a,f)=>a+(6-f.fdr),0), promoted:!!REC[id].promoted, games:d.fx.length};
+      fdrScore:d.fx.reduce((a,f)=>a+(6-f.fdr),0), promoted:!!M.rec[id].promoted, games:d.fx.length};
   });
 
   const fdrOrder=[...rows].sort((a,b)=>b.fdrScore-a.fdrScore||a.name.localeCompare(b.name));
@@ -622,9 +564,9 @@ function render(){
       const nm=TEAMS[f.opp][1].toUpperCase(), label=`${nm} (${f.home?"H":"A"})`;
       const pct=Math.round(Math.max(0,Math.min(1,r.cells[j]))*100);
       const val=(MODE==="proj"&&r.raws)?fmt(SIDE,r.raws[j],true):pct;
-      const priced = SIDE!=="all" && mktVal(SIDE,r.id,f)!=null;
-      return `<td><span class="cell${priced?" priced":""}" style="background:${sh.bg};color:${sh.fg}"
-        title="GW${f.gw} · ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"} · score ${pct}/100${r.raws?" · "+colName+" "+fmt(SIDE,r.raws[j]):""}${priced?" · bookmakers' odds":""}">${label}<u>${val}</u></span></td>`;
+      const isPriced = SIDE!=="all" && priced(SIDE,r.id,f);
+      return `<td><span class="cell${isPriced?" priced":""}" style="background:${sh.bg};color:${sh.fg}"
+        title="GW${f.gw} · ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"} · score ${pct}/100${r.raws?" · "+colName+" "+fmt(SIDE,r.raws[j]):""}${isPriced?" · bookmakers' odds":""}">${label}<u>${val}</u></span></td>`;
     }).join("");
     // every column says whether the headline number is a total or an average
     const per = r.games ? r.shownVal / r.games : 0;
@@ -643,9 +585,14 @@ function render(){
   const ids=Object.keys(TEAMS);
   const byGw={}; ids.forEach(id=>{byGw[id]={}; data[id].fx.forEach((f,j)=>{
     byGw[id][f.gw] = SIDE==="all" ? (data[id].atk[j]+data[id].def[j])/2 : data[id][SIDE][j];});});
+  // One value per gameweek in the window, null for a week the side does not
+  // play. That is the shape rotate() in model.js takes; the comparison page
+  // builds the same shape out of a player's fixtures, so two teams and two
+  // players are now rotated by one function rather than two copies of a rule.
+  const series={}; ids.forEach(id=>{ series[id]=gws.map(g=>byGw[id][g]??null); });
   const pairs=[];
   for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++)
-    pairs.push(pairStats(byGw,gws,ids[i],ids[j]));
+    pairs.push(pairStats(series,gws,ids[i],ids[j]));
   pairs.sort((x,y)=>y.avg-x.avg);
   const top=pairs.slice(0,6);
   const noun = SIDE==="def"?"clean sheets":SIDE==="atk"?"attacking returns":"returns at both ends";
@@ -668,8 +615,8 @@ function render(){
       <div class="pairstrip">${strip}</div></div>`;
   }).join("");
 
-  renderMyPair(byGw,data,gws,from,to);
-  renderMatches(S,h);
+  renderMyPair(series,data,gws,from,to);
+  renderMatches();
 
   paintGwPick(from,to);
   document.querySelectorAll("#presets .chipbtn").forEach(b=>{
@@ -685,22 +632,13 @@ function render(){
  * disagree with the cards above it — if the window, the side or the blend
  * changes, this changes with them.
  */
-// Shared by the ranked pairs and the one you build yourself, so the two can
-// never disagree about the same two teams.
-function pairStats(byGw,gws,A,B){
-  let sum=0,sa=0,sb=0; const pick=[];
-  gws.forEach(g=>{
-    // A blank gameweek is worth nothing, so it scores 0, not a sentinel. Using
-    // one dragged the headline average below zero as soon as both sides of a
-    // pair were blank, which an expected-goals figure can never be. Scoring it 0
-    // also gets the point of rotating right: a pair where one side covers the
-    // other's blank should beat holding either alone, and now it does.
-    const a=byGw[A][g]??0, b=byGw[B][g]??0;
-    sa+=a; sb+=b; sum+=Math.max(a,b);
-    pick.push({gw:g,team:a>=b?A:B,v:Math.max(a,b)});
-  });
-  const n=gws.length||1, avg=sum/n;
-  return {A,B,avg,pick,gain:avg-Math.max(sa/n,sb/n)};
+// The rule itself is rotate() in model.js, shared with the comparison page.
+// This only puts the page's own labels back on the answer: which gameweek each
+// pick belongs to and which of the two teams it names.
+function pairStats(series,gws,A,B){
+  const r=rotate(series[A],series[B]);
+  return {A,B,avg:r.avg,gain:r.gain,
+    pick:r.pick.map(p=>({gw:gws[p.i], team:p.take?B:A, v:p.v, blank:p.blank}))};
 }
 
 /* ---- next gameweek, match by match ---------------------------------------
@@ -715,12 +653,12 @@ function pairStats(byGw,gws,A,B){
  * the opponent-index view has no meaning on a single match and a window has no
  * meaning on a fixture list.
  *
- * Every value comes out of rawVal(), the same call the table cells make, so a
+ * Every value comes out of rate(), the same call the table cells make, so a
  * number here can never disagree with the number up there -- market odds
  * included. A clean sheet is the Poisson complement of the OTHER side's
  * expected goals, so the two columns of a row are one calculation seen twice.
  */
-function renderMatches(S,h){
+function renderMatches(){
   const gw=NEXT_GW, box=$("#mlist");
   $("#mvWhen").textContent = `GW${gw}` + (DEADLINES[gw-1] ? ` · ${fmtDate(DEADLINES[gw-1])}` : "");
   const fx=FX.filter(f=>f[0]===gw);      // fixtures are [gw, home, away, homeFdr, awayFdr]
@@ -735,12 +673,12 @@ function renderMatches(S,h){
   const saved=MODE; MODE="proj";
   try{
     const chip=(side,team,f,other)=>{
-      const v=rawVal(side,team,f,S,h), sh=shade(good(side,v));
-      const priced=mktVal(side,team,f)!=null;
+      const v=rate(side,team,f), sh=shade(good(side,v));
+      const isPriced=priced(side,team,f);
       const what = side==="atk" ? `${fmt("atk",v)} expected goals`
                                 : `a ${fmt("def",v)} chance of a clean sheet against ${TEAMS[other][0]}`;
-      return `<span class="mv${priced?" priced":""}" style="background:${sh.bg};color:${sh.fg}"
-        title="${TEAMS[team][0]}: ${what}${priced?" · bookmakers' odds":""}">${fmt(side,v)}</span>`;
+      return `<span class="mv${isPriced?" priced":""}" style="background:${sh.bg};color:${sh.fg}"
+        title="${TEAMS[team][0]}: ${what}${isPriced?" · bookmakers' odds":""}">${fmt(side,v)}</span>`;
     };
     const name=(id,right)=>{
       const bar=`<i style="background:${CLUB[TEAMS[id][1]]||"#888"}"></i>`;
@@ -757,20 +695,20 @@ function renderMatches(S,h){
     }).join("");
     // Same wording as the scale above the table, so the dot means one thing on
     // this page rather than two.
-    $("#mvSrc").innerHTML = (MKT && MKT[gw])
+    $("#mvSrc").innerHTML = (MARKET && MARKET[gw])
       ? `<b>GW${gw}</b> comes from bookmakers' odds &mdash; marked <span class="dot"></span> &mdash; `
         + `because over the next round the market sees the team news and rotation that our ratings cannot.`
       : `From our own expected-goals model. The bookmakers have not priced GW${gw} yet.`;
   } finally { MODE=saved; }
 }
 
-function renderMyPair(byGw,data,gws,from,to){
+function renderMyPair(series,data,gws,from,to){
   const out=$("#rotOut"), A=$("#rotA").value, B=$("#rotB").value;
   const hint=t=>{out.innerHTML=`<p class="rothint">${t}</p>`;};
   if(!A||!B) return hint(`Pick two teams to see how well they cover each other across GW${from}\u2013${to}.`);
   if(A===B)  return hint("Those are the same side. Pick a different second team.");
 
-  const {avg,pick,gain}=pairStats(byGw,gws,A,B);
+  const {avg,pick,gain}=pairStats(series,gws,A,B);
 
   const fxOf=(t,gw)=>data[t].fx.find(f=>f.gw===gw);
   const strip=pick.map(x=>{
@@ -893,15 +831,14 @@ new MutationObserver(()=>{ if(FX.length) render(); })
   .observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
 
 function applyData(d){
-  TEAMS={}; REC={};
-  for(const id in d.teams){
-    const t=d.teams[id];
-    TEAMS[id]=[t.name, t.short];
-    REC[id]={pa:t.pa, pd:t.pd, a26:t.a26, d26:t.d26};
-    if(t.promoted) REC[id].promoted=1;
-  }
-  FX=d.fixtures; DEADLINES=d.deadlines; NEXT_GW=nextGwFrom(d);
-  MATCHES_PLAYED=d.matchesPlayed; FIT=d.fit; PEN=d.fit.pen;
+  D=d; buildModel();
+  TEAMS={};
+  for(const id in d.teams) TEAMS[id]=[d.teams[id].name, d.teams[id].short];
+  FX=d.fixtures; DEADLINES=d.deadlines;
+  // Never d.nextGw raw: a scheduled build can be a day stale, and FPL leaves a
+  // round's `finished` flag false long after it has been played. fromData takes
+  // whichever is further ahead, the file or the deadline calendar.
+  NEXT_GW=M.nextGw;
   const to=Math.min(38, NEXT_GW+5);
   $("#gwFrom").min=NEXT_GW; $("#gwTo").min=NEXT_GW;
   $("#gwFrom").value=NEXT_GW; $("#gwTo").value=to;
@@ -917,7 +854,9 @@ function applyData(d){
 // normal state for every gameweek beyond the next one or two.
 fetch("market.json?t="+Date.now())
   .then(r=>r.ok?r.json():null)
-  .then(m=>{ MKT=(m&&m.gw)||null; if(MKT&&FX.length) render(); })
+  // The two files race. Whichever lands second rebuilds the model, so the odds
+  // are picked up whether they arrive before data.json or after it.
+  .then(m=>{ MKT_RAW=(m&&m.gw)||null; if(MKT_RAW&&D){ buildModel(); render(); } })
   .catch(()=>{});
 
 fetch("data.json?t="+Date.now())
@@ -932,5 +871,21 @@ fetch("data.json?t="+Date.now())
     console.error("data.json failed:", err);
   });
 </script>
+<script>
+/* model.js is a separate file now. If it ever fails to arrive -- a browser
+   holding a cached page from before a deploy, say -- the module never runs and
+   this page would sit on "Loading..." for ever with nothing to explain it. The
+   error fires on the script element itself, so this catches exactly that and
+   nothing else. */
+addEventListener("error",function(e){
+  if(!e.target||e.target.id!=="app") return;
+  var s=document.querySelector("#stamp"); if(s) s.textContent="Could not load";
+  var box=document.querySelector("#rows"); if(!box) return;
+  box.innerHTML='<tr><td colspan="9" style="padding:26px 14px;color:var(--muted)">'
+    +"Could not load the ratings model. Refresh the page \u2014 if it keeps happening, "
+    +"the site is probably mid-update.</td></tr>";
+},true);
+</script>
+
 </body>
 </html>

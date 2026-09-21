@@ -140,6 +140,44 @@ export function shade(t, ramp) {
 }
 
 /* ---------------------------------------------------------------------------
+ * Rotating two of anything
+ *
+ * The rule the ticker uses for two teams and the comparison page uses for two
+ * players is the same rule, and it lived in two places until this was written:
+ * play whichever of the two has the better week, every week.
+ *
+ * Both callers build their own array first — the ticker from a team's fixture
+ * ratings, the comparison page from a player's, which has to cope with blanks
+ * and double gameweeks — and hand in two arrays of the same length. A gameweek
+ * a side does not play is `null`, never a sentinel and never a number: a
+ * sentinel averaged in put a negative expected-goals figure on screen once, and
+ * the null is also what lets a side that actually plays beat a side that does
+ * not when both rate 0.
+ *
+ *   avg  — the mean across the window of whoever you would have started
+ *   gain — what rotating adds over simply owning the better of the two
+ *   pick — one entry per week: which side to start (0 = a, 1 = b), its value,
+ *          and whether neither of them plays
+ * ------------------------------------------------------------------------- */
+export function rotate(a, b) {
+  if (a.length !== b.length) throw new Error("rotate(): the two series differ in length");
+  let sum = 0, sa = 0, sb = 0;
+  const pick = [];
+  for (let i = 0; i < a.length; i++) {
+    const blankA = a[i] == null, blankB = b[i] == null;
+    const va = blankA ? 0 : a[i], vb = blankB ? 0 : b[i];
+    // A side that plays always beats a side that does not, even where the
+    // fixture it plays rates 0 — otherwise a blank week wins on a tie and the
+    // strip tells you to start nobody.
+    const takeA = (blankA !== blankB) ? !blankA : va >= vb;
+    sa += va; sb += vb; sum += Math.max(va, vb);
+    pick.push({ i, take: takeA ? 0 : 1, v: takeA ? va : vb, blank: blankA && blankB });
+  }
+  const n = a.length || 1, avg = sum / n;
+  return { avg, gain: avg - Math.max(sa / n, sb / n), pick };
+}
+
+/* ---------------------------------------------------------------------------
  * Convenience
  * ------------------------------------------------------------------------- */
 
@@ -152,6 +190,25 @@ export function recordsFrom(teams) {
     if (t.promoted) rec[id].promoted = 1;
   }
   return rec;
+}
+
+/**
+ * market.json is keyed by three-letter short code; everything else here works in
+ * FPL team ids. Translates one into the other, and returns null when there is
+ * nothing usable — which is the normal state for every gameweek beyond the next
+ * round or two, and the state every caller has to handle anyway.
+ */
+export function marketByTeamId(gwMap, teams) {
+  if (!gwMap) return null;
+  const idOf = {};
+  for (const id in teams) idOf[teams[id].short] = id;
+  const out = {};
+  for (const gw in gwMap) {
+    const row = {};
+    for (const short in gwMap[gw]) if (idOf[short]) row[idOf[short]] = gwMap[gw][short];
+    if (Object.keys(row).length) out[gw] = row;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 /**
@@ -183,25 +240,37 @@ export function nextGwFrom(d) {
 }
 
 
-export function fromData(d, { kAtk, kDef, kPromoted = 4, market = null } = {}) {
+export function fromData(d, { kAtk, kDef, kPromoted = 4, home, pen, market = null } = {}) {
   const rec = recordsFrom(d.teams);
   const S = strengths(rec, d.matchesPlayed,
     kAtk ?? d.fit.kAtk, kDef ?? d.fit.kDef, kPromoted);
+  // The fitted constants are not a user setting — update.py measures them and
+  // writes them into data.json — but the ticker lets a query string override
+  // them for testing, so they are overridable here rather than in the page.
+  const H = home ?? d.fit.home, P = pen ?? d.fit.pen;
   return {
     S, rec,
-    home: d.fit.home,
-    pen: d.fit.pen,
+    home: H,
+    pen: P,
     nextGw: nextGwFrom(d),
     teamIds: Object.keys(d.teams),
     fixtures: (from, to) => collect(d.fixtures, Object.keys(d.teams), from, to),
     market,
-    /** true when this fixture's number came from the odds rather than the model */
-    priced: (teamId, fixture) => {
+    /**
+     * True when this fixture's number came from the odds rather than the model.
+     * With a side, it asks about the number that side's cell actually shows: an
+     * attacking figure is the team's own price, a clean sheet is the opponent's.
+     * Without one, whether either end of the fixture is priced.
+     */
+    priced: (teamId, fixture, side) => {
       if (!market) return false;
       const g = market[fixture.gw];
-      return !!g && (g[teamId] != null || g[fixture.opp] != null);
+      if (!g) return false;
+      if (side === "atk") return g[teamId] != null;
+      if (side === "def") return g[fixture.opp] != null;
+      return g[teamId] != null || g[fixture.opp] != null;
     },
     rate: (side, teamId, fixture, mode = "proj") =>
-      rawVal(side, teamId, fixture, S, d.fit.home, mode, d.fit.pen, market),
+      rawVal(side, teamId, fixture, S, H, mode, P, market),
   };
 }
