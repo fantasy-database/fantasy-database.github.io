@@ -323,7 +323,7 @@
       <a href="players.html">Players</a>
       <a href="compare.html">Compare</a>
     </nav>
-    <p>An expected-goals ticker. Attack and defence rated apart, shaded in five bands, with the rotation pairs whose good weeks fall in opposite places.</p>
+    <p>An expected-goals ticker. Attack and defence rated apart, shaded in five bands, with a rotation check for any two sides you name.</p>
   </header>
 
   <div class="views">
@@ -375,14 +375,8 @@
   </div>
 
   <section class="rot">
-    <h2>Rotation pairs</h2>
-    <p id="rotIntro"></p>
-    <div class="pairs" id="pairs"></div>
-  </section>
-
-  <section class="rot">
     <h2>Build your own pair</h2>
-    <p id="myRotIntro">Two sides you are thinking of rotating. Same maths as the ranked pairs above, over the gameweek window and the view you have set.</p>
+    <p id="myRotIntro">Two sides you are thinking of rotating. Play whichever has the better week, over the gameweek window and the view you have set.</p>
     <div class="rotpick">
       <select id="rotA" aria-label="First team of your rotation"></select>
       <select id="rotB" aria-label="Second team of your rotation"></select>
@@ -599,7 +593,7 @@ function render(){
       <td class="pad score">${shown} ${sub}</td></tr>`;
   }).join("");
 
-  /* ---- rotation pairs: best two teams to alternate between ---- */
+  /* ---- per-gameweek series for the build-your-own pair ---- */
   const ids=Object.keys(TEAMS);
   const byGw={}, byGwRaw={};
   ids.forEach(id=>{byGw[id]={}; byGwRaw[id]={}; data[id].fx.forEach((f,j)=>{
@@ -612,31 +606,6 @@ function render(){
   const series={}, seriesRaw={};
   ids.forEach(id=>{ series[id]=gws.map(g=>byGw[id][g]??null);
                     seriesRaw[id]=gws.map(g=>byGwRaw[id][g]??null); });
-  const pairs=[];
-  for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++)
-    pairs.push(pairStats(series,gws,ids[i],ids[j],seriesRaw));
-  pairs.sort((x,y)=>y.avg-x.avg);
-  const top=pairs.slice(0,6);
-  const noun = SIDE==="def"?"clean sheets":SIDE==="atk"?"attacking returns":"returns at both ends";
-  $("#rotIntro").textContent=`Play whichever of the two has the better week, every week. Ranked by the average of the better fixture across GW${from}–${to}, for ${noun}. The gain is what rotating adds over simply holding the stronger of the pair all the way through.`;
-  $("#pairs").innerHTML=top.map(p=>{
-    const strip=p.pick.map(x=>{const sh=cellShade(x);
-      const f=data[x.team].fx.find(f=>f.gw===x.gw);
-      // Neither side plays that week. "Build your own pair" has always drawn this
-      // as a dashed cell; up here it read f.opp off nothing and took the whole
-      // page down with it, error message and all. A pair can reach the top six
-      // with a doubly-blank week in it -- the week scores 0, it does not
-      // disqualify them -- so this was reachable, just not by clicking.
-      if(!f) return `<div class="pcell blank" title="GW${x.gw}: neither side plays">&mdash;<u>blank</u></div>`;
-      const nm=TEAMS[f.opp][1].toUpperCase(), label=`${nm} (${f.home?"H":"A"})`;
-      return `<div class="pcell" style="background:${sh.bg};color:${sh.fg}" title="GW${x.gw}: play ${TEAMS[x.team][0]} vs ${TEAMS[f.opp][0]}">${TEAMS[x.team][1].toUpperCase()}<u>${label}</u></div>`;
-    }).join("");
-    return `<div class="pair">
-      <div class="pairhead"><span class="pairname">${TEAMS[p.A][0]}<s>/</s>${TEAMS[p.B][0]}</span>
-      <span class="pairval">${p.avg.toFixed(2)} <span class="sub">+${p.gain.toFixed(2)}</span></span></div>
-      <div class="pairstrip">${strip}</div></div>`;
-  }).join("");
-
   renderMyPair(series,data,gws,from,to,seriesRaw);
   renderMatches();
 
@@ -649,9 +618,9 @@ function render(){
 }
 
 /* ---- build your own pair -------------------------------------------------
- * The same calculation as the ranked pairs, for two sides the user names. It
- * reuses byGw and data from render() rather than recomputing, so it can never
- * disagree with the cards above it — if the window, the side or the blend
+ * Two sides the user names, rotated week by week. It reuses the series and
+ * data from render() rather than recomputing, so it can never disagree with
+ * the table above it — if the window, the side or the blend
  * changes, this changes with them.
  */
 // The rule itself is rotate() in model.js, shared with the comparison page.
