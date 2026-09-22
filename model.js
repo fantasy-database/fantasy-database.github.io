@@ -110,62 +110,47 @@ export const goodClamped = (side, v, mode) => Math.max(0, Math.min(1, good(side,
  * one of five colours rather than one of a thousand, which is what makes a
  * column readable at a glance.
  *
- * The edges are ours, not borrowed. The only non-arbitrary anchor in this model
- * is the average fixture — `base * pen`, what a league-average attack is
- * expected to score against a league-average defence, currently 1.556 — so
- * every band is defined against that:
+ *   xG   <1.00 | 1.00-1.29 | 1.30-1.59 | 1.60-1.99 | 2.00+
+ *   CS    <15% |   15-24%  |   25-34%  |   35-44%  |   45%+
  *
- *   dark red    more than 30% below average   xG <1.20
- *   red         10-30% below                     1.20-1.39
- *   grey        within 10% of average            1.40-1.69
- *   green       10-30% above                     1.70-1.99
- *   dark green  more than 30% above              2.00+
+ * Nahom's own table, set 22 September 2026. The expected-goals row follows FPL
+ * Joe's; the clean sheet row is his, and is deliberately stingier than theirs
+ * in the middle — their grey starts at 20%, his at 25%, so a fixture has to be
+ * a genuinely good one before it stops reading as red.
  *
- * Two independent methods agree on these: anchoring to the average gives
- * 1.20/1.40/1.70/2.00, and the quintiles of the actual fixture distribution
- * give 1.25/1.45/1.65/1.90. FPL Joe and FPL Focal both turn green at or below
- * 1.60-1.80, which flatters the middle — 1.60 is three percent above average,
- * not a good fixture.
- *
- * There is ONE table, for expected goals, and the clean sheet colours fall out
- * of it. A clean sheet is the Poisson complement of the opponent's expected
- * goals — the same calculation seen from the other end — so a defensive cell
- * is coloured by reading this table backwards. The two sides of a fixture can
- * then never contradict each other, which is what independent tables do: under
- * FPL Joe's, a 2.00 xG attack is dark green while the defence facing that very
- * number is merely red.
+ * The two rows are independent. That is a choice, not an oversight: a clean
+ * sheet is the Poisson complement of the opponent's expected goals, so a scale
+ * derived from the xG row would colour the two sides of a fixture as exact
+ * opposites, and one derived from these numbers does not — a 2.00 xG attack is
+ * dark green while the defence facing that same number reads red rather than
+ * dark red. An earlier build did derive them and was rejected: it put far more
+ * green on the defensive column than the raw clean sheet numbers deserve.
+ * Judged in absolute terms, a 28% clean sheet is not a good fixture, whatever
+ * the attack at the other end is rated.
  *
  * The ease index is not banded: it is an opponent-quality score rather than a
  * quantity, and the same index means different things to different teams, so
  * it keeps the continuous ramp.
  * ------------------------------------------------------------------------- */
 export const BAND = {
-  atk_proj: [1.20, 1.40, 1.70, 2.00],
+  atk_proj: [1.00, 1.30, 1.60, 2.00],
+  def_proj: [15, 25, 35, 45],
 };
 
 /*
  * Which band a raw value falls in: 0 = hardest … 4 = easiest. null = unbanded.
  *
- * It bands the number as PRINTED, not as held. A fixture rating 1.6996 shows
- * as "1.70" and has to be coloured as 1.70, or the grid draws a grey cell next
+ * It bands the number as PRINTED, not as held. A fixture rating 1.5996 shows
+ * as "1.60" and has to be coloured as 1.60, or the grid draws a grey cell next
  * to a green one that reads the same.
  */
 export function bandOf(side, v, mode) {
-  if (mode !== "proj") return null;
-  if (side === "atk") {
-    const shown = Math.round(v * 100) / 100;
-    let i = 0;
-    while (i < BAND.atk_proj.length && shown >= BAND.atk_proj[i]) i++;
-    return i;
-  }
-  if (side === "def") {
-    // The clean sheet IS the opponent's expected goals. Invert the Poisson
-    // step and read the one table, so the defensive colour is the exact
-    // opposite of the attacking colour the same number would draw.
-    const shown = Math.max(0.01, Math.min(100, Math.round(v)));
-    return 4 - bandOf("atk", -Math.log(shown / 100), "proj");
-  }
-  return null;
+  const edges = BAND[side + "_" + mode];
+  if (!edges) return null;
+  const shown = side === "def" ? Math.round(v) : Math.round(v * 100) / 100;
+  let i = 0;
+  while (i < edges.length && shown >= edges[i]) i++;
+  return i;
 }
 
 /*
@@ -178,21 +163,11 @@ export function colourT(side, v, mode) {
   return b == null ? goodClamped(side, v, mode) : b / 4;
 }
 
-/**
- * The bands written out for a key, hardest first. The defensive ones are not
- * stored anywhere — they are found by asking bandOf() where it changes its
- * mind, so the key can never drift from the colours.
- */
+/** The bands written out for a key, hardest first. */
 export function bandLabels(side, mode) {
-  if (mode !== "proj") return null;
+  const edges = BAND[side + "_" + mode];
+  if (!edges) return null;
   const pct = side === "def";
-  let edges;
-  if (side === "atk") edges = BAND.atk_proj;
-  else if (pct) {
-    edges = [];
-    for (let p = 1; p <= 100; p++)
-      if (bandOf("def", p, "proj") !== bandOf("def", p - 1, "proj")) edges.push(p);
-  } else return null;
   const step = pct ? 1 : 0.01;
   const n = v => pct ? String(Math.round(v)) : v.toFixed(2);
   const unit = pct ? "%" : "";
