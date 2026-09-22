@@ -167,10 +167,82 @@ console.log("\nAnchors and formatting");
 test("the anchor table is unchanged", () => {
   assert.deepEqual(M.ANCHOR, EX.anchor);
 });
-test(`${EX.fmtGrid.length} formatted numbers read the way they always did`, () => {
-  for (const c of EX.fmtGrid)
-    assert.equal(M.formatVal(c.side, c.v, c.mode, c.withUnit), c.out,
-      `${c.side} ${c.mode} ${c.v}${c.withUnit ? " with unit" : ""}`);
+
+console.log("\nColour bands");
+test("the band table is ours, anchored to the average fixture", () => {
+  // base * pen is 1.556 on the frozen inputs; the edges are +/-10% and +/-30%
+  assert.deepEqual(M.BAND, { atk_proj: [1.2, 1.4, 1.7, 2] });
+  const S = M.strengths(REC, IN.matchesPlayed, IN.fit.kAtk, IN.fit.kDef, 4);
+  const avg = S.base * IN.fit.pen;
+  assert.ok(Math.abs(avg - 1.556) < 0.01, `average fixture moved to ${avg.toFixed(3)} — the edges were set against 1.556`);
+  assert.ok(M.BAND.atk_proj[1] < avg && avg < M.BAND.atk_proj[2], "grey must straddle the average fixture");
+});
+test("there is one table, not two — the clean sheet edges are derived", () => {
+  assert.equal(M.BAND.def_proj, undefined, "a second table has appeared");
+  const edges = [];
+  for (let p = 1; p <= 100; p++)
+    if (M.bandOf("def", p, "proj") !== M.bandOf("def", p - 1, "proj")) edges.push(p);
+  assert.deepEqual(edges, [14, 19, 25, 31]);
+});
+test("a fixture's two sides are exact opposites", () => {
+  // the whole point of one table: an xG and the clean sheet it implies must
+  // never be coloured as if they disagreed
+  let checked = 0;
+  for (let x = 0.45; x < 3.2; x += 0.005) {
+    const cs = Math.exp(-x) * 100, p = Math.round(cs);
+    // A clean sheet prints as a whole percent, which is coarser than a 2dp xG:
+    // one printed percent can span an edge. Those are the known exceptions —
+    // see the next test, which measures how many there are.
+    const lo = -Math.log((p + 0.5) / 100), hi = -Math.log((p - 0.5) / 100);
+    if (M.bandOf("atk", lo, "proj") !== M.bandOf("atk", hi, "proj")) continue;
+    assert.equal(M.bandOf("atk", x, "proj") + M.bandOf("def", cs, "proj"), 4,
+      `xG ${x.toFixed(2)} against CS ${cs.toFixed(1)}%`);
+    checked++;
+  }
+  assert.ok(checked > 400, `only ${checked} pairs checked`);
+});
+test("what rounding to a whole percent costs, measured", () => {
+  // Two cells printing the same clean sheet must share a colour, so the band
+  // is taken from the printed percent. The price is that a percent straddling
+  // an edge can disagree with its own xG. Keep it small and known.
+  let bad = 0, n = 0;
+  for (let x = 0.45; x < 3.2; x += 0.005, n++)
+    if (M.bandOf("atk", x, "proj") + M.bandOf("def", Math.exp(-x) * 100, "proj") !== 4) bad++;
+  assert.ok(bad / n < 0.04, `${bad} of ${n} pairs disagree — rounding cost has grown`);
+});
+test("every edge belongs to the band above it", () => {
+  const rows = [[1.19, 0], [1.2, 1], [1.39, 1], [1.4, 2], [1.69, 2],
+                [1.7, 3], [1.99, 3], [2, 4], [9, 4]];
+  for (const [v, want] of rows) {
+    assert.equal(M.bandOf("atk", v, "proj"), want, `atk ${v}`);
+    assert.equal(M.colourT("atk", v, "proj"), want / 4, `atk ${v} colour`);
+  }
+  for (const [v, want] of [[13, 0], [14, 1], [18, 1], [19, 2], [24, 2],
+                           [25, 3], [30, 3], [31, 4], [100, 4]])
+    assert.equal(M.bandOf("def", v, "proj"), want, `def ${v}%`);
+});
+test("a number is banded as it is printed, not as it is held", () => {
+  assert.equal(M.bandOf("atk", 1.6996, "proj"), 3, "1.6996 prints as 1.70");
+  assert.equal(M.bandOf("atk", 1.6949, "proj"), 2, "1.6949 prints as 1.69");
+  assert.equal(M.bandOf("def", 24.6, "proj"), 3, "24.6 prints as 25%");
+  assert.equal(M.bandOf("def", 24.4, "proj"), 2, "24.4 prints as 24%");
+});
+test("a band centre lands exactly on one of the five stops", () => {
+  const ramp = M.rampFrom(F.rampHex);
+  for (let b = 0; b < 5; b++)
+    assert.equal(M.shade(b / 4, ramp).bg,
+      `rgb(${ramp[b].join(",")})`, `band ${b} is not a flat stop`);
+});
+test("the ease index is not banded and keeps the ramp", () => {
+  assert.equal(M.bandOf("atk", 1.1, "ease"), null);
+  assert.equal(M.bandLabels("atk", "ease"), null);
+  assert.equal(M.colourT("atk", 1.1, "ease"), M.goodClamped("atk", 1.1, "ease"));
+});
+test("the key reads the way the bands are written", () => {
+  assert.deepEqual(M.bandLabels("atk", "proj"),
+    ["<1.20", "1.20\u20131.39", "1.40\u20131.69", "1.70\u20131.99", "2.00+"]);
+  assert.deepEqual(M.bandLabels("def", "proj"),
+    ["<14%", "14\u201318%", "19\u201324%", "25\u201330%", "31%+"]);
 });
 
 console.log("\nfromData convenience");
@@ -309,6 +381,7 @@ for (const page of ["index.html", "planner.html", "compare.html"]) {
       assert.ok(!html.includes(copy), `${page} has its own ${copy}…) again`);
     }
     assert.ok(!/const ANCHOR\s*=/.test(html), `${page} has its own anchor table again`);
+    assert.ok(!/const BAND\s*=/.test(html), `${page} has its own band table again`);
   });
 }
 

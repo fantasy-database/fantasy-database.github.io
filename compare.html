@@ -139,6 +139,7 @@
   .key{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:10px 14px 13px;
     font-size:12px;color:var(--muted)}
   .rampbar{display:inline-block;width:96px;height:9px;border-radius:99px;vertical-align:-1px}
+  .keybands{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10.5px;white-space:nowrap}
   /* Where each column's number came from. Spelled out rather than left to a
      marker alone, since there is no hover on a phone. */
   .srcnote{margin:-4px 14px 13px;font-size:12px;line-height:1.5;color:var(--muted)}
@@ -336,7 +337,7 @@
 
 <script type="module" id="app">
 import { fromData, marketByTeamId, rotate,
-         goodClamped, shade, rampFromCss, formatVal } from "./model.js";
+         goodClamped, colourT, bandLabels, shade, rampFromCss, formatVal } from "./model.js";
 
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
@@ -506,7 +507,7 @@ function render(){
   const fbody=players.map(p=>{
     const side=sideFor(p), fx=fixturesFor(p.t);
     const byGw={}; fx.forEach(f=>{ (byGw[f.gw]=byGw[f.gw]||[]).push(f); });
-    let sum=0,n=0;
+    let sum=0,n=0,rawSum=0;
     const cells=gws.map(g=>{
       const list=byGw[g];
       if(!list) return `<td class="fx"><span class="fxcell" style="background:var(--surface-2);color:var(--muted)">–<b>no game</b></span></td>`;
@@ -514,15 +515,17 @@ function render(){
       return `<td class="fx${anyPriced?" priced":""}">`+list.map(f=>{
         const v=M.rate(side,p.t,f,"proj");
         const t=goodClamped(side,v,"proj");
-        sum+=t; n++;
-        const c=shade(t,RAMP), opp=D.teams[f.opp];
+        sum+=t; n++; rawSum+=v;
+        const c=shade(colourT(side,v,"proj"),RAMP), opp=D.teams[f.opp];
         return `<span class="fxcell" style="background:${c.bg};color:${c.fg}">`
              + `${esc(opp?opp.short.toUpperCase():"?")} (${f.home?"H":"A"})`
              + `<b>${formatVal(side,v,"proj",true)}</b></span>`;
       }).join("")+`</td>`;
     }).join("");
+    // The percentage stays the mean goodness, which is what "ease" has always
+    // meant here; the colour is the band the average number itself falls in.
     const avg=n?sum/n:0;
-    const ac=shade(avg,RAMP);
+    const ac=shade(colourT(side,n?rawSum/n:0,"proj"),RAMP);
     const t=D.teams[p.t]||{short:"?"};
     return `<tr><th class="lft">${esc(p.n)} <span style="color:var(--muted);font-family:'Roboto Mono',monospace;font-size:10px">${esc(t.short.toUpperCase())}</span></th>`
       + cells
@@ -532,11 +535,14 @@ function render(){
   $("#fxTable").innerHTML=fhead+`<tbody>${fbody}</tbody>`;
 
   const sides=new Set(players.map(sideFor));
-  $("#fxKey").innerHTML = sides.size===1
+  const keyBands = sides.size===1
+    ? bandLabels(sides.has("def")?"def":"atk","proj").join("&nbsp;&middot; ") : null;
+  $("#fxKey").innerHTML = (sides.size===1
     ? (sides.has("def")
         ? `Keepers and defenders are rated on <b>clean sheet chance</b> — the percentage is how often that fixture should end 0&#8209;0 at their end.`
         : `Midfielders and forwards are rated on <b>their team's expected goals</b> in that fixture — not their own, the side's.`)
-    : `Mixed positions: keepers and defenders show <b>clean sheet chance</b>, midfielders and forwards show <b>their team's expected goals</b>. The colours are comparable; the numbers are not.`;
+    : `Mixed positions: keepers and defenders show <b>clean sheet chance</b>, midfielders and forwards show <b>their team's expected goals</b>. The colours are comparable; the numbers are not.`)
+    + (keyBands ? ` <span class="keybands">${keyBands}</span>` : "");
 
   // Which of the columns on screen came from the odds, in words.
   const priced=[]; for(let g=gwFrom; g<=gwTo; g++) if(MARKET&&MARKET[g]) priced.push(g);
@@ -615,7 +621,7 @@ function renderRot(players,gws){
   const strip=pick.map(x=>{
     if(x.blank) return `<div class="pcell blank" title="GW${x.gw}: neither one plays">`
       + `<b>GW${x.gw}</b>\u2014<u>blank</u></div>`;
-    const sh=shade(x.t,RAMP);
+    const sh=shade(colourT(side,x.raw,"proj"),RAMP);
     const opps=x.fx.map(f=>{const o=D.teams[f.opp];
       return `${esc(o?o.short.toUpperCase():"?")} (${f.home?"H":"A"})`;}).join(" + ");
     return `<div class="pcell" style="background:${sh.bg};color:${sh.fg}"`
@@ -812,7 +818,9 @@ Promise.all([
   M=fromData(d,{market:MARKET});
   gwFrom=M.nextGw; gwTo=Math.min(38, M.nextGw+5);   // the old default: the next six
   buildGwPick();
-  $("#rampbar").style.background="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v,RAMP).bg).join(",")+")";
+  // Flat blocks, not a ramp: the cells are banded, so the key is too.
+  $("#rampbar").style.background="linear-gradient(90deg,"
+    +[0,.25,.5,.75,1].map((v,i)=>`${shade(v,RAMP).bg} ${i*20}% ${(i+1)*20}%`).join(",")+")";
   $("#stamp").textContent=`${d.season} · next GW${M.nextGw} · updated `
     + new Date(d.generated).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
 

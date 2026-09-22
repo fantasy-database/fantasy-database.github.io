@@ -102,6 +102,107 @@ export function good(side, v, mode) {
 /** Clamped, for anything that feeds a colour. */
 export const goodClamped = (side, v, mode) => Math.max(0, Math.min(1, good(side, v, mode)));
 
+/* ---------------------------------------------------------------------------
+ * Colour bands
+ *
+ * A projected number is coloured by the band it lands in rather than by where
+ * it sits on a ramp. The same xG always draws the same green, and a cell is
+ * one of five colours rather than one of a thousand, which is what makes a
+ * column readable at a glance.
+ *
+ * The edges are ours, not borrowed. The only non-arbitrary anchor in this model
+ * is the average fixture — `base * pen`, what a league-average attack is
+ * expected to score against a league-average defence, currently 1.556 — so
+ * every band is defined against that:
+ *
+ *   dark red    more than 30% below average   xG <1.20
+ *   red         10-30% below                     1.20-1.39
+ *   grey        within 10% of average            1.40-1.69
+ *   green       10-30% above                     1.70-1.99
+ *   dark green  more than 30% above              2.00+
+ *
+ * Two independent methods agree on these: anchoring to the average gives
+ * 1.20/1.40/1.70/2.00, and the quintiles of the actual fixture distribution
+ * give 1.25/1.45/1.65/1.90. FPL Joe and FPL Focal both turn green at or below
+ * 1.60-1.80, which flatters the middle — 1.60 is three percent above average,
+ * not a good fixture.
+ *
+ * There is ONE table, for expected goals, and the clean sheet colours fall out
+ * of it. A clean sheet is the Poisson complement of the opponent's expected
+ * goals — the same calculation seen from the other end — so a defensive cell
+ * is coloured by reading this table backwards. The two sides of a fixture can
+ * then never contradict each other, which is what independent tables do: under
+ * FPL Joe's, a 2.00 xG attack is dark green while the defence facing that very
+ * number is merely red.
+ *
+ * The ease index is not banded: it is an opponent-quality score rather than a
+ * quantity, and the same index means different things to different teams, so
+ * it keeps the continuous ramp.
+ * ------------------------------------------------------------------------- */
+export const BAND = {
+  atk_proj: [1.20, 1.40, 1.70, 2.00],
+};
+
+/*
+ * Which band a raw value falls in: 0 = hardest … 4 = easiest. null = unbanded.
+ *
+ * It bands the number as PRINTED, not as held. A fixture rating 1.6996 shows
+ * as "1.70" and has to be coloured as 1.70, or the grid draws a grey cell next
+ * to a green one that reads the same.
+ */
+export function bandOf(side, v, mode) {
+  if (mode !== "proj") return null;
+  if (side === "atk") {
+    const shown = Math.round(v * 100) / 100;
+    let i = 0;
+    while (i < BAND.atk_proj.length && shown >= BAND.atk_proj[i]) i++;
+    return i;
+  }
+  if (side === "def") {
+    // The clean sheet IS the opponent's expected goals. Invert the Poisson
+    // step and read the one table, so the defensive colour is the exact
+    // opposite of the attacking colour the same number would draw.
+    const shown = Math.max(0.01, Math.min(100, Math.round(v)));
+    return 4 - bandOf("atk", -Math.log(shown / 100), "proj");
+  }
+  return null;
+}
+
+/*
+ * What to hand shade(): the centre of the band where there are bands, and the
+ * position along the ramp where there are not. It takes the RAW value, never a
+ * goodness — a goodness has already thrown away the band.
+ */
+export function colourT(side, v, mode) {
+  const b = bandOf(side, v, mode);
+  return b == null ? goodClamped(side, v, mode) : b / 4;
+}
+
+/**
+ * The bands written out for a key, hardest first. The defensive ones are not
+ * stored anywhere — they are found by asking bandOf() where it changes its
+ * mind, so the key can never drift from the colours.
+ */
+export function bandLabels(side, mode) {
+  if (mode !== "proj") return null;
+  const pct = side === "def";
+  let edges;
+  if (side === "atk") edges = BAND.atk_proj;
+  else if (pct) {
+    edges = [];
+    for (let p = 1; p <= 100; p++)
+      if (bandOf("def", p, "proj") !== bandOf("def", p - 1, "proj")) edges.push(p);
+  } else return null;
+  const step = pct ? 1 : 0.01;
+  const n = v => pct ? String(Math.round(v)) : v.toFixed(2);
+  const unit = pct ? "%" : "";
+  const out = edges.map((e, i) => i === 0
+    ? "<" + n(e) + unit
+    : n(edges[i - 1]) + "\u2013" + n(e - step) + unit);
+  out.push(n(edges[edges.length - 1]) + unit + "+");
+  return out;
+}
+
 /** How a number should read: "1.84 xG", "42% CS", or a bare index. */
 export function formatVal(side, v, mode, withUnit) {
   const n = mode === "ease" ? v.toFixed(2)

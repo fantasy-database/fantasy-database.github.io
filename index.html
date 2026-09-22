@@ -146,6 +146,7 @@
     font-size:12.5px;color:var(--muted);flex-wrap:wrap}
   .keybar b{color:var(--ink);font-weight:700}
   .kbramp{display:inline-block;width:78px;height:10px;border-radius:3px;flex:0 0 auto}
+  .kbbands{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10.5px;color:var(--muted);white-space:nowrap}
   .tscroll{overflow-x:auto}
   table{border-collapse:separate;border-spacing:0;width:100%;min-width:930px}
   thead th{font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;font-weight:600;letter-spacing:.1em;
@@ -322,7 +323,7 @@
       <a href="players.html">Players</a>
       <a href="compare.html">Compare</a>
     </nav>
-    <p>An expected-goals ticker. Attack and defence rated apart, shaded on a continuous scale, with the rotation pairs whose good weeks fall in opposite places.</p>
+    <p>An expected-goals ticker. Attack and defence rated apart, shaded in five bands, with the rotation pairs whose good weeks fall in opposite places.</p>
   </header>
 
   <div class="views">
@@ -410,7 +411,8 @@
 
 <script type="module" id="app">
 import { fromData, marketByTeamId, rotate,
-         good as goodness, formatVal, shade as shadeOn, rampFromCss } from "./model.js";
+         good as goodness, colourT, bandLabels, formatVal,
+         shade as shadeOn, rampFromCss } from "./model.js";
 
 let SIDE="atk", MODE="proj", SORT="best";
 const PROMOTED_K=4;
@@ -437,6 +439,10 @@ const fmtDate=iso=>{const[y,m,d]=iso.slice(0,10).split("-").map(Number);
  * ------------------------------------------------------------------------- */
 const shade=t=>shadeOn(t,RAMP);                      // RAMP is refreshed by render()
 const good=(side,v)=>goodness(side,v,MODE);
+/* One rotation cell. Where the number is banded the colour comes off the raw
+   value; the "all" view averages two metrics, has no raw, and stays on the
+   ramp. */
+const cellShade=x=>x.raw!=null ? shadeOn(colourT(SIDE,x.raw,MODE),RAMP) : shade(x.v);
 const fmt=(side,v,withUnit)=>formatVal(side,v,MODE,withUnit);
 const rate=(side,t,f)=>M.rate(side,+t,f,MODE);
 /* Whether the number this cell shows came from the bookmakers rather than the
@@ -467,8 +473,14 @@ function render(){
   $("#gwReadout").innerHTML = span===1
     ? `GW${from} <small>${from===NEXT_GW?"next gameweek":"one gameweek"} · ${fmtDate(DEADLINES[from-1])}</small>`
     : `GW${from} – GW${to} <small>${span} gameweeks · ${fmtDate(DEADLINES[from-1])} – ${fmtDate(DEADLINES[to-1])}</small>`;
-  $("#kbramp").style.background=
-    "linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v).bg).join(",")+")";
+  // Five flat blocks where the colours are banded, so the key shows what the
+  // grid shows rather than a smooth scale the grid never draws.
+  const kbBands = SIDE!=="all" && bandLabels(SIDE,MODE);
+  $("#kbramp").style.background = kbBands
+    ? "linear-gradient(90deg,"+[0,.25,.5,.75,1]
+        .map((v,i)=>`${shade(v).bg} ${i*20}% ${(i+1)*20}%`).join(",")+")"
+    : "linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v).bg).join(",")+")";
+  $("#kbramp").title = kbBands ? kbBands.join("  ·  ") : "";
 
   const NOTE={
     atk_ease:"<b>How bad are the defences they play?</b> Scored <b>0&ndash;100</b> per fixture, opponents only &mdash; how good the team itself is does not come into it, so a poor side can sit top.",
@@ -488,7 +500,10 @@ function render(){
   // from/to, not gws: gws is built further down and this runs before it
   const pricedGws=[];
   if(MODE==="proj" && MARKET) for(let g=from; g<=to; g++) if(MARKET[g]) pricedGws.push(g);
-  $("#kbtext").innerHTML = DIR[SIDE+"_"+MODE] + " Green is an easier fixture, red a harder one.";
+  // The five bands spelled out. There is no hover on a phone, and the whole
+  // point of banding is that a colour means a range you can name.
+  $("#kbtext").innerHTML = DIR[SIDE+"_"+MODE] + " Green is an easier fixture, red a harder one."
+    + (kbBands ? ` <span class="kbbands">${kbBands.join("&nbsp;&middot; ")}</span>` : "");
 
   // Which weeks are the market's and which are ours. Only the priced weeks inside
   // the window are named, so the line always matches what is actually on screen.
@@ -560,7 +575,10 @@ function render(){
     const rank=i+1, moved=fdrRank.get(r.id)-rank;
     const chip=moved===0?"":`<span class="delta" title="FPL's own rating ranks them ${fdrRank.get(r.id)}th here">${moved>0?"▲":"▼"}${Math.abs(moved)}</span>`;
     const tds=r.fx.map((f,j)=>{
-      const sh=shade(r.cells[j]);
+      // Banded modes colour off the raw number; "all" averages two metrics and
+      // has no raw, so it stays on the ramp.
+      const sh=(MODE==="proj"&&r.raws) ? shadeOn(colourT(SIDE,r.raws[j],MODE),RAMP)
+                                       : shade(r.cells[j]);
       const nm=TEAMS[f.opp][1].toUpperCase(), label=`${nm} (${f.home?"H":"A"})`;
       const pct=Math.round(Math.max(0,Math.min(1,r.cells[j]))*100);
       const val=(MODE==="proj"&&r.raws)?fmt(SIDE,r.raws[j],true):pct;
@@ -583,22 +601,26 @@ function render(){
 
   /* ---- rotation pairs: best two teams to alternate between ---- */
   const ids=Object.keys(TEAMS);
-  const byGw={}; ids.forEach(id=>{byGw[id]={}; data[id].fx.forEach((f,j)=>{
-    byGw[id][f.gw] = SIDE==="all" ? (data[id].atk[j]+data[id].def[j])/2 : data[id][SIDE][j];});});
+  const byGw={}, byGwRaw={};
+  ids.forEach(id=>{byGw[id]={}; byGwRaw[id]={}; data[id].fx.forEach((f,j)=>{
+    byGw[id][f.gw] = SIDE==="all" ? (data[id].atk[j]+data[id].def[j])/2 : data[id][SIDE][j];
+    byGwRaw[id][f.gw] = SIDE==="all" ? null : data[id][SIDE+"Raw"][j];});});
   // One value per gameweek in the window, null for a week the side does not
   // play. That is the shape rotate() in model.js takes; the comparison page
   // builds the same shape out of a player's fixtures, so two teams and two
   // players are now rotated by one function rather than two copies of a rule.
-  const series={}; ids.forEach(id=>{ series[id]=gws.map(g=>byGw[id][g]??null); });
+  const series={}, seriesRaw={};
+  ids.forEach(id=>{ series[id]=gws.map(g=>byGw[id][g]??null);
+                    seriesRaw[id]=gws.map(g=>byGwRaw[id][g]??null); });
   const pairs=[];
   for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++)
-    pairs.push(pairStats(series,gws,ids[i],ids[j]));
+    pairs.push(pairStats(series,gws,ids[i],ids[j],seriesRaw));
   pairs.sort((x,y)=>y.avg-x.avg);
   const top=pairs.slice(0,6);
   const noun = SIDE==="def"?"clean sheets":SIDE==="atk"?"attacking returns":"returns at both ends";
   $("#rotIntro").textContent=`Play whichever of the two has the better week, every week. Ranked by the average of the better fixture across GW${from}–${to}, for ${noun}. The gain is what rotating adds over simply holding the stronger of the pair all the way through.`;
   $("#pairs").innerHTML=top.map(p=>{
-    const strip=p.pick.map(x=>{const sh=shade(x.v);
+    const strip=p.pick.map(x=>{const sh=cellShade(x);
       const f=data[x.team].fx.find(f=>f.gw===x.gw);
       // Neither side plays that week. "Build your own pair" has always drawn this
       // as a dashed cell; up here it read f.opp off nothing and took the whole
@@ -615,7 +637,7 @@ function render(){
       <div class="pairstrip">${strip}</div></div>`;
   }).join("");
 
-  renderMyPair(series,data,gws,from,to);
+  renderMyPair(series,data,gws,from,to,seriesRaw);
   renderMatches();
 
   paintGwPick(from,to);
@@ -635,10 +657,11 @@ function render(){
 // The rule itself is rotate() in model.js, shared with the comparison page.
 // This only puts the page's own labels back on the answer: which gameweek each
 // pick belongs to and which of the two teams it names.
-function pairStats(series,gws,A,B){
+function pairStats(series,gws,A,B,raw){
   const r=rotate(series[A],series[B]);
   return {A,B,avg:r.avg,gain:r.gain,
-    pick:r.pick.map(p=>({gw:gws[p.i], team:p.take?B:A, v:p.v, blank:p.blank}))};
+    pick:r.pick.map(p=>({gw:gws[p.i], team:p.take?B:A, v:p.v, blank:p.blank,
+                         raw:raw ? raw[p.take?B:A][p.i] : null}))};
 }
 
 /* ---- next gameweek, match by match ---------------------------------------
@@ -673,7 +696,7 @@ function renderMatches(){
   const saved=MODE; MODE="proj";
   try{
     const chip=(side,team,f,other)=>{
-      const v=rate(side,team,f), sh=shade(good(side,v));
+      const v=rate(side,team,f), sh=shadeOn(colourT(side,v,"proj"),RAMP);
       const isPriced=priced(side,team,f);
       const what = side==="atk" ? `${fmt("atk",v)} expected goals`
                                 : `a ${fmt("def",v)} chance of a clean sheet against ${TEAMS[other][0]}`;
@@ -702,20 +725,20 @@ function renderMatches(){
   } finally { MODE=saved; }
 }
 
-function renderMyPair(series,data,gws,from,to){
+function renderMyPair(series,data,gws,from,to,seriesRaw){
   const out=$("#rotOut"), A=$("#rotA").value, B=$("#rotB").value;
   const hint=t=>{out.innerHTML=`<p class="rothint">${t}</p>`;};
   if(!A||!B) return hint(`Pick two teams to see how well they cover each other across GW${from}\u2013${to}.`);
   if(A===B)  return hint("Those are the same side. Pick a different second team.");
 
-  const {avg,pick,gain}=pairStats(series,gws,A,B);
+  const {avg,pick,gain}=pairStats(series,gws,A,B,seriesRaw);
 
   const fxOf=(t,gw)=>data[t].fx.find(f=>f.gw===gw);
   const strip=pick.map(x=>{
     const f=fxOf(x.team,x.gw);
     if(!f) return `<div class="pcell blank" title="GW${x.gw}: neither side plays">`
       +`<b>GW${x.gw}</b>&mdash;<u>blank</u></div>`;
-    const sh=shade(x.v), nm=TEAMS[f.opp][1].toUpperCase();
+    const sh=cellShade(x), nm=TEAMS[f.opp][1].toUpperCase();
     return `<div class="pcell" style="background:${sh.bg};color:${sh.fg}"`
       +` title="GW${x.gw}: play ${TEAMS[x.team][0]} vs ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"}">`
       +`<b>GW${x.gw}</b>${TEAMS[x.team][1].toUpperCase()}<u>${nm} (${f.home?"H":"A"})</u></div>`;
