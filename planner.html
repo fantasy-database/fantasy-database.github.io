@@ -201,17 +201,6 @@
   .note b{color:var(--ink)}
   .key{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:12px 0 0;
     font-size:12px;color:var(--muted)}
-  .fxkey{margin:14px 0 0;font-size:12px;color:var(--muted)}
-  .fxkey p{margin:0 0 8px}
-  .fxkey p b{color:var(--ink)}
-  .krow{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:4px 10px;align-items:center;margin-top:6px}
-  .krow .lab{font-size:11.5px;color:var(--ink);font-weight:600;line-height:1.25}
-  .krow .lab small{display:block;font-weight:500;color:var(--muted);font-size:10.5px}
-  .kbands{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px}
-  .kbands span{display:block;text-align:center;border-radius:3px;padding:3px 0;
-    font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:700;white-space:nowrap}
-  .kends{display:flex;justify-content:space-between;grid-column:2;font-family:"Roboto Mono",monospace;
-    font-size:9.5px;letter-spacing:.08em;text-transform:uppercase}
   .banner{margin-top:14px;background:rgba(255,200,69,.08);border:1px solid rgba(255,200,69,.4);
     border-radius:9px;padding:11px 13px;font-size:12.5px;color:var(--muted)}
   .banner b{color:var(--warn)}
@@ -291,12 +280,20 @@
   .tlist li button:hover{color:var(--bad)}
   .slot .xp{font-family:"Roboto Mono",monospace;font-weight:700;font-size:12.5px;color:var(--accent)}
   .slot.sel{outline:2px solid var(--accent);outline-offset:1px}
+  .slot.subok{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 3px 10px -4px rgba(0,0,0,.6)}
+  .slot.subok::after{content:"\21C5";position:absolute;top:-8px;right:-7px;width:18px;height:18px;border-radius:50%;
+    background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:800;line-height:18px}
+  .slot.subno{opacity:.38;cursor:default}
+  .grid td.c.subok{box-shadow:inset 0 0 0 2px var(--accent);background:rgba(0,255,135,.12)}
+  .pitchhint{margin:10px 0 8px;font-size:12.5px;color:var(--muted)}
+  .pitchhint b{color:var(--ink)}
   .pickmsg{margin:0 0 10px;font-size:12.5px;color:var(--muted)}
   .pickmsg b{color:var(--ink)}
   .pickmsg.go{color:var(--ink);background:rgba(0,255,135,.08);border:1px solid rgba(0,255,135,.35);border-radius:8px;padding:8px 10px}
   .listhd{display:flex;justify-content:flex-end;gap:8px;padding:0 9px 4px;font-family:"Roboto Mono",monospace;font-size:9.5px;
     letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
   .listhd span{min-width:34px;text-align:right}
+  .listhd .cap{margin-right:auto;text-align:left;text-transform:none;letter-spacing:.02em;font-size:10.5px}
   .p .num{min-width:34px;text-align:right}
   .p .num.xp{color:var(--accent);font-weight:700}
 
@@ -327,8 +324,7 @@
     .row{gap:4px}
     .grass{padding:16px 3px 14px}
     .board:nth-child(3){display:none}
-    .krow{grid-template-columns:1fr}
-    .kends{grid-column:1}
+
     .nav{margin-left:0;width:100%}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -422,6 +418,7 @@
         </div>
         <ul class="tlist" id="tlist"></ul>
         <ul class="problems" id="problems"></ul>
+        <p class="pitchhint" id="pitchHint" hidden>Click any player to <b>transfer</b> him, make him <b>captain</b> or <b>substitute</b> him.</p>
 
         <div class="stadium">
           <div class="boards" aria-hidden="true"><div class="board"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="currentColor" stroke-width="5"/><g fill="currentColor"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="currentColor"/></svg><span>Fantasy <b>DataBase</b></span></div><div class="board alt"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="currentColor" stroke-width="5"/><g fill="currentColor"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="currentColor"/></svg><span>Fantasy <b>DataBase</b></span></div><div class="board"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="currentColor" stroke-width="5"/><g fill="currentColor"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="currentColor"/></svg><span>Fantasy <b>DataBase</b></span></div></div>
@@ -435,8 +432,6 @@
           <div class="lbl">Bench</div>
           <div class="row" id="bench"></div>
         </div>
-
-        <div class="fxkey" id="fxKey"></div>
 
         <div class="act" id="buildAct">
           <button type="button" class="pri" id="toPlan" hidden>Plan transfers with this squad &rarr;</button>
@@ -462,17 +457,12 @@
         </div>
         <div class="ctl">
           <select id="sort">
-            <option value="xp">Sort: expected points</option>
+            <option value="xp">Sort: projected points</option>
             <option value="fx">Sort: easiest fixtures</option>
             <option value="pts">Sort: points so far</option>
             <option value="c">Sort: most expensive</option>
             <option value="cheap">Sort: cheapest</option>
             <option value="own">Sort: most owned</option>
-          </select>
-          <select id="gws">
-            <option value="3">Next 3 GWs</option>
-            <option value="6" selected>Next 6 GWs</option>
-            <option value="8">Next 8 GWs</option>
           </select>
         </div>
         <div class="listhd" id="listHd"></div>
@@ -546,7 +536,8 @@ const $=s=>document.querySelector(s);
 // object from the same file, so a fixture reads identically on both pages.
 let TEAMS={}, FX=[], NEXT_GW=1, PLAYERS=[], M=null, BYID=new Map();
 let squad=[], xi=[], captain=null, vice=null, realBank=null;
-let pos=2, horizon=6;
+let pos=2;
+const horizon=3;         // fixtures and projected points: the next three gameweeks
 
 /* ---------------------------------------------------------------------------
  * Expected points come from players.json: "xp" is one number per gameweek in
@@ -564,6 +555,8 @@ let plan={ft:null, ftSource:"default", used:[], usedKnown:false, weeks:{}, stale
 let active=null;        // the gameweek being edited
 let sel=null;           // {id} of the player chosen in that week
 let selling=false;      // choosing his replacement
+let subbing=false;      // choosing who swaps places with him
+let SUBOK=new Set();    // who can, legally
 let R=[];               // the plan, run
 let staleNote="";
 let editing=false;       // changing the starting squad by hand, in the builder
@@ -738,16 +731,45 @@ const total=rs=>rs.reduce((t,w)=>t+w.points.total,0);
 function select(gw,id){
   // A second click on the same player in the same week closes the bar;
   // anything else chooses the player clicked.
-  const same = active===gw && sel===id && !selling;
-  active=gw; selling=false; sel = same ? null : id;
+  const same = active===gw && sel===id && !selling && !subbing;
+  active=gw; selling=false; subbing=false; sel = same ? null : id;
   render();
 }
-function clearSel(){ sel=null; selling=false; render(); }
+function clearSel(){ sel=null; selling=false; subbing=false; render(); }
+
+/**
+ * Substitutions, the way FPL does them: choose the player, press Substitute,
+ * and everyone he can legally swap places with lights up -- bench players if
+ * he is starting, starters if he is on the bench. Click one to swap them.
+ */
+function subPartners(r,x){
+  const starting=r.xi.includes(x), out=new Set();
+  for(const c of (starting ? r.bench : r.xi)){
+    const nx = starting ? r.xi.map(id=>id===x?c:id) : r.xi.map(id=>id===c?x:id);
+    if(!validateXI(nx,r.state.squad).length) out.add(c);
+  }
+  return out;
+}
+function startSub(){ if(sel===null) return; subbing=true; selling=false; render(); }
+function trySub(id){
+  const r=resultFor(active); if(!r) return;
+  if(id===sel){ subbing=false; render(); return; }
+  if(!SUBOK.has(id)) return;
+  const starting=r.xi.includes(sel);
+  const nx = starting ? r.xi.map(x=>x===sel?id:x) : r.xi.map(x=>x===id?sel:x);
+  const w=week(active);
+  // Once the manager moves anyone, that week's XI is his: pinned as chosen,
+  // so the numbers cannot quietly put someone back.
+  w.start=nx; w.bench=[];
+  if(!nx.includes(w.captain)) w.captain=null;
+  subbing=false; sel=null;
+  savePlan(); render();
+}
 
 function startSelling(){
   const w=resultFor(active); if(!w||sel===null) return;
   const p=w.state.squad.find(x=>x.id===sel); if(!p) return;
-  selling=true;
+  selling=true; subbing=false;
   pos=p.pos; setPosSeg();
   render();
   // On a phone the list is a long way down. Bring it up.
@@ -806,17 +828,6 @@ function swapped(r,x){
   }
   return null;
 }
-// Once the manager moves anyone, that week's whole XI is his: pinned as
-// chosen, so the numbers cannot quietly put someone back. A transfer later
-// in the week drops the sold player from it and the best replacement fills in.
-function toggleBench(){
-  const r=resultFor(active); if(!r||sel===null) return;
-  const nx=swapped(r,sel); if(!nx) return;
-  const w=week(active);
-  w.start=nx; w.bench=[];
-  if(!nx.includes(w.captain)) w.captain=null;
-  savePlan(); render();
-}
 function makeCaptain(){
   const r=resultFor(active); if(!r||sel===null) return;
   const w=week(active);
@@ -855,7 +866,8 @@ function slot(p,role,wk){
   const t=TEAMS[p.t]||["?","?"];
   if(wk){
     const badge = badgeFor(wk,p.i,"cap");
-    return `<div class="slot${sel===p.i?" sel":""}" data-id="${p.i}" tabindex="0" title="${esc(p.n)} — click for transfer, captain and bench">
+    const sc = sel===p.i ? " sel" : subbing ? (SUBOK.has(p.i) ? " subok" : " subno") : "";
+    return `<div class="slot${sc}" data-id="${p.i}" tabindex="0" title="${esc(p.n)} — ${subbing&&SUBOK.has(p.i)?"click to swap":"click to transfer, captain or substitute"}">
       ${badge}${kit(t[1])}<div class="nm">${esc(p.n)}</div>
       <div class="mt">${t[1]} · ${(p.c/10).toFixed(1)}</div>
       ${fxChips(p,wk.gw)}</div>`;
@@ -866,19 +878,6 @@ function slot(p,role,wk){
     ${badge}${kit(t[1])}<div class="nm">${esc(p.n)}</div>
     <div class="mt">${t[1]} · ${(p.c/10).toFixed(1)}</div>
     ${fxChips(p,NEXT_GW)}</div>`;
-}
-
-// The key: the fixtures page's five bands, written out, for each of the two
-// scales the pitch uses.
-function drawKey(){
-  const row=(side,lab,sub)=>`<div class="krow"><div class="lab">${lab}<small>${sub}</small></div>`
-    + `<div class="kbands">${bandLabels(side,"proj").map((b,i)=>{const c=shade(i/4);
-        return `<span style="background:${c.bg};color:${c.fg}">${b}</span>`;}).join("")}</div>`
-    + `<div class="kends"><span>Harder</span><span>Easier</span></div></div>`;
-  $("#fxKey").innerHTML=`<p>Under each player: his next three games &mdash; opponent, <b>H</b>ome or <b>A</b>way &mdash; `
-    + `coloured the same way as the fixtures page. <b>Green is an easier fixture, red a harder one.</b></p>`
-    + row("def","Keepers &amp; defenders","clean sheet chance")
-    + row("atk","Midfielders &amp; forwards","their side's expected goals");
 }
 
 function stat(id,value,label,cls,title){
@@ -894,11 +893,12 @@ function render(){
     if(!PLAN_GWS.includes(active)) active=PLAN_GWS[0];
     R=runPlan(plan.weeks);
     const w=resultFor(active);
-    if(sel!==null && !(w&&w.state.squad.some(p=>p.id===sel))){ sel=null; selling=false; }
+    if(sel!==null && !(w&&w.state.squad.some(p=>p.id===sel))){ sel=null; selling=false; subbing=false; }
+    SUBOK = subbing&&sel!==null ? subPartners(w,sel) : new Set();
     renderPlan();
     renderWeek(w);
   }else{
-    R=[]; sel=null; selling=false;
+    R=[]; sel=null; selling=false; subbing=false; SUBOK=new Set();
     renderBuilder();
   }
   renderSelbar();
@@ -908,6 +908,7 @@ function render(){
 function renderBuilder(){
   $("#planCard").hidden=true;
   $("#weekCtl").hidden=true;
+  $("#pitchHint").hidden=true;
   $("#tlist").innerHTML="";
   $("#autoXI").hidden=false;
   $("#toPlan").hidden=!(hasXP() && squad.length===15);
@@ -993,6 +994,7 @@ function renderPlan(){
       if(w.state.transfers.some(t=>t.in.id===p.id)) cls.push("in");
       if(w.gw===active) cls.push("on");
       if(w.gw===active && sel===p.id) cls.push("sel");
+      if(w.gw===active && subbing && SUBOK.has(p.id)) cls.push("subok");
       const cp = badgeFor(w,p.id,"cp");
       const pl=byId(p.id);
       body+=`<td class="${cls.join(" ")}" data-gw="${w.gw}" data-id="${p.id}" tabindex="0" title="${esc(p.name)} · GW${w.gw}">${cp}`
@@ -1026,6 +1028,7 @@ const CHIPNAME={wildcard:"Wildcard",freehit:"Free Hit",bench:"Bench Boost",tripl
 
 function renderWeek(w){
   $("#weekCtl").hidden=false;
+  $("#pitchHint").hidden=false;
   $("#autoXI").hidden=true;
   $("#toPlan").hidden=true;
   $("#squadTitle").textContent=`Gameweek ${w.gw}`;
@@ -1093,12 +1096,19 @@ function renderSelbar(){
     return;
   }
   const starting=w.xi.includes(p.i);
+  if(subbing){
+    bar.innerHTML=`<div class="who">Substituting <b>${esc(p.n)}</b> in GW${w.gw}`
+      + `<small>${SUBOK.size ? `Click a highlighted player to swap with him ${starting?"(from the bench)":"(from the starting XI)"}`
+                             : "No one can swap with him without breaking the formation"}</small></div>`
+      + `<button type="button" data-act="cancel">Cancel</button>`;
+    return;
+  }
   const isCap=w.captain===p.i && week(w.gw).captain===p.i;
   bar.innerHTML=`<div class="who"><b>${esc(p.n)}</b> · GW${w.gw}`
     + `<small>${esc(oppText(p.t,w.gw))} · ${x===null?"–":f1(x)} xP · ${starting?"starting":"on the bench"}</small></div>`
     + `<button type="button" class="pri" data-act="sell">Transfer out</button>`
     + `<button type="button" data-act="cap"${isCap?" disabled":""}>${isCap?"Captain":"Make captain"}</button>`
-    + `<button type="button" data-act="bench">${starting?"Bench":"Start"}</button>`
+    + `<button type="button" data-act="sub">Substitute</button>`
     + `<button type="button" data-act="cancel" aria-label="Close">&times;</button>`;
 }
 
@@ -1135,7 +1145,10 @@ function renderList(){
   rows=rows.slice(0,120);
 
   const shown=hasXP()?Math.min(horizon,PLAN_GWS.filter(g=>g>=(plan_?active:NEXT_GW)).length):0;
-  $("#listHd").innerHTML=`<span>£m</span>`+(hasXP()?`<span title="Expected points over the next ${shown} gameweeks">xP ${shown}</span>`:`<span>Pts</span>`);
+  const from_=plan_?active:NEXT_GW;
+  $("#listHd").innerHTML=(hasXP()
+      ? `<span class="cap">Projected points, GW${from_}${shown>1?"–"+(from_+shown-1):""}</span><span>£m</span><span>xP</span>`
+      : `<span>£m</span><span>Pts</span>`);
 
   $("#list").innerHTML = rows.length ? rows.map(p=>{
     const t=TEAMS[p.t]||["?","?"];
@@ -1196,7 +1209,7 @@ $("#list").addEventListener("click",e=>{
 function onSlot(e){
   const s=e.target.closest(".slot"); if(!s||!s.dataset.id) return;
   const id=+s.dataset.id;
-  if(planMode()){ select(active,id); return; }
+  if(planMode()){ if(subbing) trySub(id); else select(active,id); return; }
   if(e.shiftKey){ if(captain===id) vice=id; else captain=id; if(vice===captain) vice=null; save(); render(); }
   else remove(id);
 }
@@ -1204,13 +1217,17 @@ $("#pitch").addEventListener("click",onSlot);
 $("#bench").addEventListener("click",onSlot);
 $("#grid").addEventListener("click",e=>{
   const c=e.target.closest("td.c");
-  if(c){ select(+c.dataset.gw,+c.dataset.id); return; }
+  if(c){
+    if(subbing && +c.dataset.gw===active) trySub(+c.dataset.id);
+    else select(+c.dataset.gw,+c.dataset.id);
+    return;
+  }
   const h=e.target.closest("th[data-gw]");
-  if(h){ active=+h.dataset.gw; sel=null; selling=false; render(); }
+  if(h){ active=+h.dataset.gw; sel=null; selling=false; subbing=false; render(); }
 });
 $("#selbar").addEventListener("click",e=>{
   const b=e.target.closest("button[data-act]"); if(!b) return;
-  ({sell:startSelling, cap:makeCaptain, bench:toggleBench, cancel:clearSel})[b.dataset.act]();
+  ({sell:startSelling, cap:makeCaptain, sub:startSub, cancel:clearSel})[b.dataset.act]();
 });
 addEventListener("keydown",e=>{ if(e.key==="Escape" && sel!==null) clearSel(); });
 // Grid cells, headers and shirts work from the keyboard too. Drawing replaces
@@ -1248,7 +1265,6 @@ function stepFt(d){
 $("#ftDown").addEventListener("click",()=>stepFt(-1));
 $("#ftUp").addEventListener("click",()=>stepFt(1));
 ["#q","#sort"].forEach(s=>$(s).addEventListener("input",renderList));
-$("#gws").addEventListener("input",e=>{horizon=+e.target.value; render();});
 $("#autoXI").addEventListener("click",()=>{autoXI();save();render();});
 $("#clear").addEventListener("click",()=>{
   squad=[];xi=[];captain=null;vice=null;realBank=null;
@@ -1451,7 +1467,6 @@ Promise.all([
   }
   $("#stamp").textContent=`${d.season} · next GW${NEXT_GW} · updated `
     + new Date(d.generated).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
-  drawKey();
   load();
   loadPlan();
   active=PLAN_GWS[0]??null;
