@@ -357,6 +357,25 @@ test("a chosen captain is kept; a benched one is not", () => {
   assert.equal(r[0].captain, sq0[3].id);
   assert.notEqual(r[1].captain, sq0[3].id);
 });
+test("a chosen vice is kept", () => {
+  const auto = run({}, [5]);
+  const pick = auto[0].xi.find(id => id !== auto[0].captain && id !== auto[0].vice);
+  const r = run({ 5: { vice: pick } }, [5]);
+  assert.equal(r[0].vice, pick);
+  assert.equal(r[0].captain, auto[0].captain);
+});
+test("a vice who is also the captain, or not starting, falls back to the best other starter", () => {
+  const auto = run({}, [5]);
+  assert.equal(run({ 5: { vice: auto[0].captain } }, [5])[0].vice, auto[0].vice);
+  const benched = auto[0].bench[1];
+  assert.equal(run({ 5: { vice: benched } }, [5])[0].vice, auto[0].vice);
+});
+test("a chosen vice takes the armband when the captain has no game", () => {
+  const auto = run({}, [5]);
+  const cap = auto[0].captain, vice = auto[0].xi.find(id => id !== cap && id !== auto[0].vice);
+  const r = run({ 5: { captain: cap, vice, start: [cap, vice] } }, [5], { xp: id => (id === cap ? 0 : 2) });
+  assert.equal(r[0].armband, vice);
+});
 test("a captain with no game hands the armband to the vice", () => {
   const cap = sq0[3].id;
   const r = run({ 5: { captain: cap, start: [cap] } }, [5],

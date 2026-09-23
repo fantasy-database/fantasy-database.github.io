@@ -375,7 +375,7 @@ export function bestXI(squad, xpOf, { start = [], bench = [], rules = DEFAULT_RU
  *
  *   base   { squad: [rules player], bank, ft }  -- the team before the first deadline
  *   weeks  { [gw]: { transfers: [{out: id, in: id}], chip, start: [ids], bench: [ids],
- *                    captain: id } }            -- what the manager plans to do
+ *                    captain: id, vice: id } }  -- what the manager plans to do
  *   gws    the gameweeks to run, in order
  *
  * Each week starts from the one before (advance(): a free transfer banked, a
@@ -423,7 +423,8 @@ export function simulate(base, weeks, gws, { xp, player, prices = null, rules = 
     const byXp = ids => [...ids].sort((a, b) => xpOf(b) - xpOf(a) || a - b);
     const ranked = byXp(xi);
     const captain = xi.includes(w.captain) ? w.captain : ranked[0] ?? null;
-    const vice = ranked.find(id => id !== captain) ?? null;
+    const vice = xi.includes(w.vice) && w.vice !== captain ? w.vice
+               : ranked.find(id => id !== captain) ?? null;
     const armband = captain !== null && xpOf(captain) > 0 ? captain : vice;
 
     // Bench order as FPL shows it: the spare keeper first, then outfielders by xP.

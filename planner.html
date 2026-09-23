@@ -131,6 +131,16 @@
     background:var(--accent);color:var(--accent-ink);font-size:10px;font-weight:800;
     line-height:17px;font-family:"Roboto Mono",monospace}
   .slot .cap.v{background:var(--muted);color:var(--ground)}
+  /* FPL's own availability: yellow 75%, orange 50%, red 25% or out */
+  .flag{display:inline-block;min-width:22px;height:17px;padding:0 5px;border-radius:9px;text-align:center;
+    font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:800;line-height:17px;color:#1E0021;white-space:nowrap}
+  .flag.y{background:#FFC845} .flag.o{background:#FF9F1C} .flag.r{background:#FF1751;color:#fff}
+  .slot .flag{position:absolute;top:-8px;right:-7px;z-index:1}
+  .slot.fy{border-color:#FFC845} .slot.fo{border-color:#FF9F1C} .slot.fr{border-color:#FF1751}
+  .slot .news{font-size:9px;line-height:1.15;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .slot.fy .news{color:#FFC845} .slot.fo .news{color:#FF9F1C} .slot.fr .news{color:#FF6B8A}
+  .p .flag{margin-left:5px;vertical-align:1px}
+  .selbar .news{color:var(--warn)}
   .slot .kit{display:block;width:34px;height:31px;margin:0 auto 2px}
   .slot.empty .kit{opacity:.25}
 
@@ -290,7 +300,7 @@
   .slot .xp{font-family:"Roboto Mono",monospace;font-weight:700;font-size:12.5px;color:var(--accent)}
   .slot.sel{outline:2px solid var(--accent);outline-offset:1px}
   .slot.subok{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 3px 10px -4px rgba(0,0,0,.6)}
-  .slot.subok::after{content:"\21C5";position:absolute;top:-8px;right:-7px;width:18px;height:18px;border-radius:50%;
+  .slot.subok::after{content:"\21C5";position:absolute;bottom:-9px;left:calc(50% - 9px);width:18px;height:18px;border-radius:50%;
     background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:800;line-height:18px}
   .slot.subno{opacity:.38;cursor:default}
   .grid td.c.subok{box-shadow:inset 0 0 0 2px var(--accent);background:rgba(0,255,135,.12)}
@@ -417,7 +427,7 @@
         </div>
         <ul class="tlist" id="tlist"></ul>
         <ul class="problems" id="problems"></ul>
-        <p class="pitchhint" id="pitchHint" hidden>Click any player to <b>transfer</b> him, make him <b>captain</b> or <b>substitute</b> him.</p>
+        <p class="pitchhint" id="pitchHint" hidden>Click any player to <b>transfer</b> him, make him <b>captain</b> or <b>vice</b>, or <b>substitute</b> him.</p>
 
         <div class="stadium">
           <div class="boards" aria-hidden="true"><div class="board"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="currentColor" stroke-width="5"/><g fill="currentColor"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="currentColor"/></svg><span>Fantasy <b>DataBase</b></span></div><div class="board alt"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="currentColor" stroke-width="5"/><g fill="currentColor"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="currentColor"/></svg><span>Fantasy <b>DataBase</b></span></div><div class="board"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="currentColor" stroke-width="5"/><g fill="currentColor"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="currentColor"/></svg><span>Fantasy <b>DataBase</b></span></div></div>
@@ -670,7 +680,8 @@ function cleanWeek(w){
       .filter(t=>t&&Number.isFinite(t.out)&&Number.isFinite(t.in)).map(t=>({out:t.out,in:t.in})),
     chip:["wildcard","freehit","bench","triple"].includes(w.chip)?w.chip:null,
     start:ids(w.start), bench:ids(w.bench),
-    captain:Number.isFinite(w.captain)?w.captain:null
+    captain:Number.isFinite(w.captain)?w.captain:null,
+    vice:Number.isFinite(w.vice)?w.vice:null
   };
 }
 function week(gw){ return plan.weeks[gw] || (plan.weeks[gw]=cleanWeek({})); }
@@ -772,6 +783,7 @@ function trySub(id){
   // so the numbers cannot quietly put someone back.
   w.start=nx; w.bench=[];
   if(!nx.includes(w.captain)) w.captain=null;
+  if(!nx.includes(w.vice)) w.vice=null;
   subbing=false; sel=null;
   savePlan(); render();
 }
@@ -819,6 +831,7 @@ function buy(q){
   w.transfers=netTransfers([...w.transfers,{out:sel,in:q.i}]);
   w.start=w.start.filter(id=>id!==sel); w.bench=w.bench.filter(id=>id!==sel);
   if(w.captain===sel) w.captain=null;
+  if(w.vice===sel) w.vice=null;
   sel=null; selling=false;
   savePlan(); render();
 }
@@ -845,11 +858,38 @@ function makeCaptain(){
     const nx=swapped(r,sel); if(!nx) return;
     w.start=nx; w.bench=[];
   }
+  if(r.vice===sel) w.vice=r.captain;       // the two armbands swap, as in FPL
   w.captain=sel;
+  savePlan(); render();
+}
+function makeVice(){
+  const r=resultFor(active); if(!r||sel===null) return;
+  const w=week(active);
+  if(!r.xi.includes(sel)){                // a vice-captain has to start too
+    const nx=swapped(r,sel); if(!nx) return;
+    w.start=nx; w.bench=[];
+  }
+  if(r.captain===sel) w.captain=r.vice;
+  w.vice=sel;
   savePlan(); render();
 }
 
 /* -------------------------------- drawing -------------------------------- */
+// FPL's availability flag: status d (doubtful) comes with a chance of playing
+// -- 75, 50 or 25 -- and i / s / u / n mean out: injured, suspended, gone, or
+// not registered. The news line says why.
+const OUTLABEL={i:"INJ",s:"SUS",u:"OUT",n:"OUT"};
+const OUTWORD={i:"Injured",s:"Suspended",u:"Unavailable",n:"Not available"};
+function flagOf(p){
+  if(!p || !p.st || p.st==="a") return null;
+  const c=p.cop;
+  if(p.st==="d") return {txt:c!=null?c+"%":"?", lvl:c>=75?"y":c>=50?"o":"r", news:p.news||"Doubtful"};
+  return {txt:OUTLABEL[p.st]||"OUT", lvl:"r", news:p.news||OUTWORD[p.st]||"Unavailable"};
+}
+const flagHtml=f=>f?`<span class="flag ${f.lvl}" title="${esc(f.news)}">${f.txt}</span>`:"";
+// "Knock - 75% chance of playing" -> "Knock": the percentage is already on the flag.
+const shortNews=f=>esc(f.news.replace(/\s*-\s*\d+% chance of playing\s*$/i,"").replace(/\s*-\s*Expected back/i," · back"));
+
 /**
  * The next three gameweeks from `from`: opponent, H or A, coloured by how
  * kind the fixture is for this player's position. A double shows both games;
@@ -877,17 +917,19 @@ function slot(p,role,wk){
   if(wk){
     const badge = badgeFor(wk,p.i,"cap");
     const sc = sel===p.i ? " sel" : subbing ? (SUBOK.has(p.i) ? " subok" : " subno") : "";
-    return `<div class="slot${sc}" data-id="${p.i}" tabindex="0" title="${esc(p.n)} — ${subbing&&SUBOK.has(p.i)?"click to swap":"click to transfer, captain or substitute"}">
-      ${badge}${kit(t[1])}<div class="nm">${esc(p.n)}</div>
+    const f=flagOf(p);
+    return `<div class="slot${sc}${f?" f"+f.lvl:""}" data-id="${p.i}" tabindex="0" title="${esc(p.n)}${f?" — "+esc(f.news):""} — ${subbing&&SUBOK.has(p.i)?"click to swap":"click to transfer, captain or substitute"}">
+      ${badge}${flagHtml(f)}${kit(t[1])}<div class="nm">${esc(p.n)}</div>
       <div class="mt">${t[1]} · ${(p.c/10).toFixed(1)}</div>
-      ${fxChips(p,wk.gw)}</div>`;
+      ${fxChips(p,wk.gw)}${f?`<div class="news">${shortNews(f)}</div>`:""}</div>`;
   }
   const badge = captain===p.i ? `<span class="cap">C</span>`
               : vice===p.i    ? `<span class="cap v">V</span>` : "";
-  return `<div class="slot" data-id="${p.i}" title="${esc(p.n)} — click to remove, shift-click to captain">
-    ${badge}${kit(t[1])}<div class="nm">${esc(p.n)}</div>
+  const f=flagOf(p);
+  return `<div class="slot${f?" f"+f.lvl:""}" data-id="${p.i}" title="${esc(p.n)}${f?" — "+esc(f.news):""} — click to remove, shift-click to captain">
+    ${badge}${flagHtml(f)}${kit(t[1])}<div class="nm">${esc(p.n)}</div>
     <div class="mt">${t[1]} · ${(p.c/10).toFixed(1)}</div>
-    ${fxChips(p,NEXT_GW)}</div>`;
+    ${fxChips(p,NEXT_GW)}${f?`<div class="news">${shortNews(f)}</div>`:""}</div>`;
 }
 
 function stat(id,value,label,cls,title){
@@ -1081,10 +1123,12 @@ function renderSelbar(){
     return;
   }
   const isCap=w.captain===p.i && week(w.gw).captain===p.i;
+  const isVice=w.vice===p.i && week(w.gw).vice===p.i;
   bar.innerHTML=`<div class="who"><b>${esc(p.n)}</b> · GW${w.gw}`
-    + `<small>${esc(oppText(p.t,w.gw))} · ${x===null?"–":f1(x)} xP · ${starting?"starting":"on the bench"}${sellNote(w,p)}</small></div>`
+    + `<small>${esc(oppText(p.t,w.gw))} · ${x===null?"–":f1(x)} xP · ${starting?"starting":"on the bench"}${sellNote(w,p)}${flagOf(p)?`<br><span class="news">${esc(flagOf(p).news)}</span>`:""}</small></div>`
     + `<button type="button" class="pri" data-act="sell">Transfer out</button>`
     + `<button type="button" data-act="cap"${isCap?" disabled":""}>${isCap?"Captain":"Make captain"}</button>`
+    + `<button type="button" data-act="vice"${isVice?" disabled":""}>${isVice?"Vice-captain":"Make vice"}</button>`
     + `<button type="button" data-act="sub">Substitute</button>`
     + `<button type="button" data-act="cancel" aria-label="Close">&times;</button>`;
 }
@@ -1148,7 +1192,7 @@ function renderList(){
     }
     return `<div class="p${has?" in":""}" data-id="${p.i}" aria-disabled="${blocked}" title="${esc(why)}${p.news?" · "+esc(p.news):""}">
       <i style="background:${CLUB[t[1]]||"#888"}"></i>
-      <span class="nm">${esc(p.n)}${p.st&&p.st!=="a"?` <span class="tm" style="color:var(--warn)">${p.cop??"?"}%</span>`:""}</span>
+      <span class="nm">${esc(p.n)}${flagHtml(flagOf(p))}</span>
       <span class="tm">${t[1]}</span>
       ${fxChips(p,fxFrom())}
       <span class="num">${(p.c/10).toFixed(1)}</span>
@@ -1196,7 +1240,7 @@ $("#gwPrev").addEventListener("click",()=>goTo(PLAN_GWS[PLAN_GWS.indexOf(active)
 $("#gwNext").addEventListener("click",()=>goTo(PLAN_GWS[PLAN_GWS.indexOf(active)+1]));
 $("#selbar").addEventListener("click",e=>{
   const b=e.target.closest("button[data-act]"); if(!b) return;
-  ({sell:startSelling, cap:makeCaptain, sub:startSub, cancel:clearSel})[b.dataset.act]();
+  ({sell:startSelling, cap:makeCaptain, vice:makeVice, sub:startSub, cancel:clearSel})[b.dataset.act]();
 });
 addEventListener("keydown",e=>{ if(e.key==="Escape" && sel!==null) clearSel(); });
 // Shirts work from the keyboard too. Drawing replaces them, so focus is put
