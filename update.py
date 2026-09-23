@@ -12,11 +12,18 @@ version rather than breaking it.
 
 import json, math, os, sys, time, gzip, zlib, re, unicodedata, urllib.request, urllib.error, datetime, pathlib
 
+import collections
+
+import minutes as MN
+
 FPL = "https://fantasy.premierleague.com/api"
 UND = "https://understat.com"
 OUT = pathlib.Path(__file__).parent / "data.json"
 OUT_P = pathlib.Path(__file__).parent / "players.json"
 OUT_M = pathlib.Path(__file__).parent / "market.json"
+# Last season's per-fixture minutes, for the minutes model. Built each
+# summer by minutes_prior.py; never edited by hand.
+PRIOR_MIN = pathlib.Path(__file__).parent / "minutes_prior.json"
 
 # Understat's full team names -> FPL's short codes. Covers every side to appear
 # in the Premier League recently, so promotion and relegation need no edits.
@@ -368,6 +375,196 @@ def build_players(boot, season, short2name, short2id, played):
     return out
 
 
+# ---------------------------------------------------------------- minutes ---
+MINUTES_HORIZON = 6      # gameweeks of expected minutes written per player
+
+
+def shown(p):
+    """
+    A probability as published: two places, and never 1.00 -- in the
+    backtest the few players rated 99.5%+ started about 96% of the time.
+    """
+    return min(round(p, 2), 0.99)
+
+
+def build_minutes(boot, raw_fixtures, next_gw, season, today=None, fetch=None):
+    """
+    The minutes model (minutes.py; claude/backtest-minutes.md) for every
+    player: expected minutes in each of the next MINUTES_HORIZON gameweeks,
+    and the chance of starting, of playing 60+ and of appearing at all in
+    his next fixture.
+
+    Reads one event/{gw}/live/ reply per gameweek played so far -- each lists
+    every registered player with his minutes in every team fixture, a
+    0-minute entry included when he did not play -- plus last season from
+    minutes_prior.json. FPL's injury news is applied on top, then each side's
+    line-up is filled back up to its usual shape.
+
+    Returns ({player id: fields}, summary). Raises if the rows look wrong, so
+    the caller publishes the players without these fields rather than
+    publishing something wrong.
+    """
+    fetch = fetch or get_json
+    today = today or datetime.datetime.now(datetime.timezone.utc).date()
+
+    finished = {f["id"]: (f["event"], f.get("kickoff_time") or "")
+                for f in raw_fixtures
+                if f.get("event") and (f.get("finished") or f.get("finished_provisional"))}
+    lives = {gw: fetch(f"{FPL}/event/{gw}/live/")
+             for gw in sorted({g for g, _ in finished.values()})}
+    frows = MN.live_fixture_rows(lives, finished)
+    rows = MN.live_rows(frows)
+
+    # The rows must add up. Each gameweek, FPL's starts total exactly 22 per
+    # fixture -- exact even in a double gameweek, where the split between the
+    # two games is a guess (see live_fixture_rows), so the exact test is per
+    # gameweek and the per-fixture one is loose. It is skipped for a gameweek
+    # still being played: FPL's starts then include the game in progress. A
+    # player FPL has since deleted could leave a gameweek a start or two
+    # short, which is harmless. Anything else means the replies were read
+    # wrongly. A finished fixture with no rows at all is FPL not having caught
+    # up yet: skipped, and picked up on the next run.
+    rows_fx = collections.Counter(f for _, f, _, _, _ in frows)
+    per_fx = {f: 0 for f in rows_fx}
+    for _, f, _, st, _ in frows:
+        per_fx[f] += st
+    live_gws = {f["event"] for f in raw_fixtures
+                if f.get("event") and f["id"] not in finished}
+    per_gw, fx_in_gw = collections.Counter(), collections.Counter()
+    for f, n in per_fx.items():
+        per_gw[finished[f][0]] += n
+        fx_in_gw[finished[f][0]] += 1
+    short = {gw: 22 * fx_in_gw[gw] - n for gw, n in per_gw.items()
+             if gw not in live_gws and n != 22 * fx_in_gw[gw]}
+    loose = {f: n for f, n in per_fx.items() if not 19 <= n <= 25}
+    thin = {f: n for f, n in rows_fx.items() if n < 40}
+    if any(v < 0 or v > 2 for v in short.values()) or loose or thin:
+        raise ValueError(f"FPL's live rows do not add up -- starters short per gameweek {short}, "
+                         f"odd fixtures {dict(list(loose.items())[:4])}, "
+                         f"fixtures with under 40 players listed {dict(list(thin.items())[:4])}")
+    if short:
+        log(f"   minutes: gameweek(s) {short} a start or two short -- carrying on")
+    missing = sorted(set(finished) - set(rows_fx))
+    if missing:
+        log(f"   minutes: {len(missing)} finished fixture(s) not in FPL's live data yet: {missing[:6]}")
+
+    want = f"{season - 1}/{str(season)[2:]}"
+    prior = {}
+    if PRIOR_MIN.exists():
+        pf = json.loads(PRIOR_MIN.read_text())
+        if pf.get("season") == want:
+            prior = pf["players"]
+        else:
+            log(f"!! minutes_prior.json is for {pf.get('season')}, not {want} -- "
+                f"run `python minutes_prior.py {want.replace('/', '-')}` once the "
+                f"archive has it. Using no prior season.")
+    else:
+        log("!! minutes_prior.json missing -- using no prior season")
+
+    players = [e for e in boot["elements"] if e["element_type"] in MN.FPL_POS]
+    pos_of = {e["id"]: MN.FPL_POS[e["element_type"]] for e in players}
+
+    horizon = list(range(next_gw, min(38, next_gw + MINUTES_HORIZON - 1) + 1))
+    fixtures = sorted((f for f in raw_fixtures if f.get("event") in horizon),
+                      key=lambda f: (f["event"], f.get("kickoff_time") or "", f["id"]))
+
+    # forecast every player for every fixture his side plays in the window,
+    # then fill each side's line-up: one keeper, ten outfield players
+    mem = {e["id"]: MN.fold(rows.get(e["id"], []),
+                            MN.decode_prior(prior.get(str(e["code"]), [])))
+           for e in players}
+    by_team = collections.defaultdict(list)
+    for e in players:
+        by_team[e["team"]].append(e)
+    fc, raw_sum = {}, {}
+    for f in fixtures:
+        gw = f["event"]; h = horizon.index(gw) + 1
+        k = f.get("kickoff_time")
+        day = datetime.date.fromisoformat(k[:10]) if k else today
+        for t in (f["team_h"], f["team_a"]):
+            groups = collections.defaultdict(list)
+            for e in by_team[t]:
+                av = MN.availability(e["status"], e["chance_of_playing_next_round"],
+                                     e["news"], day, today, gw == next_gw)
+                o = MN.forecast(mem[e["id"]], pos_of[e["id"]], e["now_cost"] / 10, h, av)
+                groups[MN.group(pos_of[e["id"]])].append((e["id"], o, av))
+            if gw == next_gw:
+                raw_sum[(t, f["id"])] = sum(o["start"] for g in groups.values() for _, o, _ in g)
+            for g, members in groups.items():
+                filled = MN.fill_lineup([o for _, o, _ in members], MN.LINEUP[g],
+                                        [a for _, _, a in members])
+                for (pid, _, _), o in zip(members, filled):
+                    fc[(pid, f["id"])] = (gw, o)
+
+    out, filled_sum = {}, collections.Counter()
+    for e in players:
+        pid = e["id"]; xm = [0.0] * len(horizon); first = None
+        for f in fixtures:
+            if (pid, f["id"]) in fc:
+                gw, o = fc[(pid, f["id"])]
+                xm[horizon.index(gw)] += o["xmin"]
+                if gw == next_gw and first is None:
+                    first = o
+        rec = {"xm": [round(x) for x in xm]}
+        if first is not None:
+            rec.update(ps=shown(first["start"]), p60=shown(first["p60"]), pa=shown(first["app"]))
+            filled_sum[e["team"]] += first["start"]      # a double counts its first game
+        out[pid] = rec
+
+    # Before the fill, a side's chances of starting in a fixture should
+    # already be roughly eleven -- a little under when injury news has taken
+    # players out. Far outside that, the rows or the news were read wrongly.
+    if not raw_sum:
+        raise ValueError(f"no player has a fixture in GW{next_gw}")
+    bad = {k: round(v, 1) for k, v in raw_sum.items() if not 7.0 <= v <= 14.0}
+    if bad:
+        raise ValueError(f"expected starters per side and fixture out of range before the fill: {bad}")
+    n_rows = sum(len(v) for v in rows.values())
+    log(f"minutes: {len(out)} players, {n_rows} player-fixtures this season "
+        f"({len(lives)} gameweeks) + {len(prior)} players carried from "
+        f"{want if prior else 'nowhere'}; starters per side before the line-up "
+        f"fill {min(raw_sum.values()):.1f}-{max(raw_sum.values()):.1f}, after "
+        f"{min(filled_sum.values()):.1f}-{max(filled_sum.values()):.1f}")
+    summary = {"gws": horizon, "priorSeason": want if prior else None,
+               "built": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+               "about": "xm: expected minutes in each gameweek listed in gws (0 = no fixture). "
+                        "ps / p60 / pa: chance of starting, of playing 60+ and of appearing "
+                        "at all in the next fixture. See minutes.py."}
+    return out, summary
+
+
+MINUTES_KEEP_HOURS = 72
+
+
+def keep_minutes(path, players, pdata, next_gw, now=None):
+    """
+    When the minutes model fails, carry the last published figures over --
+    but only if they are from this season, cover exactly the same gameweeks,
+    and are under MINUTES_KEEP_HOURS old. Anything else is dropped rather
+    than shown for the wrong weeks or with news days out of date. Returns
+    how many players kept figures.
+    """
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    try:
+        old = json.loads(pathlib.Path(path).read_text())
+        mm = old.get("minutes") or {}
+        built = datetime.datetime.fromisoformat(mm.get("built") or old["generated"])
+        if (old.get("season") != pdata["season"] or (mm.get("gws") or [None])[0] != next_gw
+                or now - built > datetime.timedelta(hours=MINUTES_KEEP_HOURS)):
+            return 0
+        prev = {q["i"]: q for q in old["players"]}
+        kept = 0
+        for p in players:
+            q = prev.get(p["i"], {})
+            if "xm" in q:
+                p.update({k: q[k] for k in ("xm", "ps", "p60", "pa") if k in q})
+                kept += 1
+        if kept:
+            pdata["minutes"] = dict(mm, stale=True, built=mm.get("built") or old["generated"])
+        return kept
+    except Exception:
+        return 0
+
 
 def derive_next_gw(events, now=None):
     """
@@ -438,7 +635,7 @@ def load_fpl(previous):
         log("fetching FPL fixtures…")
         raw = get_json(f"{FPL}/fixtures/")
         return {
-            "live": True, "boot": boot,
+            "live": True, "boot": boot, "rawFixtures": raw,
             "short2id": {t["short_name"]: t["id"] for t in boot["teams"]},
             "meta": {t["id"]: {"name": t["name"],
                                "short": t["short_name"].lower()}
@@ -459,7 +656,7 @@ def load_fpl(previous):
         meta = {int(k): {"name": v["name"], "short": v["short"]}
                 for k, v in previous["teams"].items()}
         return {
-            "live": False, "boot": None,
+            "live": False, "boot": None, "rawFixtures": None,
             "short2id": {v["short"].upper(): k for k, v in meta.items()},
             "meta": meta,
             "deadlines": previous["deadlines"],
@@ -611,6 +808,20 @@ def main():
                  "teams": {k: {"name": v["name"], "short": v["short"]}
                            for k, v in data["teams"].items()},
                  "players": players}
+        # The minutes model goes in its own try: if it fails, the players
+        # still publish. Yesterday's minutes are kept when they still cover
+        # the same gameweeks -- a single failed fetch should not blank them --
+        # and dropped once they would describe the wrong ones.
+        try:
+            mins, summary = build_minutes(fpl["boot"], fpl["rawFixtures"], next_gw, season)
+            for p in players:
+                p.update(mins.get(p["i"], {}))
+            pdata["minutes"] = summary
+        except Exception as e:
+            kept = keep_minutes(OUT_P, players, pdata, next_gw)
+            log(f"!! minutes model not run ({e}) -- "
+                + (f"kept the last run's figures for {kept} players" if kept
+                   else "players published without it"))
         OUT_P.write_text(json.dumps(pdata, separators=(",", ":")))
         log(f"wrote {OUT_P.name}: {len(players)} players")
     except Exception as e:
