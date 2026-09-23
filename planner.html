@@ -82,21 +82,51 @@
   .problems.done{color:var(--accent)}
   .problems.done li::before{content:"\2713"}
 
-  /* ---- pitch ---- */
-  .pitch{background:linear-gradient(180deg,#123d24,#0d2b19);border-radius:10px;
-    padding:14px 10px;display:grid;gap:10px;min-height:330px;
-    background-image:repeating-linear-gradient(180deg,rgba(255,255,255,.035) 0 42px,transparent 42px 84px)}
-  .row{display:flex;justify-content:center;gap:7px;flex-wrap:wrap}
-  .slot{width:74px;background:var(--surface);border:1px solid var(--border-strong);
-    border-radius:7px;padding:5px 3px 4px;text-align:center;cursor:pointer;position:relative}
+  /* ---- pitch: grass, markings, and boards along the top ---- */
+  .stadium{border-radius:10px;overflow:hidden;border:1px solid var(--border-strong);background:#0b0010}
+  .boards{display:flex;gap:3px;padding:4px 4px 0;background:#0b0010}
+  .board{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:7px;
+    height:26px;border-radius:3px 3px 0 0;background:linear-gradient(180deg,#2a0630,#1E0021);
+    border:1px solid #3d0f44;border-bottom:0;color:var(--accent);white-space:nowrap;overflow:hidden;
+    font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+  .board.alt{background:var(--accent);color:#1E0021;border-color:var(--accent)}
+  .board svg{height:14px;width:auto;flex:none}
+  .board span b{font-weight:800;color:#fff}
+  @media (min-width:861px) and (max-width:1120px){.board:nth-child(3){display:none}}
+  .board.alt span b{color:#1E0021;opacity:.7}
+  .grass{position:relative;padding:18px 8px 16px;
+    background:repeating-linear-gradient(180deg,#2e8b3e 0 46px,#287c37 46px 92px)}
+  .grass::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 40%,transparent 55%,rgba(0,0,0,.28))}
+  .lines{position:absolute;inset:8px 8px 0;pointer-events:none;overflow:hidden;
+    border:2px solid rgba(255,255,255,.55);border-bottom:0}
+  .lines i{position:absolute;display:block;border:2px solid rgba(255,255,255,.55)}
+  .lines .l-box{top:-2px;left:21%;width:58%;height:19%;border-top:0}
+  .lines .l-six{top:-2px;left:37%;width:26%;height:7%;border-top:0}
+  .lines .l-dee{top:calc(19% - 2px);left:41%;width:18%;height:5%;border-top:0;border-radius:0 0 50% 50% / 0 0 100% 100%}
+  .lines .l-spot{top:13%;left:calc(50% - 3px);width:6px;height:6px;border:0;border-radius:50%;background:rgba(255,255,255,.6)}
+  .lines .l-half{left:-2px;right:-2px;bottom:0;border-width:2px 0 0}
+  .lines .l-circle{left:36%;width:28%;aspect-ratio:1;bottom:0;transform:translateY(50%);border-radius:50%}
+  .pitch{position:relative;z-index:1;display:grid;gap:12px;min-height:330px;align-content:space-around}
+  .row{display:flex;justify-content:center;gap:6px;flex-wrap:wrap}
+  .slot{width:88px;background:rgba(30,0,33,.92);border:1px solid var(--border-strong);
+    border-radius:7px;padding:5px 4px 5px;text-align:center;cursor:pointer;position:relative;
+    box-shadow:0 3px 10px -4px rgba(0,0,0,.6)}
   .slot:hover{border-color:var(--accent)}
-  .slot.empty{background:rgba(255,255,255,.06);border-style:dashed;color:var(--muted)}
+  .slot.empty{background:rgba(30,0,33,.55);border-style:dashed;color:var(--muted)}
   .slot .nm{font-weight:700;font-size:11.5px;line-height:1.15;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .slot .mt{font-family:"Roboto Mono",monospace;font-size:9px;color:var(--muted);
     text-transform:uppercase;letter-spacing:.06em}
-  .slot .fx{display:flex;gap:1px;margin-top:4px;justify-content:center}
-  .slot .fx i{display:block;width:9px;height:9px;border-radius:2px}
+  /* the next three fixtures: opponent, home or away, coloured by difficulty */
+  .fxs{display:flex;gap:2px;margin-top:4px}
+  .fxc{flex:1 1 0;min-width:0;border-radius:3px;padding:2px 0 2px;text-align:center;
+    font-family:"Roboto Mono",monospace;line-height:1.1;overflow:hidden}
+  .fxc b{display:block;font-size:9.5px;font-weight:700;letter-spacing:.02em}
+  .fxc i{display:block;font-style:normal;font-size:8.5px;font-weight:600;opacity:.8}
+  .fxc.none{background:rgba(255,255,255,.08);color:var(--muted)}
+  .benchwrap .row{background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:9px 6px}
+  .benchwrap .slot{background:var(--surface)}
   .slot .cap{position:absolute;top:-6px;left:-6px;width:17px;height:17px;border-radius:50%;
     background:var(--accent);color:var(--accent-ink);font-size:10px;font-weight:800;
     line-height:17px;font-family:"Roboto Mono",monospace}
@@ -158,12 +188,12 @@
   .p:last-child{border-bottom:0}
   .p:hover{background:var(--surface-2)}
   .p[aria-disabled="true"]{opacity:.42;cursor:not-allowed}
-  .p i{width:4px;height:15px;border-radius:2px;flex:0 0 auto;box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+  .p > i{width:4px;height:15px;border-radius:2px;flex:0 0 auto;box-shadow:0 0 0 1px rgba(255,255,255,.18)}
   .p .nm{font-weight:700;flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .p .tm{font-family:"Roboto Mono",monospace;font-size:10px;color:var(--muted);text-transform:uppercase}
   .p .num{font-family:"Roboto Mono",monospace;font-size:12px;font-variant-numeric:tabular-nums}
-  .p .fx{display:flex;gap:1px}
-  .p .fx i{width:9px;height:14px;border-radius:2px;box-shadow:none}
+  .p .fxs{margin:0;flex:0 0 96px}
+  .p .fxc b{font-size:9px}
   .p.in{background:rgba(0,255,135,.09)}
   .empty{padding:28px 14px;text-align:center;color:var(--muted);font-size:13px}
 
@@ -171,7 +201,17 @@
   .note b{color:var(--ink)}
   .key{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:12px 0 0;
     font-size:12px;color:var(--muted)}
-  .rampbar{display:inline-block;width:96px;height:9px;border-radius:99px;vertical-align:-1px}
+  .fxkey{margin:14px 0 0;font-size:12px;color:var(--muted)}
+  .fxkey p{margin:0 0 8px}
+  .fxkey p b{color:var(--ink)}
+  .krow{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:4px 10px;align-items:center;margin-top:6px}
+  .krow .lab{font-size:11.5px;color:var(--ink);font-weight:600;line-height:1.25}
+  .krow .lab small{display:block;font-weight:500;color:var(--muted);font-size:10.5px}
+  .kbands{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px}
+  .kbands span{display:block;text-align:center;border-radius:3px;padding:3px 0;
+    font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:700;white-space:nowrap}
+  .kends{display:flex;justify-content:space-between;grid-column:2;font-family:"Roboto Mono",monospace;
+    font-size:9.5px;letter-spacing:.08em;text-transform:uppercase}
   .banner{margin-top:14px;background:rgba(255,200,69,.08);border:1px solid rgba(255,200,69,.4);
     border-radius:9px;padding:11px 13px;font-size:12.5px;color:var(--muted)}
   .banner b{color:var(--warn)}
@@ -280,6 +320,15 @@
     .wrap{padding:16px 0 44px}
     .mast,.cols,.note,.key,.banner,.plan,.import{margin-left:12px;margin-right:12px}
     .grid .who{min-width:104px;max-width:118px}
+    .slot{width:62px;padding:4px 2px}
+    .slot .nm{font-size:10.5px}
+    .fxc b{font-size:8.5px;letter-spacing:0}
+    .fxc i{font-size:7.5px}
+    .row{gap:4px}
+    .grass{padding:16px 3px 14px}
+    .board:nth-child(3){display:none}
+    .krow{grid-template-columns:1fr}
+    .kends{grid-column:1}
     .nav{margin-left:0;width:100%}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -374,19 +423,20 @@
         <ul class="tlist" id="tlist"></ul>
         <ul class="problems" id="problems"></ul>
 
-        <div class="pitch" id="pitch"></div>
+        <div class="stadium">
+          <div class="boards" aria-hidden="true"><div class="board"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="currentColor" stroke-width="5"/><g fill="currentColor"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="currentColor"/></svg><span>Fantasy <b>DataBase</b></span></div><div class="board alt"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="currentColor" stroke-width="5"/><g fill="currentColor"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="currentColor"/></svg><span>Fantasy <b>DataBase</b></span></div><div class="board"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="currentColor" stroke-width="5"/><g fill="currentColor"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="currentColor"/></svg><span>Fantasy <b>DataBase</b></span></div></div>
+          <div class="grass">
+            <div class="lines" aria-hidden="true"><i class="l-box"></i><i class="l-six"></i><i class="l-dee"></i><i class="l-spot"></i><i class="l-half"></i><i class="l-circle"></i></div>
+            <div class="pitch" id="pitch"></div>
+          </div>
+        </div>
 
         <div class="benchwrap">
           <div class="lbl">Bench</div>
           <div class="row" id="bench"></div>
         </div>
 
-        <p class="key">
-          <span>Hardest</span><span class="rampbar" id="rampbar"></span><span>Easiest</span>
-          <span>Each block is one gameweek, over the window set on the right. Keepers and defenders
-            are rated on how likely a clean sheet looks; midfielders and forwards on how many goals
-            their side should score.</span>
-        </p>
+        <div class="fxkey" id="fxKey"></div>
 
         <div class="act" id="buildAct">
           <button type="button" class="pri" id="toPlan" hidden>Plan transfers with this squad &rarr;</button>
@@ -453,7 +503,8 @@
 <script type="module" id="app">
 import { DEFAULT_RULES, sellPrice, validateSquad, validateXI, chipAvailable,
          simulate, ftFromHistory, chipsFromHistory } from "./planner.js";
-import { fromData, goodClamped, shade as shadeOn, rampFromCss } from "./model.js";
+import { fromData, marketByTeamId, goodClamped, colourT, bandLabels, formatVal,
+         shade as shadeOn, rampFromCss } from "./model.js";
 
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
@@ -523,8 +574,11 @@ let importSeq=0;         // the latest import; an older one's late reply is igno
  * comparison page use. A keeper or defender is rated on the clean sheet and
  * everyone else on the goals, because those two do not move together.
  * ------------------------------------------------------------------------- */
-const shade=t=>shadeOn(t,rampFromCss()).bg;
-const ease=(side,team,f)=>goodClamped(side, M.rate(side,team,f,"ease"), "ease");
+// Projected numbers in the fixtures page's five bands: a keeper or defender's
+// fixture by clean sheet chance, anyone else's by his side's expected goals.
+// Same numbers, same colours as the ticker and the comparison page.
+const shade=t=>shadeOn(t,rampFromCss());
+const ease=(side,team,f)=>goodClamped(side, M.rate(side,team,f,"proj"), "proj");
 const sideFor=p=>p.p<=2 ? "def" : "atk";
 
 function fixturesFor(teamId){
@@ -775,36 +829,56 @@ function makeCaptain(){
 }
 
 /* -------------------------------- drawing -------------------------------- */
-// One block per gameweek in the window. The blocks get narrower rather than
-// fewer as the window grows — showing six of nine and saying nothing about it
-// would quietly misrepresent the run.
-function fxStrip(p){
-  const w = horizon>6 ? 6 : 9;
-  return fixturesFor(p.t)
-    .map(f=>{
-      const t=TEAMS[f.opp];
-      return `<i style="background:${shade(ease(sideFor(p),p.t,f))};width:${w}px" `
-           + `title="GW${f.gw} ${t?t[0]:"?"} (${f.home?"H":"A"})"></i>`;
-    }).join("") || `<i style="background:var(--surface-2)" title="No fixture in this window"></i>`;
+/**
+ * The next three gameweeks from `from`: opponent, H or A, coloured by how
+ * kind the fixture is for this player's position. A double shows both games;
+ * a blank shows a grey dash, so three weeks are always three weeks.
+ */
+function fxChips(p,from){
+  const side=sideFor(p), out=[];
+  for(let g=from; g<from+3 && g<=38; g++){
+    const fx=M.fixtures(g,g)[p.t]||[];
+    if(!fx.length){ out.push(`<span class="fxc none" title="GW${g}: no game"><b>–</b><i>GW${g}</i></span>`); continue; }
+    for(const f of fx){
+      const v=M.rate(side,p.t,f,"proj"), c=shade(colourT(side,v,"proj")), t=TEAMS[f.opp]||["?","?"];
+      out.push(`<span class="fxc" style="background:${c.bg};color:${c.fg}" `
+        + `title="GW${g}: ${esc(t[0])} (${f.home?"home":"away"}) — ${formatVal(side,v,"proj",true)}">`
+        + `<b>${esc(t[1].toUpperCase())}</b><i>${f.home?"H":"A"}</i></span>`);
+    }
+  }
+  return `<div class="fxs">${out.join("")}</div>`;
 }
+const fxFrom=()=>planMode()&&active ? active : NEXT_GW;
 
 function slot(p,role,wk){
   if(!p) return `<div class="slot empty">${kit("")}<div class="nm">Empty</div><div class="mt">${role}</div></div>`;
   const t=TEAMS[p.t]||["?","?"];
   if(wk){
     const badge = badgeFor(wk,p.i,"cap");
-    const x=xpAt(p.i,wk.gw);
     return `<div class="slot${sel===p.i?" sel":""}" data-id="${p.i}" tabindex="0" title="${esc(p.n)} — click for transfer, captain and bench">
       ${badge}${kit(t[1])}<div class="nm">${esc(p.n)}</div>
-      <div class="mt">${esc(oppText(p.t,wk.gw))}</div>
-      <div class="xp">${x===null?"–":f1(x)}</div></div>`;
+      <div class="mt">${t[1]} · ${(p.c/10).toFixed(1)}</div>
+      ${fxChips(p,wk.gw)}</div>`;
   }
   const badge = captain===p.i ? `<span class="cap">C</span>`
               : vice===p.i    ? `<span class="cap v">V</span>` : "";
   return `<div class="slot" data-id="${p.i}" title="${esc(p.n)} — click to remove, shift-click to captain">
     ${badge}${kit(t[1])}<div class="nm">${esc(p.n)}</div>
     <div class="mt">${t[1]} · ${(p.c/10).toFixed(1)}</div>
-    <div class="fx">${fxStrip(p)}</div></div>`;
+    ${fxChips(p,NEXT_GW)}</div>`;
+}
+
+// The key: the fixtures page's five bands, written out, for each of the two
+// scales the pitch uses.
+function drawKey(){
+  const row=(side,lab,sub)=>`<div class="krow"><div class="lab">${lab}<small>${sub}</small></div>`
+    + `<div class="kbands">${bandLabels(side,"proj").map((b,i)=>{const c=shade(i/4);
+        return `<span style="background:${c.bg};color:${c.fg}">${b}</span>`;}).join("")}</div>`
+    + `<div class="kends"><span>Harder</span><span>Easier</span></div></div>`;
+  $("#fxKey").innerHTML=`<p>Under each player: his next three games &mdash; opponent, <b>H</b>ome or <b>A</b>way &mdash; `
+    + `coloured the same way as the fixtures page. <b>Green is an easier fixture, red a harder one.</b></p>`
+    + row("def","Keepers &amp; defenders","clean sheet chance")
+    + row("atk","Midfielders &amp; forwards","their side's expected goals");
 }
 
 function stat(id,value,label,cls,title){
@@ -1086,7 +1160,7 @@ function renderList(){
       <i style="background:${CLUB[t[1]]||"#888"}"></i>
       <span class="nm">${esc(p.n)}${p.st&&p.st!=="a"?` <span class="tm" style="color:var(--warn)">${p.cop??"?"}%</span>`:""}</span>
       <span class="tm">${t[1]}</span>
-      <span class="fx">${fxStrip(p)}</span>
+      ${fxChips(p,fxFrom())}
       <span class="num">${(p.c/10).toFixed(1)}</span>
       <span class="num${hasXP()?" xp":""}">${hasXP()?f1(xw.get(p.i)):p.pts}</span>
     </div>`;}).join("")
@@ -1349,13 +1423,15 @@ $("#teamId").addEventListener("keydown",e=>{ if(e.key==="Enter") $("#loadTeam").
 /* --------------------------------- boot --------------------------------- */
 Promise.all([
   fetch("data.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("data.json "+r.status);return r.json();}),
-  fetch("players.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("players.json "+r.status);return r.json();})
-]).then(([d,pl])=>{
+  fetch("players.json?t="+Date.now()).then(r=>{if(!r.ok)throw new Error("players.json "+r.status);return r.json();}),
+  // Optional: without it the model's own numbers are used, as on the ticker.
+  fetch("market.json?t="+Date.now()).then(r=>r.ok?r.json():null).catch(()=>null)
+]).then(([d,pl,mk])=>{
   for(const id in d.teams) TEAMS[id]=[d.teams[id].name,d.teams[id].short];
   FX=d.fixtures;
   // The fitted constants, not sliders. The ticker is where you argue with the
   // model; here you just want to know whether the run is kind.
-  M=fromData(d);
+  M=fromData(d,{market:marketByTeamId(mk&&mk.gw, d.teams)});
   // Never d.nextGw raw: a scheduled build can be a day stale, and FPL leaves a
   // round's `finished` flag false long after it has been played. fromData takes
   // whichever is further ahead, the file or the deadline calendar.
@@ -1375,7 +1451,7 @@ Promise.all([
   }
   $("#stamp").textContent=`${d.season} · next GW${NEXT_GW} · updated `
     + new Date(d.generated).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
-  $("#rampbar").style.background="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v)).join(",")+")";
+  drawKey();
   load();
   loadPlan();
   active=PLAN_GWS[0]??null;
