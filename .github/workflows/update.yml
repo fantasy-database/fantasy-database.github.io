@@ -33,6 +33,7 @@ jobs:
           git config user.name "fpl-ticker bot"
           git config user.email "actions@github.com"
           git add data.json
+          [ -f players.json ] && git add players.json
           [ -f market.json ] && git add market.json
           if git diff --cached --quiet; then
             echo "Nothing changed this week."
