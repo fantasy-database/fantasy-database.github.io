@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_RULES, POS, sellPrice, squadValue, validateSquad, validateXI,
   legalFormations, applyTransfers, advance, chipAvailable, planCost, newState,
-  bestXI, simulate, ftFromHistory, chipsFromHistory
+  bestXI, simulate, ftFromHistory, chipsFromHistory, purchasePrices, priceInWeek
 } from "./planner.js";
 
 let passed = 0, failed = 0;
@@ -453,6 +453,43 @@ test("only weeks before the one being planned count", () => {
 test("chips are read in this file's names", () => {
   assert.deepEqual(chipsFromHistory(hist([], [["bboost", 3], ["3xc", 5], ["manager", 7]])),
     [{ chip: "bench", gw: 3 }, { chip: "triple", gw: 5 }]);
+});
+
+
+section("What the manager paid");
+const tr = (event, element_in, element_in_cost, time, element_out = 0) => ({ event, element_in, element_in_cost, element_out, time });
+test("the last purchase counts, not the first", () => {
+  const r = purchasePrices([7], [tr(3, 7, 50, "2026-09-01"), tr(4, 9, 60, "2026-09-10", 7), tr(6, 7, 56, "2026-09-20")]);
+  assert.deepEqual(r.prices, { 7: 56 });
+});
+test("Free Hit weeks are ignored -- that squad reverted", () => {
+  const r = purchasePrices([7], [tr(3, 7, 50, "2026-09-01"), tr(5, 7, 58, "2026-09-18")], { freeHitWeeks: [5] });
+  assert.deepEqual(r.prices, { 7: 50 });
+});
+test("transfers after the squad was read (pending ones) are ignored", () => {
+  const r = purchasePrices([7], [tr(3, 7, 50, "2026-09-01"), tr(6, 7, 61, "2026-09-25")], { upTo: 5 });
+  assert.deepEqual(r.prices, { 7: 50 });
+});
+test("a player never transferred in is missing -- he was in the first squad", () => {
+  const r = purchasePrices([7, 8], [tr(3, 7, 50, "2026-09-01")]);
+  assert.deepEqual(r.missing, [8]);
+});
+test("a wildcard week's buy-sell-rebuy uses the last buy", () => {
+  const r = purchasePrices([7], [tr(3, 7, 50, "2026-09-01T10:00"), tr(3, 9, 50, "2026-09-01T11:00", 7), tr(3, 7, 51, "2026-09-01T12:00", 9)]);
+  assert.deepEqual(r.prices, { 7: 51 });
+});
+test("price in a week: that week's game, or the next one if he had none", () => {
+  const s = { history: [{ round: 1, value: 75 }, { round: 3, value: 77 }, { round: 2, value: 76 }] };
+  assert.equal(priceInWeek(s, 1), 75);
+  assert.equal(priceInWeek(s, 2), 76);
+  assert.equal(priceInWeek({ history: [{ round: 1, value: 75 }, { round: 3, value: 77 }] }, 2), 77);
+  assert.equal(priceInWeek({ history: [] }, 1), null);
+});
+test("selling uses what he paid: half of a rise, all of a fall", () => {
+  const sq = makeSquad().map(p => ({ ...p, buy: 50 }));
+  const st = applyTransfers(newState(5, sq, { bank: 0, ft: 1 }),
+    [{ out: sq[7].id, in: { id: 70, name: "x", pos: 3, team: 9, buy: 50 } }], { prices: { [sq[7].id]: 55, 70: 50 } });
+  assert.equal(st.bank, 52 - 50);
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

@@ -270,6 +270,15 @@
   /* ---- the week being edited ---- */
   .weekctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:10px 0 0;font-size:12.5px;color:var(--muted)}
   .weekctl select{font-size:12.5px;padding:5px 8px}
+  #ftBox{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap}
+  #ftBox .src{font-size:11px}
+  .wkhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .gwnav{margin-left:auto;display:flex;gap:6px}
+  .gwnav button{font-family:Barlow,Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:0;text-transform:none;
+    padding:6px 12px;border-radius:7px;border:1px solid var(--border-strong);background:var(--surface-2);color:var(--ink);cursor:pointer}
+  .gwnav button.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .gwnav button:disabled{opacity:.35;cursor:default}
+  .gwnav button:not(:disabled):hover{filter:brightness(1.1)}
   .weekctl .act{margin:0 0 0 auto}
   .tlist{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;padding:0;list-style:none}
   .tlist li{display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);
@@ -384,27 +393,14 @@
     <p class="msg" id="importMsg"></p>
   </div>
 
-  <section class="card plan" id="planCard" hidden>
-    <h2><span>Your plan</span><span class="sum" id="planSum"></span></h2>
-    <div class="body">
-      <div class="planbar">
-        <span>Free transfers for <span id="ftGw">GW–</span>
-          <span class="stepper"><button type="button" id="ftDown" aria-label="One fewer free transfer">&minus;</button><b id="ftNow">1</b><button type="button" id="ftUp" aria-label="One more free transfer">+</button></span></span>
-        <span class="src" id="ftSrc"></span>
-        <div class="act"><button type="button" id="editSquad" title="Change the squad you start from, before any transfers">Change starting squad</button><button type="button" id="resetPlan">Reset the plan</button></div>
-      </div>
-      <div class="gridwrap"><table class="grid" id="grid"></table></div>
-      <p class="gridkey">
-        <span class="k-c">Captain</span><span class="k-in">Signed that week</span><span class="k-bench">On the bench</span>
-        <span class="k-none">Click any cell (or tab to it and press Enter) to transfer, captain or bench a player in that week. Opponents in capitals are at home.</span>
-      </p>
-    </div>
-  </section>
-
   <div class="cols">
     <!-- ---------------- left: the squad ---------------- -->
     <section class="card">
-      <h2 id="squadTitle">Your squad</h2>
+      <h2 class="wkhead"><span id="squadTitle">Your squad</span>
+        <span class="gwnav" id="gwNav" hidden>
+          <button type="button" id="gwPrev" aria-label="Previous gameweek">&lsaquo; <span></span></button>
+          <button type="button" id="gwNext" class="pri" aria-label="Next gameweek">Next gameweek <span></span> &rsaquo;</button>
+        </span></h2>
       <div class="body">
         <div class="status">
           <div class="stat" id="sPicked"><b>0/15</b><span>Picked</span></div>
@@ -413,6 +409,9 @@
           <div class="stat" id="sRun" title="Average fixture ease across your starting eleven over the window. Higher is easier."><b>–</b><span>Fixture run</span></div>
         </div>
         <div class="weekctl" id="weekCtl" hidden>
+          <span id="ftBox">Free transfers
+            <span class="stepper"><button type="button" id="ftDown" aria-label="One fewer free transfer">&minus;</button><b id="ftNow">1</b><button type="button" id="ftUp" aria-label="One more free transfer">+</button></span>
+            <span class="src" id="ftSrc"></span></span>
           <label>Chip <select id="chip"></select></label>
           <div class="act"><button type="button" id="resetWeek">Undo this week</button></div>
         </div>
@@ -436,6 +435,8 @@
         <div class="act" id="buildAct">
           <button type="button" class="pri" id="toPlan" hidden>Plan transfers with this squad &rarr;</button>
           <button type="button" id="autoXI">Pick the best XI I can</button>
+          <button type="button" id="editSquad" hidden title="Change the squad you start from, before any transfers">Change starting squad</button>
+          <button type="button" id="resetPlan" hidden>Undo every week</button>
           <button type="button" id="clear">Clear squad</button>
         </div>
       </div>
@@ -483,8 +484,9 @@
 
   <p class="note">
     Your squad and plan are saved in this browser only. Loading your team reads the same public
-    data anyone can see on the FPL site; nothing is ever sent back to FPL. Sale prices are today's
-    prices, because FPL does not publish what you paid, and automatic substitutions are not counted.
+    data anyone can see on the FPL site; nothing is ever sent back to FPL. When your team is loaded by
+    ID, selling prices use what you paid, as FPL does &mdash; half of any rise, all of any fall; a squad built
+    or pasted by hand sells at today's prices. Automatic substitutions are not counted.
     Load your team again after each deadline to bring in the transfers you actually made.
   </p>
 </div>
@@ -492,7 +494,7 @@
 
 <script type="module" id="app">
 import { DEFAULT_RULES, sellPrice, validateSquad, validateXI, chipAvailable,
-         simulate, ftFromHistory, chipsFromHistory } from "./planner.js";
+         simulate, ftFromHistory, chipsFromHistory, purchasePrices, priceInWeek } from "./planner.js";
 import { fromData, marketByTeamId, goodClamped, colourT, bandLabels, formatVal,
          shade as shadeOn, rampFromCss } from "./model.js";
 
@@ -587,6 +589,13 @@ const byId=id=>BYID.get(id);
 // planner.js speaks {id,pos,team,buy}; players.json speaks {i,p,t,c}. One place
 // to translate, so the rules engine never has to know about the data format.
 const toRules=p=>({id:p.i,name:p.n,pos:p.p,team:p.t,buy:p.c});
+// What the manager paid for each player he owns, read from FPL when the team is
+// loaded by ID. Anyone missing -- a squad built by hand, or pasted -- is
+// treated as bought at today's price. Selling follows FPL's rule: what you
+// paid plus half of any rise, all of any fall (sellPrice in planner.js).
+let BUY={};
+let PRICES={};             // today's price of every player, by id
+const owned=p=>({...toRules(p), buy: typeof BUY[p.i]==="number" ? BUY[p.i] : p.c});
 const teamName=id=>(TEAMS[id]?TEAMS[id][0]:"team "+id);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const money=v=>"£"+(v/10).toFixed(1)+"m";
@@ -614,7 +623,7 @@ function oppText(teamId,gw){
 
 /* --------------------------------- saving -------------------------------- */
 function save(){
-  try{ localStorage.setItem(SAVE_KEY,JSON.stringify({squad:squad.map(p=>p.i),xi,captain,vice,realBank})); }
+  try{ localStorage.setItem(SAVE_KEY,JSON.stringify({squad:squad.map(p=>p.i),xi,captain,vice,realBank,buy:BUY})); }
   catch(e){ /* private window, or storage full — the page still works, it just forgets */ }
 }
 function load(){
@@ -625,6 +634,7 @@ function load(){
     xi=(d.xi||[]).filter(id=>squad.some(p=>p.i===id));
     captain=d.captain??null; vice=d.vice??null;
     realBank = typeof d.realBank==="number" ? d.realBank : null;
+    BUY = d.buy && typeof d.buy==="object" ? d.buy : {};
   }catch(e){ squad=[]; xi=[]; }
 }
 function savePlan(){
@@ -714,7 +724,7 @@ function autoXI(){
 // grid's rows, and a transfer keeps its slot, so a row follows one place in
 // the team through the weeks.
 function baseSquad(){
-  return [...squad].sort((a,b)=>a.p-b.p||b.c-a.c||a.i-b.i).map(toRules);
+  return [...squad].sort((a,b)=>a.p-b.p||b.c-a.c||a.i-b.i).map(owned);
 }
 function baseBank(){ return realBank!==null ? realBank : bank(); }
 function baseFt(){ return plan.ft ?? DEFAULT_RULES.baseFreeTransfers; }
@@ -722,7 +732,7 @@ function runPlan(weeks){
   return simulate({squad:baseSquad(), bank:baseBank(), ft:baseFt()}, weeks, PLAN_GWS, {
     xp:xpAt,
     player:id=>{const p=byId(id); return p?toRules(p):null;},
-    usedChips:plan.used, teamName
+    usedChips:plan.used, teamName, prices:PRICES
   });
 }
 const resultFor=gw=>R.find(w=>w.gw===gw);
@@ -781,7 +791,7 @@ function room(){
   const w=resultFor(active); if(!w) return null;
   const out=w.state.squad.find(x=>x.id===sel); if(!out) return null;
   const clubs={}; w.state.squad.forEach(p=>{ if(p.id!==sel) clubs[p.team]=(clubs[p.team]||0)+1; });
-  return {out, w, spend:w.bank+sellPrice(out.buy,out.buy), clubs};
+  return {out, w, spend:w.bank+sellPrice(out.buy,PRICES[out.id]??out.buy), clubs};
 }
 /**
  * A week's transfers, netted: a player sold and bought back in the same week
@@ -906,7 +916,8 @@ function render(){
 }
 
 function renderBuilder(){
-  $("#planCard").hidden=true;
+  $("#gwNav").hidden=true;
+  $("#editSquad").hidden=true; $("#resetPlan").hidden=true;
   $("#weekCtl").hidden=true;
   $("#pitchHint").hidden=true;
   $("#tlist").innerHTML="";
@@ -955,66 +966,25 @@ function renderBuilder(){
     : problems.slice(0,6).map(p=>`<li>${esc(p)}</li>`).join("");
 }
 
+// One gameweek at a time: the pitch, the fixtures under each player and the
+// numbers above all move to the week chosen with Next gameweek. Transfers,
+// chips and substitutions are made in whichever week is showing and carry on.
 function renderPlan(){
-  $("#planCard").hidden=false;
-  const rows=baseSquad();
-  const first=PLAN_GWS[0], last=PLAN_GWS[PLAN_GWS.length-1];
-  $("#ftGw").textContent="GW"+first;
+  const first=PLAN_GWS[0], i=PLAN_GWS.indexOf(active);
+  const pv=PLAN_GWS[i-1], nx=PLAN_GWS[i+1];
+  $("#gwNav").hidden=false;
+  $("#gwPrev").disabled=pv===undefined; $("#gwPrev span").textContent=pv?`GW${pv}`:"";
+  $("#gwNext").disabled=nx===undefined; $("#gwNext span").textContent=nx?`(GW${nx})`:"";
+  // Free transfers are set once, for the first week; later weeks follow from it.
+  $("#ftBox").hidden = active!==first;
   $("#ftNow").textContent=baseFt();
-  $("#ftSrc").textContent = plan.ftSource==="history" ? "worked out from your transfer history — change it if FPL shows a different number"
-    : plan.ftSource==="user" ? "set by you"
-    : "FPL does not say how many you have — set it here";
-
-  // The plan against making no transfers and playing no chips, with the same
-  // line-up and captain calls where the players are still there. That
-  // difference is what the transfers and chips are worth.
-  const keep={};
-  for(const g in plan.weeks){ const w=plan.weeks[g]; keep[g]={start:w.start,bench:w.bench,captain:w.captain,transfers:[],chip:null}; }
-  const mine=total(R), idle=total(runPlan(keep));
-  const d=mine-idle;
-  $("#planSum").innerHTML=`<span><b>${f1(mine)}</b> xP over GW${first}–${last}</span>`
-    + (Object.values(plan.weeks).some(w=>w.transfers.length||w.chip)
-      ? ` <span class="d">without transfers or chips: ${f1(idle)} (${d>=0?"+":"−"}${f1(Math.abs(d))})</span>` : "");
-
-  const head=`<thead><tr><th class="who">Player</th>${R.map(w=>
-      `<th data-gw="${w.gw}" class="${w.gw===active?"on":""}" tabindex="0" title="Edit gameweek ${w.gw}">GW${w.gw}`
-      + `<small>${w.chip?chipShort(w.chip):"&nbsp;"}</small></th>`).join("")}</tr></thead>`;
-
-  let body="<tbody>";
-  rows.forEach((b,i)=>{
-    const p0=byId(b.id), t0=TEAMS[b.team]||["?","?"];
-    const gap = i<rows.length-1 && rows[i+1].pos!==b.pos;
-    body+=`<tr${gap?' class="gap"':""}><th class="who"><i style="background:${CLUB[t0[1]]||"#888"}"></i>`
-      + `<span class="nm">${esc(b.name)}</span><span class="tm">${POSNAME[b.pos]} · ${t0[1]} · ${(p0.c/10).toFixed(1)}</span></th>`;
-    R.forEach((w,k)=>{
-      const p=w.state.squad[i];
-      const x=xpAt(p.id,w.gw);
-      const cls=["c"];
-      if(!w.xi.includes(p.id)) cls.push("bench");
-      if(w.state.transfers.some(t=>t.in.id===p.id)) cls.push("in");
-      if(w.gw===active) cls.push("on");
-      if(w.gw===active && sel===p.id) cls.push("sel");
-      if(w.gw===active && subbing && SUBOK.has(p.id)) cls.push("subok");
-      const cp = badgeFor(w,p.id,"cp");
-      const pl=byId(p.id);
-      body+=`<td class="${cls.join(" ")}" data-gw="${w.gw}" data-id="${p.id}" tabindex="0" title="${esc(p.name)} · GW${w.gw}">${cp}`
-        + (p.id!==b.id ? `<span class="n">${esc(p.name)}</span>` : "")
-        + `<span class="x">${x===null?"–":f1(x)}</span>`
-        + `<span class="o">${esc(pl?oppText(pl.t,w.gw):"")}</span></td>`;
-    });
-    body+="</tr>";
-  });
-  body+="</tbody>";
-
-  const on=w=>w.gw===active?"on":"";
-  const foot=`<tfoot>
-    <tr><th class="who">Transfers</th>${R.map(w=>`<td class="${w.cost?"bad":""}" title="${w.ft} free transfer${w.ft===1?"":"s"} available">`
-      + `${w.chip==="wildcard"||w.chip==="freehit"?`<span class="chip">${chipShort(w.chip)}</span>`:`${w.made}/${w.ft}`}${w.cost?` −${w.cost}`:""}</td>`).join("")}</tr>
-    <tr><th class="who">Bank</th>${R.map(w=>`<td class="${w.bank<0?"bad":""}">${(w.bank/10).toFixed(1)}</td>`).join("")}</tr>
-    <tr class="tot"><th class="who">Expected pts</th>${R.map(w=>`<td class="${on(w)}${w.problems.length?" bad":""}" title="${w.problems.length?esc(w.problems.join(" ")):"XI "+f1(w.points.xi)+", captain "+f1(w.points.captain)+(w.points.bench?", bench "+f1(w.points.bench):"")+(w.cost?", hits −"+w.cost:"")}">${f1(w.points.total)}${w.problems.length?" !":""}</td>`).join("")}</tr>
-  </tfoot>`;
-  $("#grid").innerHTML=head+body+foot;
+  $("#ftSrc").textContent = plan.ftSource==="history" ? "from your FPL history"
+    : plan.ftSource==="user" ? "set by you" : "check the FPL app and set it here";
+  $("#editSquad").hidden=false;
+  $("#resetPlan").hidden=!Object.keys(plan.weeks).length;
 }
+function goTo(gw){ if(gw===undefined) return; active=gw; sel=null; selling=false; subbing=false; render(); }
+
 // The armband as it will actually be worn: if the captain has no game, the
 // vice wears it (C), and the named captain shows as the vice.
 function badgeFor(w,id,cls){
@@ -1080,6 +1050,13 @@ function renderWeek(w){
   if(!done||later.length) $("#problems").className="problems";
 }
 
+// "sells for £7.6m (bought £7.4m)" -- only where the two differ, so the bar
+// stays short for everyone whose price has not moved.
+function sellNote(w,p){
+  const o=w.state.squad.find(x=>x.id===p.i); if(!o) return "";
+  const now=PRICES[p.i]??p.c, get=sellPrice(o.buy,now);
+  return get===now && o.buy===now ? "" : ` · sells for ${money(get)} (bought ${money(o.buy)})`;
+}
 function renderSelbar(){
   const bar=$("#selbar");
   const w=planMode()?resultFor(active):null;
@@ -1105,7 +1082,7 @@ function renderSelbar(){
   }
   const isCap=w.captain===p.i && week(w.gw).captain===p.i;
   bar.innerHTML=`<div class="who"><b>${esc(p.n)}</b> · GW${w.gw}`
-    + `<small>${esc(oppText(p.t,w.gw))} · ${x===null?"–":f1(x)} xP · ${starting?"starting":"on the bench"}</small></div>`
+    + `<small>${esc(oppText(p.t,w.gw))} · ${x===null?"–":f1(x)} xP · ${starting?"starting":"on the bench"}${sellNote(w,p)}</small></div>`
     + `<button type="button" class="pri" data-act="sell">Transfer out</button>`
     + `<button type="button" data-act="cap"${isCap?" disabled":""}>${isCap?"Captain":"Make captain"}</button>`
     + `<button type="button" data-act="sub">Substitute</button>`
@@ -1130,7 +1107,7 @@ function renderList(){
     pm.className="pickmsg"+(r?" go":"");
     pm.innerHTML = r
       ? `Who replaces <b>${esc(r.out.name)}</b> in GW${active}? You have <b>${money(r.spend)}</b> to spend.`
-      : `To make a transfer, click a player in the plan or on the pitch, then <b>Transfer out</b>.`;
+      : `To make a transfer, click a player on the pitch, then <b>Transfer out</b>.`;
   }else pm.hidden=true;
 
   let rows=PLAYERS.filter(p=>p.p===pos)
@@ -1194,7 +1171,7 @@ $("#list").addEventListener("click",e=>{
     if(w.state.squad.some(x=>x.id===p.i)){ select(active,p.i); return; }
     if(!selling){
       const m=$("#pickMsg"); m.className="pickmsg go";
-      m.innerHTML=`First choose who <b>${esc(p.n)}</b> would replace: click a player in the plan or on the pitch, then <b>Transfer out</b>.`;
+      m.innerHTML=`First choose who <b>${esc(p.n)}</b> would replace: click a player on the pitch, then <b>Transfer out</b>.`;
       return;
     }
     if(row.getAttribute("aria-disabled")!=="true") buy(p);
@@ -1215,35 +1192,25 @@ function onSlot(e){
 }
 $("#pitch").addEventListener("click",onSlot);
 $("#bench").addEventListener("click",onSlot);
-$("#grid").addEventListener("click",e=>{
-  const c=e.target.closest("td.c");
-  if(c){
-    if(subbing && +c.dataset.gw===active) trySub(+c.dataset.id);
-    else select(+c.dataset.gw,+c.dataset.id);
-    return;
-  }
-  const h=e.target.closest("th[data-gw]");
-  if(h){ active=+h.dataset.gw; sel=null; selling=false; subbing=false; render(); }
-});
+$("#gwPrev").addEventListener("click",()=>goTo(PLAN_GWS[PLAN_GWS.indexOf(active)-1]));
+$("#gwNext").addEventListener("click",()=>goTo(PLAN_GWS[PLAN_GWS.indexOf(active)+1]));
 $("#selbar").addEventListener("click",e=>{
   const b=e.target.closest("button[data-act]"); if(!b) return;
   ({sell:startSelling, cap:makeCaptain, sub:startSub, cancel:clearSel})[b.dataset.act]();
 });
 addEventListener("keydown",e=>{ if(e.key==="Escape" && sel!==null) clearSel(); });
-// Grid cells, headers and shirts work from the keyboard too. Drawing replaces
-// them, so focus is put back on the same one afterwards.
+// Shirts work from the keyboard too. Drawing replaces them, so focus is put
+// back on the same one afterwards.
 function keyed(e){
   if(e.key!=="Enter" && e.key!==" ") return;
-  const t=e.target.closest("td.c,th[data-gw],.slot[data-id]"); if(!t) return;
+  const t=e.target.closest(".slot[data-id]"); if(!t) return;
   e.preventDefault();
-  const q = t.matches("td.c") ? `td.c[data-gw="${t.dataset.gw}"][data-id="${t.dataset.id}"]`
-          : t.matches("th") ? `th[data-gw="${t.dataset.gw}"]` : `.slot[data-id="${t.dataset.id}"]`;
-  const where = t.closest("#grid") ? "#grid" : t.closest("#pitch") ? "#pitch" : "#bench";
+  const q=`.slot[data-id="${t.dataset.id}"]`;
   t.click();
-  const again=document.querySelector(`${where} ${q}`) || document.querySelector(q);
+  const again=document.querySelector(q);
   if(again) again.focus();
 }
-["#grid","#pitch","#bench"].forEach(s=>$(s).addEventListener("keydown",keyed));
+["#pitch","#bench"].forEach(s=>$(s).addEventListener("keydown",keyed));
 $("#editSquad").addEventListener("click",()=>{ editing=true; sel=null; selling=false; render();
   $("#problems").insertAdjacentHTML("afterbegin","<li>Changing the squad you start from. Click a shirt to take a player out, pick from the list to put one in, then plan transfers again.</li>"); });
 $("#toPlan").addEventListener("click",()=>{ editing=false; render(); });
@@ -1267,7 +1234,7 @@ $("#ftUp").addEventListener("click",()=>stepFt(1));
 ["#q","#sort"].forEach(s=>$(s).addEventListener("input",renderList));
 $("#autoXI").addEventListener("click",()=>{autoXI();save();render();});
 $("#clear").addEventListener("click",()=>{
-  squad=[];xi=[];captain=null;vice=null;realBank=null;
+  squad=[];xi=[];captain=null;vice=null;realBank=null;BUY={};
   plan={ft:null, ftSource:"default", used:[], usedKnown:false, weeks:{}, stale:false};
   editing=false; importSeq++;
   resetPlan(); save(); savePlan(); render(); msg("");});
@@ -1353,6 +1320,7 @@ function applyPicks(j,note){
   vice=(found.find(x=>x.pk.is_vice_captain)||{}).pk?.element ?? null;
   if(!xi.length) autoXI();
   realBank = j.entry_history && typeof j.entry_history.bank==="number" ? j.entry_history.bank : null;
+  BUY={}; PICK_EV = j.entry_history?.event ?? NEXT_GW-1;
   // A newly loaded team is a new starting point: yesterday's plan was built on
   // a squad that may no longer exist.
   plan={ft:null, ftSource:"default", used:[], usedKnown:false, weeks:{}, stale:false};
@@ -1369,7 +1337,7 @@ function applyPicks(j,note){
       + (lost?` ${lost} could not be matched.`:"")
       + (fh?" That was a Free Hit week, so this is not the squad that carries on: paste the "
            + "gameweek before it instead.":"")
-      + " Prices shown are today's — FPL does not publish what you paid.", fh?"err":"ok");
+      , fh?"err":"ok");
   return true;
 }
 
@@ -1387,8 +1355,36 @@ async function fetchHistory(id,seq){
     plan.ft=ftFromHistory(h,NEXT_GW); plan.ftSource="history";
     plan.used=chipsFromHistory(h); plan.usedKnown=true;
     savePlan(); render();
+    fetchPaid(id,seq,h);
   }catch(e){ /* an estimate we can do without */ }
   finally{ clearTimeout(timer); }
+}
+
+// What was paid for each player: the last time he was bought (transfers/),
+// or, for anyone there since the start, his price in the team's first week
+// (element-summary/). Best effort; anyone it cannot find sells at today's price.
+let PICK_EV=null;
+async function fetchPaid(id,seq,h){
+  const get=async url=>{
+    const stop=new AbortController(), timer=setTimeout(()=>stop.abort(),8000);
+    try{ const r=await fetch(PROXY+encodeURIComponent(url),{signal:stop.signal}); return r.ok ? r.json() : null; }
+    catch(e){ return null; } finally{ clearTimeout(timer); }
+  };
+  const tr=await get(`https://fantasy.premierleague.com/api/entry/${id}/transfers/`);
+  if(seq!==importSeq || !Array.isArray(tr)) return;
+  const fh=chipsFromHistory(h).filter(c=>c.chip==="freehit").map(c=>c.gw);
+  const {prices, missing}=purchasePrices(squad.map(p=>p.i), tr, {upTo:PICK_EV??NEXT_GW-1, freeHitWeeks:fh});
+  const first=Math.min(...((h&&h.current)||[]).map(r=>r.event).filter(Number.isFinite), NEXT_GW-1) || 1;
+  await Promise.all(missing.map(async pid=>{
+    const v=priceInWeek(await get(`https://fantasy.premierleague.com/api/element-summary/${pid}/`), first);
+    if(typeof v==="number") prices[pid]=v;
+  }));
+  if(seq!==importSeq) return;
+  BUY=prices; save(); render();
+  const up=squad.filter(p=>typeof BUY[p.i]==="number" && sellPrice(BUY[p.i],p.c)!==p.c).length;
+  const m=$("#importMsg");
+  if(m.className.includes("ok"))
+    m.textContent += ` Selling prices use what you paid${up?` \u2014 ${up} of your players sell for less than today's price`:""}.`;
 }
 
 $("#loadTeam").addEventListener("click",async()=>{
@@ -1454,6 +1450,7 @@ Promise.all([
   NEXT_GW=M.nextGw;
   PLAYERS=pl.players;
   BYID=new Map(PLAYERS.map(p=>[p.i,p]));
+  PRICES=Object.fromEntries(PLAYERS.map(p=>[p.i,p.c]));
   const gws=(pl.minutes&&Array.isArray(pl.minutes.gws))?pl.minutes.gws:[];
   gws.forEach((g,k)=>{XPI[g]=k;});
   // Only gameweeks still to come, and only if the numbers were really built

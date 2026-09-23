@@ -482,3 +482,37 @@ export function ftFromHistory(history, nextGw, rules = DEFAULT_RULES) {
   }
   return ft ?? rules.baseFreeTransfers;
 }
+
+/**
+ * What the manager paid for each player in his squad, from
+ * entry/{id}/transfers/ -- every transfer, wildcards and free hits included,
+ * each with element_in_cost.
+ *
+ * A player's price is the cost of the last time he was bought, up to the
+ * gameweek the squad was read from. Free Hit weeks are left out: that squad
+ * reverts, so nothing bought in one is still owned because of it. Anyone with
+ * no transfer at all has been there since the team's first gameweek; he comes
+ * back in `missing`, and his price is his price that week (the page reads it
+ * from element-summary).
+ */
+export function purchasePrices(squadIds, transfers, { upTo = Infinity, freeHitWeeks = [] } = {}) {
+  const skip = new Set(freeHitWeeks);
+  const last = {};
+  (transfers || [])
+    .filter(t => t.event <= upTo && !skip.has(t.event))
+    .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
+    .forEach(t => { last[t.element_in] = t.element_in_cost; });
+  const prices = {}, missing = [];
+  for (const id of squadIds) {
+    if (typeof last[id] === "number") prices[id] = last[id];
+    else missing.push(id);
+  }
+  return { prices, missing };
+}
+
+/** A player's price in gameweek `gw`, from element-summary's history (the first game on or after it). */
+export function priceInWeek(summary, gw) {
+  const rows = ((summary && summary.history) || []).filter(r => r.round >= gw)
+    .sort((a, b) => a.round - b.round);
+  return rows.length ? rows[0].value : null;
+}
