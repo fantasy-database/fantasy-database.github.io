@@ -168,7 +168,8 @@ function label(p) {
  * `transfers` is [{ out: playerId, in: playerObject }]. The incoming player is
  * bought at today's price, which becomes their purchase price from then on.
  */
-export function applyTransfers(state, transfers, { rules = DEFAULT_RULES, prices = null } = {}) {
+export function applyTransfers(state, transfers, { rules = DEFAULT_RULES, prices = null,
+                                                   teamName = undefined } = {}) {
   const squad = state.squad.map(p => ({ ...p }));
   const byId = new Map(squad.map(p => [p.id, p]));
   let bank = state.bank;
@@ -184,6 +185,7 @@ export function applyTransfers(state, transfers, { rules = DEFAULT_RULES, prices
       }
     : {};
 
+  const applied = [];
   for (const t of transfers) {
     const out = byId.get(t.out);
     if (!out) { problems.push(`Cannot sell a player who is not in the squad (${t.out}).`); continue; }
@@ -199,12 +201,15 @@ export function applyTransfers(state, transfers, { rules = DEFAULT_RULES, prices
     squad[i] = { ...t.in, buy: buyAt };
     byId.delete(t.out);
     byId.set(t.in.id, squad[i]);
+    applied.push(t);
   }
 
   // A wildcard or free hit makes the week's transfers free and unlimited, and
   // leaves the free-transfer bank untouched for the following week.
+  // Only the transfers that actually went through are charged for: one that
+  // was refused above is reported, not billed.
   const free = state.chip === "wildcard" || state.chip === "freehit";
-  const made = transfers.length;
+  const made = applied.length;
   const paidFor = free ? 0 : Math.max(0, made - state.ft);
   const ftLeft = free ? state.ft : Math.max(0, state.ft - made);
 
@@ -213,11 +218,11 @@ export function applyTransfers(state, transfers, { rules = DEFAULT_RULES, prices
     ...before,
     squad,
     bank,
-    transfers,
+    transfers: applied,
     ftLeft,
     hits: paidFor,
     cost: paidFor * rules.hitCost,
-    problems: problems.concat(validateSquad(squad, { rules, prices, bank }))
+    problems: problems.concat(validateSquad(squad, { rules, prices, bank, teamName }))
   };
 }
 
@@ -322,4 +327,158 @@ export function newState(gw, squad, { bank = 0, ft = 1 } = {}) {
     xi: [], captain: null, vice: null, chip: null,
     transfers: [], hits: 0, cost: 0
   };
+}
+
+/* ---------------------------------------------------------------------------
+ * Planning ahead with expected points
+ *
+ * Everything below takes a points projection as a plain function,
+ * xp(playerId, gw) -> number, so this file still knows nothing about where the
+ * numbers come from. The page passes in players.json's "xp" arrays.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * The starting eleven with the most expected points.
+ *
+ * Fill each position's minimum with its best players, then take the best of
+ * whoever is left. With FPL's shape (2/5/5/3 squad; 1 keeper, 3+ defenders,
+ * 2+ midfielders, 1+ forward) that greedy choice is also the optimum: the only
+ * maximum that can bind is the one keeper, and that is also his minimum.
+ *
+ * `start` and `bench` are the manager's own calls for the week. They are
+ * obeyed ahead of the numbers wherever the formation allows it.
+ */
+export function bestXI(squad, xpOf, { start = [], bench = [], rules = DEFAULT_RULES } = {}) {
+  const score = p => (xpOf(p.id) || 0)
+    + (start.includes(p.id) ? 1000 : 0) - (bench.includes(p.id) ? 1000 : 0);
+  const order = [...squad].sort((a, b) => score(b) - score(a) || a.id - b.id);
+  const chosen = [];
+  const count = {};
+  for (const pos of Object.keys(rules.xi)) count[pos] = 0;
+  for (const pos of Object.keys(rules.xi)) {
+    for (const p of order) {
+      if (p.pos === +pos && count[pos] < rules.xi[pos][0] && !chosen.includes(p)) {
+        chosen.push(p); count[pos]++;
+      }
+    }
+  }
+  for (const p of order) {
+    if (chosen.length >= rules.xiSize) break;
+    if (chosen.includes(p) || count[p.pos] >= rules.xi[p.pos][1]) continue;
+    chosen.push(p); count[p.pos]++;
+  }
+  return chosen.map(p => p.id);
+}
+
+/**
+ * Run a plan forward, one gameweek at a time.
+ *
+ *   base   { squad: [rules player], bank, ft }  -- the team before the first deadline
+ *   weeks  { [gw]: { transfers: [{out: id, in: id}], chip, start: [ids], bench: [ids],
+ *                    captain: id } }            -- what the manager plans to do
+ *   gws    the gameweeks to run, in order
+ *
+ * Each week starts from the one before (advance(): a free transfer banked, a
+ * free hit undone), takes that week's chip and transfers, then picks the XI
+ * and captain by expected points unless the manager has said otherwise.
+ *
+ * Expected points for the week: the XI, plus the captain once more (twice on
+ * a triple captain), plus the bench on a bench boost, less any hits. If the
+ * captain is expected nothing -- no fixture -- the armband passes to the vice,
+ * as it does in the game. Automatic substitutions are otherwise not modelled;
+ * a player's xP already allows for the chance that he does not play.
+ */
+export function simulate(base, weeks, gws, { xp, player, prices = null, rules = DEFAULT_RULES,
+                                              usedChips = [], teamName = undefined } = {}) {
+  const out = [];
+  const used = usedChips.slice();
+  let state = null;
+  for (const gw of gws) {
+    const w = (weeks && weeks[gw]) || {};
+    state = state ? advance(state, { rules })
+                  : newState(gw, base.squad, { bank: base.bank, ft: base.ft });
+    state.gw = gw;
+    const problems = [];
+
+    // A chip that cannot be played this week is reported and not applied, so
+    // an illegal wildcard cannot quietly make a week's transfers free.
+    let chip = w.chip || null;
+    if (chip) {
+      const c = chipAvailable(chip, gw, used, rules);
+      if (c.ok) used.push({ chip, gw });
+      else { problems.push(c.why); chip = null; }
+    }
+    state.chip = chip;
+
+    const transfers = [];
+    for (const t of w.transfers || []) {
+      const p = player(t.in);
+      if (p) transfers.push({ out: t.out, in: p });
+      else problems.push(`A planned signing (${t.in}) is no longer in the game.`);
+    }
+    state = applyTransfers(state, transfers, { rules, prices, teamName });
+
+    const xpOf = id => { const v = xp(id, gw); return typeof v === "number" && isFinite(v) ? v : 0; };
+    const xi = bestXI(state.squad, xpOf, { start: w.start || [], bench: w.bench || [], rules });
+    const byXp = ids => [...ids].sort((a, b) => xpOf(b) - xpOf(a) || a - b);
+    const ranked = byXp(xi);
+    const captain = xi.includes(w.captain) ? w.captain : ranked[0] ?? null;
+    const vice = ranked.find(id => id !== captain) ?? null;
+    const armband = captain !== null && xpOf(captain) > 0 ? captain : vice;
+
+    // Bench order as FPL shows it: the spare keeper first, then outfielders by xP.
+    const benchIds = state.squad.filter(p => !xi.includes(p.id));
+    const bench = [...benchIds.filter(p => p.pos === 1), ...benchIds.filter(p => p.pos !== 1)
+      .sort((a, b) => xpOf(b.id) - xpOf(a.id) || a.id - b.id)].map(p => p.id);
+
+    const xiPts = xi.reduce((t, id) => t + xpOf(id), 0);
+    const capPts = armband === null ? 0 : xpOf(armband) * (chip === "triple" ? 2 : 1);
+    const benchPts = chip === "bench" ? bench.reduce((t, id) => t + xpOf(id), 0) : 0;
+
+    state = { ...state, xi, captain, vice };
+    out.push({
+      gw, state, chip, xi, bench, captain, vice, armband,
+      ft: state.ft, ftLeft: state.ftLeft, made: state.transfers.length,
+      hits: state.hits, cost: state.cost, bank: state.bank,
+      points: { xi: xiPts, captain: capPts, bench: benchPts, hits: -state.cost,
+                total: xiPts + capPts + benchPts - state.cost },
+      problems: problems.concat(state.problems)
+    });
+  }
+  return out;
+}
+
+/* ---------------------------------------------------------------------------
+ * Reading a manager's own history (entry/{id}/history/ in the FPL API)
+ * ------------------------------------------------------------------------- */
+
+const API_CHIP = { wildcard: "wildcard", freehit: "freehit", bboost: "bench", "3xc": "triple" };
+
+/** The chips already played, in this file's names. Anything unknown is left out. */
+export function chipsFromHistory(history) {
+  return ((history && history.chips) || [])
+    .filter(c => API_CHIP[c.name])
+    .map(c => ({ chip: API_CHIP[c.name], gw: c.event }));
+}
+
+/**
+ * Free transfers available for `nextGw`, worked out from the transfers made
+ * each week. The public API does not publish the number itself, so this is an
+ * estimate: it follows the standing rules (one a week, five at most, kept
+ * through a wildcard or free hit) and cannot know about one-off top-ups FPL
+ * sometimes hands out. The page lets the manager correct it.
+ */
+export function ftFromHistory(history, nextGw, rules = DEFAULT_RULES) {
+  const rows = ((history && history.current) || [])
+    .filter(r => r.event < nextGw).sort((a, b) => a.event - b.event);
+  const chipAt = new Map(chipsFromHistory(history).map(c => [c.gw, c.chip]));
+  let ft = null;
+  for (const r of rows) {
+    if (ft === null) { ft = rules.baseFreeTransfers; continue; }   // the first squad is free
+    const chip = chipAt.get(r.event);
+    const left = chip === "wildcard" || chip === "freehit"
+      ? ft : Math.max(0, ft - (r.event_transfers || 0));
+    ft = Math.min(left + rules.baseFreeTransfers, rules.maxBankedFreeTransfers);
+  }
+  return ft ?? rules.baseFreeTransfers;
 }

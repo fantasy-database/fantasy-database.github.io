@@ -261,7 +261,7 @@ if update:
     S1 = pid(1, 3)                                     # a fit starting defender
     check("build: fetches only played gameweeks", calls == [f"{update.FPL}/event/1/live/"], calls)
     check("build: every player gets a record", len(mins) == 44)
-    check("build: gameweek list starts at the next one", summ["gws"] == [2, 3, 4, 5, 6, 7], summ)
+    check("build: gameweek list starts at the next one", summ["gws"] == list(range(2, 2 + update.MINUTES_HORIZON)), summ)
     check("build: a double gameweek does not trip the checks, and counts both games",
           mins[S1]["xm"][0] > 1.6 * mins[S1]["xm"][2], mins[S1])
     check("build: blank gameweek is 0 minutes, the next one is not",
@@ -282,6 +282,88 @@ if update:
           update.shown(0.9959) == 0.99 and update.shown(0.5049) == 0.5 and update.shown(1.0) == 0.99)
     check("build: nothing published as a certainty",
           all(m.get(k, 0) <= 0.99 for m in mins.values() for k in ("ps", "p60", "pa")))
+
+    # with the fixture model supplied, expected points come out too
+    model = {"matchesPlayed": 1, "fit": {"kAtk": 8, "kDef": 35, "home": 1.1, "pen": 1.06},
+             "teams": {"1": {"pa": 1.9, "pd": 0.9, "a26": 2.0, "d26": 0.8},
+                       "2": {"pa": 1.1, "pd": 1.9, "a26": 1.0, "d26": 2.0}}}
+    mp, _ = update.build_minutes(boot, raw_fx, 2, 2026, today=datetime.date(2026, 8, 22), fetch=fetch,
+                                 model=model, market={2: {"1": 2.5}})
+    check("build: expected points for every gameweek in the window",
+          all(len(m["xp"]) == len(m["xm"]) for m in mp.values()))
+    check("build: expected minutes unchanged by the points model",
+          all(mp[k]["xm"] == mins[k]["xm"] for k in mins))
+    check("build: a blank gameweek is 0 points", all(m["xp"][1] == 0 for m in mp.values()))
+    check("build: a double gameweek is worth more than a single",
+          mp[S1]["xp"][0] > 1.4 * mp[S1]["xp"][2], mp[S1])
+    check("build: the injured player projects nothing", mp[INJ]["xp"][0] == 0, mp[INJ])
+    check("build: the stronger side's starter outscores the weaker side's",
+          mp[pid(1, 9)]["xp"][2] > mp[pid(2, 9)]["xp"][2], (mp[pid(1, 9)], mp[pid(2, 9)]))
+    check("build: no points model unless asked", all("xp" not in m for m in mins.values()))
+
+    kw = dict(today=datetime.date(2026, 8, 22), fetch=fetch, model=model)
+    base_pts, _ = update.build_minutes(boot, raw_fx, 2, 2026, **kw)
+    # the bookmakers' number: used for a single game, never for a double,
+    # where one number a side cannot say which game it priced
+    mq, _ = update.build_minutes(boot, raw_fx, 2, 2026, market={4: {"1": 3.5, "2": 0.3}}, **kw)
+    check("build: a market price moves a single fixture",
+          mq[S1]["xp"][2] > base_pts[S1]["xp"][2] + 0.3, (mq[S1], base_pts[S1]))
+    md, _ = update.build_minutes(boot, raw_fx, 2, 2026, market={2: {"1": 3.5, "2": 0.3}}, **kw)
+    check("build: a double gameweek ignores the market", md[S1]["xp"] == base_pts[S1]["xp"], (md[S1], base_pts[S1]))
+
+    # this season's record, from FPL's live data: a starter with a lot of xG
+    import copy as _cp
+    live_hot = _cp.deepcopy(live_el)
+    for e in live_hot:
+        if e["id"] == S1:
+            e["stats"].update(expected_goals="1.50", minutes=90)
+    mh, _ = update.build_minutes(boot, raw_fx, 2, 2026, today=datetime.date(2026, 8, 22),
+                                 fetch=lambda url: {"elements": live_hot}, model=model)
+    check("build: this season's live record is used", mh[S1]["xp"][2] > base_pts[S1]["xp"][2] + 0.3, (mh[S1], base_pts[S1]))
+
+    # a failure in the points model costs the points, not the minutes
+    real_expected = update.PT.expected
+    for bad in (lambda *a, **k: 1 / 0, lambda *a, **k: {"total": 99.0}):
+        update.PT.expected = bad
+        try:
+            mf, _ = update.build_minutes(boot, raw_fx, 2, 2026, **kw)
+        finally:
+            update.PT.expected = real_expected
+        check("build: a broken or out-of-range points model leaves the minutes intact",
+              all("xp" not in m for m in mf.values()) and all(mf[k]["xm"] == mins[k]["xm"] for k in mins))
+
+    # last season's record, from points_prior.json
+    import json as _j, tempfile as _tf
+    real_prior = update.PRIOR_PTS
+    def with_prior(doc):
+        with _tf.NamedTemporaryFile("w", suffix=".json", delete=False) as fp:
+            _j.dump(doc, fp)
+        update.PRIOR_PTS = pathlib.Path(fp.name)
+        try:
+            return update.build_minutes(boot, raw_fx, 2, 2026, **kw)[0]
+        finally:
+            update.PRIOR_PTS = real_prior
+            pathlib.Path(fp.name).unlink()
+    scorer = {str(9000 + S1): {"X": 12.0, "E": 30.0}}
+    mpp = with_prior({"season": "2025/26", "lam": update.PT.LAM_P, "players": scorer})
+    check("build: last season's record is used", mpp[S1]["xp"][2] > base_pts[S1]["xp"][2] + 0.3, (mpp[S1], base_pts[S1]))
+    check("build: ...and only for that player", mpp[pid(1, 4)]["xp"] == base_pts[pid(1, 4)]["xp"])
+    check("build: a prior for the wrong season is ignored",
+          with_prior({"season": "2024/25", "lam": update.PT.LAM_P, "players": scorer})[S1]["xp"] == base_pts[S1]["xp"])
+    check("build: a prior built with another decay is ignored",
+          with_prior({"season": "2025/26", "lam": 0.5, "players": scorer})[S1]["xp"] == base_pts[S1]["xp"])
+
+    # market.json -> {gameweek (int): {team id (str): xG}}, the shape side_goals reads
+    real_m = update.OUT_M
+    with _tf.NamedTemporaryFile("w", suffix=".json", delete=False) as fm:
+        _j.dump({"gw": {"4": {"AAA": 1.7, "ZZZ": 9.9}}}, fm)
+    update.OUT_M = pathlib.Path(fm.name)
+    try:
+        mk = update.market_for_points({"1": {"short": "AAA"}, "2": {"short": "BBB"}})
+    finally:
+        update.OUT_M = real_m
+        pathlib.Path(fm.name).unlink()
+    check("market: gameweeks as numbers, teams as ids, unknown teams dropped", mk == {4: {"1": 1.7}}, mk)
 
     bad = list(live_el)
     bad[pid(1, 13) - 1] = el(pid(1, 13), 1, (1, 90))    # a 12th starter for side 1
@@ -363,7 +445,7 @@ if update:
     now = datetime.datetime(2026, 8, 22, 12, tzinfo=datetime.timezone.utc)
     prev = {"season": "2026/27", "generated": "2026-08-22T06:00:00+00:00",
             "minutes": {"gws": [2, 3, 4], "built": "2026-08-22T06:00:00+00:00"},
-            "players": [{"i": 1, "xm": [80, 80, 80], "ps": 0.9, "p60": 0.85, "pa": 0.95}]}
+            "players": [{"i": 1, "xm": [80, 80, 80], "xp": [4.1, 3.2, 5.0], "ps": 0.9, "p60": 0.85, "pa": 0.95}]}
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
         _json.dump(prev, fh)
 
@@ -374,6 +456,7 @@ if update:
     n, pl, pd = keep(2)
     check("keep: same gameweeks, same season, fresh -> kept and marked stale",
           n == 1 and pl[0]["xm"] == [80, 80, 80] and "xm" not in pl[1] and pd["minutes"]["stale"], (n, pl, pd))
+    check("keep: expected points are carried with the minutes", pl[0].get("xp") == [4.1, 3.2, 5.0], pl[0])
     check("keep: the window has moved on -> dropped", keep(3)[0] == 0)
     check("keep: another season -> dropped", keep(2, "2027/28")[0] == 0)
     check("keep: over three days old -> dropped", keep(2, at=now + datetime.timedelta(days=4))[0] == 0)

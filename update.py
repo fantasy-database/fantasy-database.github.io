@@ -15,6 +15,7 @@ import json, math, os, sys, time, gzip, zlib, re, unicodedata, urllib.request, u
 import collections
 
 import minutes as MN
+import points as PT
 
 FPL = "https://fantasy.premierleague.com/api"
 UND = "https://understat.com"
@@ -24,6 +25,9 @@ OUT_M = pathlib.Path(__file__).parent / "market.json"
 # Last season's per-fixture minutes, for the minutes model. Built each
 # summer by minutes_prior.py; never edited by hand.
 PRIOR_MIN = pathlib.Path(__file__).parent / "minutes_prior.json"
+# Last season's attacking / saves / DefCon / cards record per player, for the
+# points model. Built alongside minutes_prior.json by minutes_prior.py.
+PRIOR_PTS = pathlib.Path(__file__).parent / "points_prior.json"
 
 # Understat's full team names -> FPL's short codes. Covers every side to appear
 # in the Premier League recently, so promotion and relegation need no edits.
@@ -376,7 +380,7 @@ def build_players(boot, season, short2name, short2id, played):
 
 
 # ---------------------------------------------------------------- minutes ---
-MINUTES_HORIZON = 6      # gameweeks of expected minutes written per player
+MINUTES_HORIZON = 8      # gameweeks of expected minutes and points written per player
 
 
 def shown(p):
@@ -387,7 +391,7 @@ def shown(p):
     return min(round(p, 2), 0.99)
 
 
-def build_minutes(boot, raw_fixtures, next_gw, season, today=None, fetch=None):
+def build_minutes(boot, raw_fixtures, next_gw, season, today=None, fetch=None, model=None, market=None):
     """
     The minutes model (minutes.py; claude/backtest-minutes.md) for every
     player: expected minutes in each of the next MINUTES_HORIZON gameweeks,
@@ -399,6 +403,12 @@ def build_minutes(boot, raw_fixtures, next_gw, season, today=None, fetch=None):
     0-minute entry included when he did not play -- plus last season from
     minutes_prior.json. FPL's injury news is applied on top, then each side's
     line-up is filled back up to its usual shape.
+
+    With `model` (data.json as just built) it also projects expected points
+    (points.py) for each of those gameweeks, from the same per-fixture minutes,
+    the side's expected goals from the fixture model -- or the bookmakers'
+    number where `market` ({gw: {team id: xG}}) has one, as on the ticker --
+    and each player's own record.
 
     Returns ({player id: fields}, summary). Raises if the rows look wrong, so
     the caller publishes the players without these fields rather than
@@ -494,18 +504,31 @@ def build_minutes(boot, raw_fixtures, next_gw, season, today=None, fetch=None):
                 filled = MN.fill_lineup([o for _, o, _ in members], MN.LINEUP[g],
                                         [a for _, _, a in members])
                 for (pid, _, _), o in zip(members, filled):
-                    fc[(pid, f["id"])] = (gw, o)
+                    fc[(pid, f["id"])] = (gw, o, t, f)
+
+    # ---- expected points (points.py) ----
+    # In its own try: a failure here costs the points, never the minutes.
+    pts = None
+    if model is not None:
+        try:
+            pts = expected_points(players, pos_of, fc, lives, finished, raw_fixtures, want, model, market)
+        except Exception as e:
+            log(f"!! points model not run ({e}) -- minutes published without expected points")
 
     out, filled_sum = {}, collections.Counter()
     for e in players:
-        pid = e["id"]; xm = [0.0] * len(horizon); first = None
+        pid = e["id"]; xm = [0.0] * len(horizon); xp = [0.0] * len(horizon); first = None
         for f in fixtures:
             if (pid, f["id"]) in fc:
-                gw, o = fc[(pid, f["id"])]
+                gw, o, _, _ = fc[(pid, f["id"])]
                 xm[horizon.index(gw)] += o["xmin"]
+                if pts is not None:
+                    xp[horizon.index(gw)] += pts[(pid, f["id"])]
                 if gw == next_gw and first is None:
                     first = o
         rec = {"xm": [round(x) for x in xm]}
+        if pts is not None:
+            rec["xp"] = [round(x, 1) for x in xp]
         if first is not None:
             rec.update(ps=shown(first["start"]), p60=shown(first["p60"]), pa=shown(first["app"]))
             filled_sum[e["team"]] += first["start"]      # a double counts its first game
@@ -525,12 +548,92 @@ def build_minutes(boot, raw_fixtures, next_gw, season, today=None, fetch=None):
         f"{want if prior else 'nowhere'}; starters per side before the line-up "
         f"fill {min(raw_sum.values()):.1f}-{max(raw_sum.values()):.1f}, after "
         f"{min(filled_sum.values()):.1f}-{max(filled_sum.values()):.1f}")
+    if pts is not None:
+        tops = sorted(((sum(r["xp"][:1]), pid) for pid, r in out.items()), reverse=True)[:3]
+        log(f"points: next gameweek's top three {[(p, round(x, 1)) for x, p in tops]}")
     summary = {"gws": horizon, "priorSeason": want if prior else None,
                "built": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-               "about": "xm: expected minutes in each gameweek listed in gws (0 = no fixture). "
+               "about": "xm / xp: expected minutes / expected FPL points in each gameweek "
+                        "listed in gws (0 = no fixture; a double adds both games). "
                         "ps / p60 / pa: chance of starting, of playing 60+ and of appearing "
-                        "at all in the next fixture. See minutes.py."}
+                        "at all in the next fixture. See minutes.py and points.py."}
     return out, summary
+
+
+def expected_points(players, pos_of, fc, lives, finished, raw_fixtures, want, model, market):
+    """
+    {(player id, fixture id): expected FPL points} for every forecast in fc,
+    from points.py: each player's record this season (FPL's live data) and
+    last season (points_prior.json), his minutes forecast, and his side's
+    expected goals for and against from the fixture model -- or the
+    bookmakers', exactly as the ticker shows them.
+    """
+    S = PT.strengths(model["teams"], model["matchesPlayed"],
+                     model["fit"]["kAtk"], model["fit"]["kDef"], PROMOTED_K)
+    sides = {f["id"]: (f["team_h"], f["team_a"]) for f in raw_fixtures}
+    team_of = {e["id"]: e["team"] for e in players}
+    srows = PT.live_stat_rows(lives, finished)
+    placed = PT.row_sides(srows, sides, team_of)
+    sxg = PT.side_xg_live(srows, sides, team_of, placed)
+    pprior = {}
+    if PRIOR_PTS.exists():
+        pp = json.loads(PRIOR_PTS.read_text())
+        if pp.get("season") != want:
+            log(f"!! points_prior.json is for {pp.get('season')}, not {want} -- using no prior season")
+        elif pp.get("lam") not in (None, PT.LAM_P):
+            log(f"!! points_prior.json was built with lam={pp.get('lam')}, points.py has "
+                f"{PT.LAM_P} -- rebuild it with minutes_prior.py. Using no prior season.")
+        else:
+            pprior = pp["players"]
+    else:
+        log("!! points_prior.json missing -- every player starts from the price prior")
+    per, unplaced = collections.defaultdict(list), 0
+    for (pid, f), r in sorted(srows.items(), key=lambda kv: kv[1]["key"]):
+        t = placed.get((pid, f))
+        if t is None:
+            unplaced += 1                        # moved clubs, and cannot tell from where
+            continue
+        opp = sides[f][1] if sides[f][0] == t else sides[f][0]
+        per[pid].append(dict(r, tf=sxg.get((f, t), 0.0), ta=sxg.get((f, opp), 0.0), pos=pos_of[pid]))
+    if unplaced:
+        log(f"   points: {unplaced} appearance(s) by players who changed clubs left out")
+    rate = {}
+    for e in players:
+        st = PT.record(per.get(e["id"], []), prior_state=pprior.get(str(e["code"])))
+        rate[e["id"]] = PT.rates(st, pos_of[e["id"]], e["now_cost"] / 10)
+
+    # market.json holds one number per side per gameweek, so in a double
+    # gameweek it cannot say which game it priced. Those fixtures use the
+    # model only.
+    games = collections.Counter()
+    for gw, o, t, f in fc.values():
+        games[(gw, t, f["id"])] = 1
+    per_gw = collections.Counter((gw, t) for gw, t, _ in games)
+    out = {}
+    for (pid, fid), (gw, o, t, f) in fc.items():
+        opp = f["team_a"] if t == f["team_h"] else f["team_h"]
+        mk = None if (per_gw[(gw, t)] > 1 or per_gw[(gw, opp)] > 1) else market
+        gf, ga = PT.side_goals(S, str(t), str(opp), t == f["team_h"], gw,
+                               model["fit"]["home"], model["fit"]["pen"], mk)
+        out[(pid, fid)] = PT.expected(rate[pid], o, gf, ga, pos_of[pid])["total"]
+    if not all(-3.0 <= x <= 25.0 for x in out.values()):
+        raise ValueError("an expected points figure is out of range")
+    return out
+
+
+def market_for_points(teams):
+    """market.json's per-gameweek prices as {gw: {team id: xG}} -- the ticker's view."""
+    try:
+        m = json.loads(OUT_M.read_text())
+    except Exception:
+        return None
+    id_by_short = {t["short"]: tid for tid, t in teams.items()}
+    out = {}
+    for gw, row in (m.get("gw") or {}).items():
+        r = {id_by_short[k]: v for k, v in row.items() if k in id_by_short}
+        if r:
+            out[int(gw)] = r
+    return out or None
 
 
 MINUTES_KEEP_HOURS = 72
@@ -557,7 +660,7 @@ def keep_minutes(path, players, pdata, next_gw, now=None):
         for p in players:
             q = prev.get(p["i"], {})
             if "xm" in q:
-                p.update({k: q[k] for k in ("xm", "ps", "p60", "pa") if k in q})
+                p.update({k: q[k] for k in ("xm", "xp", "ps", "p60", "pa") if k in q})
                 kept += 1
         if kept:
             pdata["minutes"] = dict(mm, stale=True, built=mm.get("built") or old["generated"])
@@ -796,36 +899,6 @@ def main():
 
     OUT.write_text(json.dumps(data, separators=(",", ":")))
 
-    # players are a separate file so the ticker never waits on them
-    try:
-        if fpl["boot"] is None:
-            raise RuntimeError("FPL was unavailable, so there is no player data to build from")
-        players = build_players(fpl["boot"], season, short2name, short2id, played)
-        if len(players) < 300:
-            raise ValueError(f"only {len(players)} players")
-        pdata = {"generated": data["generated"], "season": data["season"],
-                 "matchesPlayed": played, "nextGw": next_gw,
-                 "teams": {k: {"name": v["name"], "short": v["short"]}
-                           for k, v in data["teams"].items()},
-                 "players": players}
-        # The minutes model goes in its own try: if it fails, the players
-        # still publish. Yesterday's minutes are kept when they still cover
-        # the same gameweeks -- a single failed fetch should not blank them --
-        # and dropped once they would describe the wrong ones.
-        try:
-            mins, summary = build_minutes(fpl["boot"], fpl["rawFixtures"], next_gw, season)
-            for p in players:
-                p.update(mins.get(p["i"], {}))
-            pdata["minutes"] = summary
-        except Exception as e:
-            kept = keep_minutes(OUT_P, players, pdata, next_gw)
-            log(f"!! minutes model not run ({e}) -- "
-                + (f"kept the last run's figures for {kept} players" if kept
-                   else "players published without it"))
-        OUT_P.write_text(json.dumps(pdata, separators=(",", ":")))
-        log(f"wrote {OUT_P.name}: {len(players)} players")
-    except Exception as e:
-        log(f"!! players not rebuilt ({e}) — keeping the previous players.json")
     # --- bookmaker odds ----------------------------------------------------
     # A reference forecast, fetched the same way the players are: in its own
     # try, so a third-party outage or an exhausted quota never stops the site
@@ -886,6 +959,40 @@ def main():
     except Exception as e:
         log(f"!! odds not fetched ({e}) - keeping the previous market.json")
 
+    # The odds run before the players now: the points model uses the same
+    # bookmakers' numbers the ticker shows, and market.json is what the ticker
+    # reads -- this run's if the odds were fetched, the last good one if not.
+    # players are a separate file so the ticker never waits on them
+    try:
+        if fpl["boot"] is None:
+            raise RuntimeError("FPL was unavailable, so there is no player data to build from")
+        players = build_players(fpl["boot"], season, short2name, short2id, played)
+        if len(players) < 300:
+            raise ValueError(f"only {len(players)} players")
+        pdata = {"generated": data["generated"], "season": data["season"],
+                 "matchesPlayed": played, "nextGw": next_gw,
+                 "teams": {k: {"name": v["name"], "short": v["short"]}
+                           for k, v in data["teams"].items()},
+                 "players": players}
+        # The minutes model goes in its own try: if it fails, the players
+        # still publish. Yesterday's minutes are kept when they still cover
+        # the same gameweeks -- a single failed fetch should not blank them --
+        # and dropped once they would describe the wrong ones.
+        try:
+            mins, summary = build_minutes(fpl["boot"], fpl["rawFixtures"], next_gw, season,
+                                          model=data, market=market_for_points(teams))
+            for p in players:
+                p.update(mins.get(p["i"], {}))
+            pdata["minutes"] = summary
+        except Exception as e:
+            kept = keep_minutes(OUT_P, players, pdata, next_gw)
+            log(f"!! minutes model not run ({e}) -- "
+                + (f"kept the last run's figures for {kept} players" if kept
+                   else "players published without it"))
+        OUT_P.write_text(json.dumps(pdata, separators=(",", ":")))
+        log(f"wrote {OUT_P.name}: {len(players)} players")
+    except Exception as e:
+        log(f"!! players not rebuilt ({e}) — keeping the previous players.json")
     print(f"wrote {OUT.name}: {len(data['teams'])} teams, "
           f"{data['matchesPlayed']} matches played, next GW{data['nextGw']}, "
           f"kAtk={data['fit']['kAtk']} kDef={data['fit']['kDef']} "

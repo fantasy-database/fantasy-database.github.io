@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Build your FPL squad and see every player's fixture run rated on expected goals, with attack and defence scored separately.">
+<meta name="description" content="Load your FPL team and plan up to eight gameweeks ahead: expected points for every player, transfers, bank, free transfers and chips carried week to week.">
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%231E0021'/><g fill='%2300FF87'><rect x='10' y='42' width='8' height='12' rx='2'/><rect x='22' y='34' width='8' height='20' rx='2'/><rect x='34' y='26' width='8' height='28' rx='2'/><rect x='46' y='16' width='8' height='38' rx='2'/></g></svg>">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -14,7 +14,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Fantasy DataBase">
 <meta property="og:title" content="Fantasy DataBase">
-<meta property="og:description" content="Build your FPL squad and see every player's fixture run rated on expected goals, with attack and defence scored separately.">
+<meta property="og:description" content="Load your FPL team and plan up to eight gameweeks ahead: expected points for every player, transfers, bank, free transfers and chips carried week to week.">
 <meta property="og:url" content="https://fantasy-database.github.io/planner.html">
 <meta property="og:image" content="https://fantasy-database.github.io/share.png">
 <meta property="og:image:width" content="1200">
@@ -179,16 +179,112 @@
   .act button{font:inherit;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:7px;
     border:1px solid var(--border);background:var(--surface-2);color:var(--muted);cursor:pointer}
   .act button:hover{color:var(--ink);border-color:var(--accent)}
+  .act button.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .act button.pri:hover{color:var(--accent-ink);filter:brightness(1.08)}
+  .seg button:disabled{opacity:.35;cursor:not-allowed}
+  .grid td.c:focus-visible,.slot:focus-visible,.grid thead th:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+
+  /* ---- the plan grid ---- */
+  .plan{margin-top:18px}
+  .plan h2{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline}
+  .plan h2 .sum{margin-left:auto;font-size:11px;letter-spacing:.06em;text-transform:none;color:var(--ink)}
+  .plan h2 .sum b{color:var(--accent);font-size:13px}
+  .plan h2 .sum .d{color:var(--muted)}
+  .planbar{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin-bottom:10px;font-size:12.5px;color:var(--muted)}
+  .stepper{display:inline-flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:7px;overflow:hidden;vertical-align:middle}
+  .stepper button{font:inherit;font-weight:700;width:28px;height:28px;border:0;background:var(--surface-2);color:var(--ink);cursor:pointer}
+  .stepper button:hover{color:var(--accent)}
+  .stepper b{min-width:26px;text-align:center;font-family:"Roboto Mono",monospace;color:var(--ink)}
+  .planbar .src{font-size:11.5px}
+  .planbar .act{margin:0 0 0 auto}
+  .gridwrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px;-webkit-overflow-scrolling:touch}
+  table.grid{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}
+  .grid th,.grid td{padding:0;border-bottom:1px solid var(--border);text-align:center}
+  .grid thead th{position:sticky;top:0;background:var(--surface-2);font-family:"Roboto Mono",monospace;
+    font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--muted);padding:7px 4px;cursor:pointer;white-space:nowrap}
+  .grid thead th.on{color:var(--accent-ink);background:var(--accent)}
+  .grid thead th small{display:block;font-size:9px;font-weight:600;letter-spacing:.04em}
+  .grid .who{position:sticky;left:0;z-index:1;background:var(--surface);text-align:left;padding:4px 8px;
+    min-width:120px;max-width:150px;border-right:1px solid var(--border)}
+  .grid thead .who{z-index:2;cursor:default}
+  .grid .who .nm{display:block;font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .grid .who .tm{display:block;font-family:"Roboto Mono",monospace;font-size:9.5px;color:var(--muted);text-transform:uppercase}
+  .grid .who i{float:left;width:4px;height:26px;border-radius:2px;margin:1px 7px 0 0}
+  .grid tr.gap td,.grid tr.gap th{border-bottom:2px solid var(--border-strong)}
+  .grid td.c{min-width:62px;height:44px;cursor:pointer;position:relative;padding:3px 3px;line-height:1.15}
+  .grid td.c:hover{background:var(--surface-2)}
+  .grid td.c.on{background:rgba(0,255,135,.06)}
+  .grid td.c .x{display:block;font-family:"Roboto Mono",monospace;font-weight:700;font-size:13.5px;font-variant-numeric:tabular-nums}
+  .grid td.c .o{display:block;font-family:"Roboto Mono",monospace;font-size:9px;color:var(--muted);letter-spacing:.03em}
+  .grid td.c .n{display:block;font-size:10.5px;font-weight:700;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px;margin:0 auto}
+  .grid td.c.bench .x,.grid td.c.bench .n{opacity:.45}
+  .grid td.c.bench{background:repeating-linear-gradient(135deg,transparent 0 6px,rgba(255,255,255,.025) 6px 12px)}
+  .grid td.c.in{box-shadow:inset 3px 0 0 var(--accent)}
+  .grid td.c.sel{outline:2px solid var(--accent);outline-offset:-2px}
+  .grid td.c .cp{position:absolute;top:2px;right:3px;font-family:"Roboto Mono",monospace;font-size:8.5px;font-weight:800;
+    background:var(--accent);color:var(--accent-ink);border-radius:3px;padding:0 3px;line-height:13px}
+  .grid td.c .cp.v{background:var(--muted);color:var(--ground)}
+  .grid tfoot th,.grid tfoot td{font-family:"Roboto Mono",monospace;font-size:11px;padding:6px 3px;color:var(--muted);border-bottom:1px solid var(--border)}
+  .grid tfoot th.who{font-family:Barlow,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding-left:19px}
+  .grid tfoot tr.tot td{font-size:14px;font-weight:700;color:var(--ink)}
+  .grid tfoot tr.tot td.on{color:var(--accent)}
+  .grid tfoot td.bad{color:var(--bad)}
+  .grid tfoot td .chip{display:inline-block;background:var(--warn);color:var(--ground);border-radius:3px;padding:0 4px;font-weight:700;font-size:9.5px}
+  .gridkey{display:flex;flex-wrap:wrap;gap:4px 16px;margin:9px 2px 0;font-size:11.5px;color:var(--muted)}
+  .gridkey span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px;background:var(--surface-2)}
+  .gridkey .k-in::before{box-shadow:inset 3px 0 0 var(--accent)}
+  .gridkey .k-bench::before{background:repeating-linear-gradient(135deg,var(--surface-2) 0 3px,var(--border) 3px 6px)}
+  .gridkey .k-c::before{background:var(--accent)}
+  .gridkey .k-none::before{display:none}
+
+  /* ---- the week being edited ---- */
+  .weekctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:10px 0 0;font-size:12.5px;color:var(--muted)}
+  .weekctl select{font-size:12.5px;padding:5px 8px}
+  .weekctl .act{margin:0 0 0 auto}
+  .tlist{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;padding:0;list-style:none}
+  .tlist li{display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:99px;padding:3px 4px 3px 11px;font-size:12px}
+  .tlist li .o{color:var(--muted);text-decoration:line-through}
+  .tlist li .i{color:var(--accent);font-weight:700}
+  .tlist li button{font:inherit;width:20px;height:20px;border-radius:50%;border:0;background:var(--surface);color:var(--muted);cursor:pointer;line-height:1}
+  .tlist li button:hover{color:var(--bad)}
+  .slot .xp{font-family:"Roboto Mono",monospace;font-weight:700;font-size:12.5px;color:var(--accent)}
+  .slot.sel{outline:2px solid var(--accent);outline-offset:1px}
+  .pickmsg{margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+  .pickmsg b{color:var(--ink)}
+  .pickmsg.go{color:var(--ink);background:rgba(0,255,135,.08);border:1px solid rgba(0,255,135,.35);border-radius:8px;padding:8px 10px}
+  .listhd{display:flex;justify-content:flex-end;gap:8px;padding:0 9px 4px;font-family:"Roboto Mono",monospace;font-size:9.5px;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .listhd span{min-width:34px;text-align:right}
+  .p .num{min-width:34px;text-align:right}
+  .p .num.xp{color:var(--accent);font-weight:700}
+
+  /* ---- the action bar for a chosen player ---- */
+  .selbar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:20;
+    width:min(640px,calc(100vw - 24px));background:var(--surface-2);border:1px solid var(--accent);
+    border-radius:12px;box-shadow:0 12px 40px -8px rgba(0,0,0,.8);padding:10px 12px;
+    display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:13px}
+  .selbar[hidden]{display:none}
+  .selbar .who{flex:1 1 200px;min-width:0}
+  .selbar .who small{display:block;color:var(--muted);font-size:11.5px}
+  .selbar button{font:inherit;font-size:12.5px;font-weight:700;padding:7px 12px;border-radius:7px;cursor:pointer;
+    border:1px solid var(--border-strong);background:var(--surface);color:var(--ink)}
+  .selbar button.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .selbar button:hover{filter:brightness(1.1)}
+  .selbar button[disabled]{opacity:.45;cursor:default}
+  body.selpad{padding-bottom:110px}
 
   @media (max-width:860px){
     .cols{grid-template-columns:1fr}
     .wrap{padding:16px 0 44px}
-    .mast,.cols,.note,.key,.banner{margin-left:12px;margin-right:12px}
+    .mast,.cols,.note,.key,.banner,.plan,.import{margin-left:12px;margin-right:12px}
+    .grid .who{min-width:104px;max-width:118px}
     .nav{margin-left:0;width:100%}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
-<style>html{-webkit-text-size-adjust:100%}img{max-width:100%}</style>
+<style>html{-webkit-text-size-adjust:100%}img{max-width:100%}[hidden]{display:none!important}</style>
 
 <!-- GoatCounter: cookieless visit counting. Dashboard at
      https://fantasydatabase.goatcounter.com/ -->
@@ -243,10 +339,27 @@
     <p class="msg" id="importMsg"></p>
   </div>
 
+  <section class="card plan" id="planCard" hidden>
+    <h2><span>Your plan</span><span class="sum" id="planSum"></span></h2>
+    <div class="body">
+      <div class="planbar">
+        <span>Free transfers for <span id="ftGw">GW–</span>
+          <span class="stepper"><button type="button" id="ftDown" aria-label="One fewer free transfer">&minus;</button><b id="ftNow">1</b><button type="button" id="ftUp" aria-label="One more free transfer">+</button></span></span>
+        <span class="src" id="ftSrc"></span>
+        <div class="act"><button type="button" id="editSquad" title="Change the squad you start from, before any transfers">Change starting squad</button><button type="button" id="resetPlan">Reset the plan</button></div>
+      </div>
+      <div class="gridwrap"><table class="grid" id="grid"></table></div>
+      <p class="gridkey">
+        <span class="k-c">Captain</span><span class="k-in">Signed that week</span><span class="k-bench">On the bench</span>
+        <span class="k-none">Click any cell (or tab to it and press Enter) to transfer, captain or bench a player in that week. Opponents in capitals are at home.</span>
+      </p>
+    </div>
+  </section>
+
   <div class="cols">
     <!-- ---------------- left: the squad ---------------- -->
     <section class="card">
-      <h2>Your squad</h2>
+      <h2 id="squadTitle">Your squad</h2>
       <div class="body">
         <div class="status">
           <div class="stat" id="sPicked"><b>0/15</b><span>Picked</span></div>
@@ -254,6 +367,11 @@
           <div class="stat" id="sBank"><b>£100.0m</b><span>In the bank</span></div>
           <div class="stat" id="sRun" title="Average fixture ease across your starting eleven over the window. Higher is easier."><b>–</b><span>Fixture run</span></div>
         </div>
+        <div class="weekctl" id="weekCtl" hidden>
+          <label>Chip <select id="chip"></select></label>
+          <div class="act"><button type="button" id="resetWeek">Undo this week</button></div>
+        </div>
+        <ul class="tlist" id="tlist"></ul>
         <ul class="problems" id="problems"></ul>
 
         <div class="pitch" id="pitch"></div>
@@ -267,11 +385,11 @@
           <span>Hardest</span><span class="rampbar" id="rampbar"></span><span>Easiest</span>
           <span>Each block is one gameweek, over the window set on the right. Keepers and defenders
             are rated on how likely a clean sheet looks; midfielders and forwards on how many goals
-            their side should score. <b>Fixture run</b> averages those across your eleven &mdash;
-            higher is easier.</span>
+            their side should score.</span>
         </p>
 
-        <div class="act">
+        <div class="act" id="buildAct">
+          <button type="button" class="pri" id="toPlan" hidden>Plan transfers with this squad &rarr;</button>
           <button type="button" id="autoXI">Pick the best XI I can</button>
           <button type="button" id="clear">Clear squad</button>
         </div>
@@ -279,9 +397,10 @@
     </section>
 
     <!-- ---------------- right: the picker ---------------- -->
-    <section class="card">
-      <h2>Add players</h2>
+    <section class="card" id="pickCard">
+      <h2 id="pickTitle">Add players</h2>
       <div class="body">
+        <p class="pickmsg" id="pickMsg" hidden></p>
         <div class="ctl">
           <div class="seg" id="posSeg">
             <button data-pos="1">GK</button>
@@ -293,8 +412,9 @@
         </div>
         <div class="ctl">
           <select id="sort">
+            <option value="xp">Sort: expected points</option>
             <option value="fx">Sort: easiest fixtures</option>
-            <option value="pts">Sort: points</option>
+            <option value="pts">Sort: points so far</option>
             <option value="c">Sort: most expensive</option>
             <option value="cheap">Sort: cheapest</option>
             <option value="own">Sort: most owned</option>
@@ -302,31 +422,37 @@
           <select id="gws">
             <option value="3">Next 3 GWs</option>
             <option value="6" selected>Next 6 GWs</option>
-            <option value="9">Next 9 GWs</option>
+            <option value="8">Next 8 GWs</option>
           </select>
         </div>
+        <div class="listhd" id="listHd"></div>
         <div class="list" id="list"></div>
       </div>
     </section>
   </div>
 
-  <div class="banner">
-    <b>Expected points are not in here yet.</b> The colours come from the fixture model —
-    they tell you whose run of games looks kind, not how many points he will score. Judging a
-    transfer properly needs a points projection per player per gameweek, which is the next
-    piece of work. Until then this is a squad you can build, save and read fixtures off.
+  <div class="banner" id="about">
+    <b>How the expected points work.</b> A player's xP for a gameweek starts from how likely he is
+    to play and for how long, then takes his usual share of his side's chances and sets it against how
+    many goals his side should score and concede in that fixture &mdash; the same fixture model as the
+    ticker. Clean sheets, saves, defensive contributions, cards and bonus are added the same way.
+    Tuned on 2024/25 and then tested week by week through 2025/26, it had lower error than points per
+    game or recent form one, four and eight weeks ahead, and the 20 players it rated highest each week
+    outscored theirs. It is an average, not a prediction: a 6&nbsp;xP player still blanks often.
   </div>
 
   <p class="note">
-    Your squad is saved in this browser only. It never leaves your computer, and it is not
-    connected to your real FPL team &mdash; loading that in directly is something the FPL API
-    does not allow a site like this one to do. Prices are today's prices, so the totals here
-    describe a squad bought today rather than the money in your own account.
+    Your squad and plan are saved in this browser only. Loading your team reads the same public
+    data anyone can see on the FPL site; nothing is ever sent back to FPL. Sale prices are today's
+    prices, because FPL does not publish what you paid, and automatic substitutions are not counted.
+    Load your team again after each deadline to bring in the transfers you actually made.
   </p>
 </div>
+<div class="selbar" id="selbar" hidden></div>
 
 <script type="module" id="app">
-import { DEFAULT_RULES, sellPrice, validateSquad, validateXI, legalFormations } from "./planner.js";
+import { DEFAULT_RULES, sellPrice, validateSquad, validateXI, chipAvailable,
+         simulate, ftFromHistory, chipsFromHistory } from "./planner.js";
 import { fromData, goodClamped, shade as shadeOn, rampFromCss } from "./model.js";
 
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
@@ -362,32 +488,45 @@ function kit(short){
        + ` stroke="rgba(0,0,0,.5)" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 }
 const SAVE_KEY="fdb-squad-v1";
+const PLAN_KEY="fdb-plan-v1";
 
 const $=s=>document.querySelector(s);
 // M is the shared model, built from data.json. The ticker builds the same
 // object from the same file, so a fixture reads identically on both pages.
-let TEAMS={}, FX=[], NEXT_GW=1, PLAYERS=[], M=null;
+let TEAMS={}, FX=[], NEXT_GW=1, PLAYERS=[], M=null, BYID=new Map();
 let squad=[], xi=[], captain=null, vice=null, realBank=null;
 let pos=2, horizon=6;
 
 /* ---------------------------------------------------------------------------
- * The model is model.js, the same file the ticker and the comparison page use.
- * These two lines are all this page needs of it: a colour, and how kind one
- * fixture is.
- *
- * "Ease" only, and a keeper or defender is rated on the clean sheet while
- * everyone else is rated on the goals -- because those two do not move
- * together, which is the whole argument behind this site.
- *
- * The ramp is read from the CSS on every call rather than cached, so the
- * colours follow the theme without the page having to be told it changed.
+ * Expected points come from players.json: "xp" is one number per gameweek in
+ * minutes.gws (points.py; backtest in claude/backtest-points.md). XPI maps a
+ * gameweek to its place in that list. PLAN_GWS are the ones the plan covers:
+ * every gameweek with a number, from the next deadline on.
+ * ------------------------------------------------------------------------- */
+let XPI={}, PLAN_GWS=[];
+const hasXP=()=>PLAN_GWS.length>0;
+
+/* The plan. `weeks` holds only what the manager chose; everything else --
+ * squads, bank, free transfers, the XI, the points -- is worked out from it
+ * by planner.js on every draw, so nothing can drift out of step. */
+let plan={ft:null, ftSource:"default", used:[], usedKnown:false, weeks:{}, stale:false};
+let active=null;        // the gameweek being edited
+let sel=null;           // {id} of the player chosen in that week
+let selling=false;      // choosing his replacement
+let R=[];               // the plan, run
+let staleNote="";
+let editing=false;       // changing the starting squad by hand, in the builder
+let importSeq=0;         // the latest import; an older one's late reply is ignored
+
+/* ---------------------------------------------------------------------------
+ * The fixture colours are model.js, the same file the ticker and the
+ * comparison page use. A keeper or defender is rated on the clean sheet and
+ * everyone else on the goals, because those two do not move together.
  * ------------------------------------------------------------------------- */
 const shade=t=>shadeOn(t,rampFromCss()).bg;
 const ease=(side,team,f)=>goodClamped(side, M.rate(side,team,f,"ease"), "ease");
-
 const sideFor=p=>p.p<=2 ? "def" : "atk";
 
-/* --------------------------------- state --------------------------------- */
 function fixturesFor(teamId){
   const to=Math.min(38,NEXT_GW+horizon-1);
   return (M.fixtures(NEXT_GW,to)[teamId]||[]);
@@ -397,11 +536,36 @@ function runScore(p){
   if(!fx.length) return 0;
   return fx.reduce((a,f)=>a+ease(sideFor(p),p.t,f),0)/fx.length;
 }
-const byId=id=>PLAYERS.find(p=>p.i===id);
+const byId=id=>BYID.get(id);
 // planner.js speaks {id,pos,team,buy}; players.json speaks {i,p,t,c}. One place
 // to translate, so the rules engine never has to know about the data format.
 const toRules=p=>({id:p.i,name:p.n,pos:p.p,team:p.t,buy:p.c});
+const teamName=id=>(TEAMS[id]?TEAMS[id][0]:"team "+id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const money=v=>"£"+(v/10).toFixed(1)+"m";
+const f1=v=>(Math.round(v*10)/10).toFixed(1);
 
+function xpAt(id,gw){
+  const p=byId(id), k=XPI[gw];
+  if(!p||!Array.isArray(p.xp)||k===undefined) return null;
+  const v=p.xp[k];
+  return typeof v==="number" ? v : null;
+}
+// xP over the window the picker is set to, from the week being looked at.
+function xpWindow(p){
+  const from=planMode()&&active ? active : NEXT_GW;
+  let t=0;
+  for(const g of PLAN_GWS) if(g>=from && g<from+horizon) t+=xpAt(p.i,g)||0;
+  return t;
+}
+// Opponents in one gameweek, the FPL way: capitals at home, small letters away.
+function oppText(teamId,gw){
+  const fx=(M.fixtures(gw,gw)[teamId]||[]);
+  if(!fx.length) return "–";
+  return fx.map(f=>{const t=TEAMS[f.opp]; const s=t?t[1]:"?"; return f.home?s.toUpperCase():s.toLowerCase();}).join(" ");
+}
+
+/* --------------------------------- saving -------------------------------- */
 function save(){
   try{ localStorage.setItem(SAVE_KEY,JSON.stringify({squad:squad.map(p=>p.i),xi,captain,vice,realBank})); }
   catch(e){ /* private window, or storage full — the page still works, it just forgets */ }
@@ -416,14 +580,58 @@ function load(){
     realBank = typeof d.realBank==="number" ? d.realBank : null;
   }catch(e){ squad=[]; xi=[]; }
 }
+function savePlan(){
+  try{ localStorage.setItem(PLAN_KEY,JSON.stringify({...plan, forGw:NEXT_GW})); }catch(e){}
+}
+function loadPlan(){
+  try{
+    const d=JSON.parse(localStorage.getItem(PLAN_KEY)||"null");
+    if(!d||typeof d!=="object") return;
+    plan.used=Array.isArray(d.used)?d.used:[];
+    plan.usedKnown=!!d.usedKnown;
+    // Weeks whose deadline has passed are history now, not a plan.
+    for(const g in (d.weeks||{})) if(+g>=NEXT_GW) plan.weeks[g]=cleanWeek(d.weeks[g]);
+    if(d.forGw===NEXT_GW && !d.stale){
+      plan.ft = typeof d.ft==="number" ? d.ft : null;
+      plan.ftSource = d.ftSource||"default";
+    }else if(squad.length && (d.stale || d.forGw<NEXT_GW)){
+      // Remembered until the team is loaded again, not just until the next edit.
+      plan.stale=true;
+      if(d.forGw===NEXT_GW && d.ftSource==="user"){ plan.ft=d.ft; plan.ftSource="user"; }
+      // A deadline went by since the team was loaded: the free transfers and
+      // the squad itself may both have moved on.
+      staleNote="A deadline has passed since you loaded your team. Load it again to bring in "
+        + "the transfers you made and your free transfers.";
+    }
+  }catch(e){ /* a broken save is just a fresh plan */ }
+}
+function cleanWeek(w){
+  w=w&&typeof w==="object"?w:{};
+  const ids=a=>Array.isArray(a)?a.filter(Number.isFinite):[];
+  return {
+    transfers:(Array.isArray(w.transfers)?w.transfers:[])
+      .filter(t=>t&&Number.isFinite(t.out)&&Number.isFinite(t.in)).map(t=>({out:t.out,in:t.in})),
+    chip:["wildcard","freehit","bench","triple"].includes(w.chip)?w.chip:null,
+    start:ids(w.start), bench:ids(w.bench),
+    captain:Number.isFinite(w.captain)?w.captain:null
+  };
+}
+function week(gw){ return plan.weeks[gw] || (plan.weeks[gw]=cleanWeek({})); }
+function resetPlan(){ plan.weeks={}; sel=null; selling=false; active=PLAN_GWS[0]??null; }
 
-/* ------------------------------- the squad ------------------------------- */
+/* ------------------------------- building -------------------------------- */
+// Before there are fifteen players this is a squad builder, as it always was.
+// Once there are, it is a planner: the squad is the one you hold before the
+// next deadline, and every change after that is a transfer in some week.
+const planMode=()=>hasXP() && squad.length===15 && !editing;
+
 function add(p){
   if(squad.some(x=>x.i===p.i)) return;
   if(squad.filter(x=>x.p===p.p).length >= DEFAULT_RULES.squad[p.p]) return;
-  squad.push(p); autoXI(); save(); render();
+  squad.push(p); editing=true; autoXI(); save(); render();
 }
 function remove(id){
+  editing=true;
   squad=squad.filter(p=>p.i!==id);
   xi=xi.filter(x=>x!==id);
   if(captain===id) captain=null;
@@ -433,9 +641,10 @@ function remove(id){
 function bank(){
   return DEFAULT_RULES.budget - squad.reduce((t,p)=>t+p.c,0);
 }
-/** Best legal XI by fixture run — a starting point, not a recommendation. */
+/** Best legal XI for the builder: by expected points when there are any, else by fixture run. */
 function autoXI(){
-  const best=[...squad].sort((a,b)=>runScore(b)-runScore(a));
+  const val=p=>hasXP() ? (xpAt(p.i,PLAN_GWS[0])||0) : runScore(p);
+  const best=[...squad].sort((a,b)=>val(b)-val(a));
   const chosen=[], count={1:0,2:0,3:0,4:0};
   const min={1:1,2:3,3:2,4:1}, max={1:1,2:5,3:5,4:3};
   for(const pos of [1,2,3,4]){                     // fill the minimums first
@@ -453,6 +662,118 @@ function autoXI(){
   if(!vice || vice===captain || !xi.includes(vice)) vice=xi.find(id=>id!==captain)??null;
 }
 
+/* -------------------------------- planning ------------------------------- */
+// The squad before the first deadline, in a fixed order: that order is the
+// grid's rows, and a transfer keeps its slot, so a row follows one place in
+// the team through the weeks.
+function baseSquad(){
+  return [...squad].sort((a,b)=>a.p-b.p||b.c-a.c||a.i-b.i).map(toRules);
+}
+function baseBank(){ return realBank!==null ? realBank : bank(); }
+function baseFt(){ return plan.ft ?? DEFAULT_RULES.baseFreeTransfers; }
+function runPlan(weeks){
+  return simulate({squad:baseSquad(), bank:baseBank(), ft:baseFt()}, weeks, PLAN_GWS, {
+    xp:xpAt,
+    player:id=>{const p=byId(id); return p?toRules(p):null;},
+    usedChips:plan.used, teamName
+  });
+}
+const resultFor=gw=>R.find(w=>w.gw===gw);
+const total=rs=>rs.reduce((t,w)=>t+w.points.total,0);
+
+function select(gw,id){
+  // A second click on the same player in the same week closes the bar;
+  // anything else chooses the player clicked.
+  const same = active===gw && sel===id && !selling;
+  active=gw; selling=false; sel = same ? null : id;
+  render();
+}
+function clearSel(){ sel=null; selling=false; render(); }
+
+function startSelling(){
+  const w=resultFor(active); if(!w||sel===null) return;
+  const p=w.state.squad.find(x=>x.id===sel); if(!p) return;
+  selling=true;
+  pos=p.pos; setPosSeg();
+  render();
+  // On a phone the list is a long way down. Bring it up.
+  const card=$("#pickCard"), r=card.getBoundingClientRect();
+  if(r.top>innerHeight*.6||r.bottom<0) card.scrollIntoView({behavior:"smooth",block:"start"});
+}
+/** Money and club room for a replacement of `sel` in the active week. */
+function room(){
+  const w=resultFor(active); if(!w) return null;
+  const out=w.state.squad.find(x=>x.id===sel); if(!out) return null;
+  const clubs={}; w.state.squad.forEach(p=>{ if(p.id!==sel) clubs[p.team]=(clubs[p.team]||0)+1; });
+  return {out, w, spend:w.bank+sellPrice(out.buy,out.buy), clubs};
+}
+/**
+ * A week's transfers, netted: a player sold and bought back in the same week
+ * was never really sold, and one bought and sold again was never really
+ * bought. So X->Y then Y->Z is one transfer, X->Z; X->Y then Y->X is none;
+ * and A->B then C->A is one, C->B. What is left is paired like for like.
+ */
+function netTransfers(ts){
+  const outs=[], ins=[];
+  for(const t of ts){
+    const k=ins.indexOf(t.out); if(k>=0) ins.splice(k,1); else outs.push(t.out);
+    const j=outs.indexOf(t.in); if(j>=0) outs.splice(j,1); else ins.push(t.in);
+  }
+  const left=[...ins], res=[];
+  for(const o of outs){
+    const po=byId(o)?.p, k=left.findIndex(i=>byId(i)?.p===po);
+    if(k<0) return ts;                   // cannot pair them up: leave as made
+    res.push({out:o,in:left.splice(k,1)[0]});
+  }
+  return left.length ? ts : res;
+}
+function buy(q){
+  const r=room(); if(!r || q.p!==r.out.pos) return;
+  const w=week(active);
+  w.transfers=netTransfers([...w.transfers,{out:sel,in:q.i}]);
+  w.start=w.start.filter(id=>id!==sel); w.bench=w.bench.filter(id=>id!==sel);
+  if(w.captain===sel) w.captain=null;
+  sel=null; selling=false;
+  savePlan(); render();
+}
+/**
+ * The week's XI with `x` moved to the other side of the line: a benched
+ * player comes in for the weakest starter he can legally replace, a starter
+ * goes out for the best substitute who can legally replace him. Null if no
+ * swap keeps the formation legal.
+ */
+function swapped(r,x){
+  const v=id=>xpAt(id,r.gw)||0;
+  const starting=r.xi.includes(x);
+  const cands = starting ? [...r.bench].sort((a,b)=>v(b)-v(a)) : [...r.xi].sort((a,b)=>v(a)-v(b));
+  for(const c of cands){
+    const nx = starting ? r.xi.map(id=>id===x?c:id) : r.xi.map(id=>id===c?x:id);
+    if(!validateXI(nx,r.state.squad).length) return nx;
+  }
+  return null;
+}
+// Once the manager moves anyone, that week's whole XI is his: pinned as
+// chosen, so the numbers cannot quietly put someone back. A transfer later
+// in the week drops the sold player from it and the best replacement fills in.
+function toggleBench(){
+  const r=resultFor(active); if(!r||sel===null) return;
+  const nx=swapped(r,sel); if(!nx) return;
+  const w=week(active);
+  w.start=nx; w.bench=[];
+  if(!nx.includes(w.captain)) w.captain=null;
+  savePlan(); render();
+}
+function makeCaptain(){
+  const r=resultFor(active); if(!r||sel===null) return;
+  const w=week(active);
+  if(!r.xi.includes(sel)){                // a captain has to start
+    const nx=swapped(r,sel); if(!nx) return;
+    w.start=nx; w.bench=[];
+  }
+  w.captain=sel;
+  savePlan(); render();
+}
+
 /* -------------------------------- drawing -------------------------------- */
 // One block per gameweek in the window. The blocks get narrower rather than
 // fewer as the window grows — showing six of nine and saying nothing about it
@@ -467,9 +788,17 @@ function fxStrip(p){
     }).join("") || `<i style="background:var(--surface-2)" title="No fixture in this window"></i>`;
 }
 
-function slot(p,role){
+function slot(p,role,wk){
   if(!p) return `<div class="slot empty">${kit("")}<div class="nm">Empty</div><div class="mt">${role}</div></div>`;
   const t=TEAMS[p.t]||["?","?"];
+  if(wk){
+    const badge = badgeFor(wk,p.i,"cap");
+    const x=xpAt(p.i,wk.gw);
+    return `<div class="slot${sel===p.i?" sel":""}" data-id="${p.i}" tabindex="0" title="${esc(p.n)} — click for transfer, captain and bench">
+      ${badge}${kit(t[1])}<div class="nm">${esc(p.n)}</div>
+      <div class="mt">${esc(oppText(p.t,wk.gw))}</div>
+      <div class="xp">${x===null?"–":f1(x)}</div></div>`;
+  }
   const badge = captain===p.i ? `<span class="cap">C</span>`
               : vice===p.i    ? `<span class="cap v">V</span>` : "";
   return `<div class="slot" data-id="${p.i}" title="${esc(p.n)} — click to remove, shift-click to captain">
@@ -477,11 +806,39 @@ function slot(p,role){
     <div class="mt">${t[1]} · ${(p.c/10).toFixed(1)}</div>
     <div class="fx">${fxStrip(p)}</div></div>`;
 }
-const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function stat(id,value,label,cls,title){
+  const el=$(id); el.className="stat"+(cls?" "+cls:"");
+  el.innerHTML=`<b>${value}</b><span>${label}</span>`;
+  el.title=title||"";
+}
 
 function render(){
   // Nothing can be drawn before data.json has landed and the model is built.
   if(!M) return;
+  if(planMode()){
+    if(!PLAN_GWS.includes(active)) active=PLAN_GWS[0];
+    R=runPlan(plan.weeks);
+    const w=resultFor(active);
+    if(sel!==null && !(w&&w.state.squad.some(p=>p.id===sel))){ sel=null; selling=false; }
+    renderPlan();
+    renderWeek(w);
+  }else{
+    R=[]; sel=null; selling=false;
+    renderBuilder();
+  }
+  renderSelbar();
+  renderList();
+}
+
+function renderBuilder(){
+  $("#planCard").hidden=true;
+  $("#weekCtl").hidden=true;
+  $("#tlist").innerHTML="";
+  $("#autoXI").hidden=false;
+  $("#toPlan").hidden=!(hasXP() && squad.length===15);
+  $("#squadTitle").textContent="Your squad";
+  $("#pickTitle").textContent="Add players";
   const inXI=id=>xi.includes(id);
   const starters=xi.map(byId).filter(Boolean);
   const benched=squad.filter(p=>!inXI(p.i));
@@ -494,99 +851,336 @@ function render(){
     : `<div class="slot empty"><div class="nm">Empty</div><div class="mt">Bench</div></div>`;
 
   const b=bank();
-  $("#sPicked").innerHTML=`<b>${squad.length}/15</b><span>Picked</span>`;
-  $("#sValue").innerHTML=`<b>£${(squad.reduce((t,p)=>t+p.c,0)/10).toFixed(1)}m</b><span>Squad value</span>`;
+  stat("#sPicked",`${squad.length}/15`,"Picked");
+  stat("#sValue",money(squad.reduce((t,p)=>t+p.c,0)),"Squad value");
   // After an import we know the real bank from FPL. Otherwise it is £100.0m
   // minus what this squad costs today, which is a different (and usually
   // wrong) number for a team that has been running all season.
   const shownBank = realBank!==null ? realBank : b;
-  $("#sBank").className="stat"+(shownBank<0?" bad":"");
-  $("#sBank").title = realBank!==null
-    ? "Your actual bank, from FPL."
-    : "£100.0m minus what this squad costs at today's prices — not your real bank unless you built this squad today.";
-  $("#sBank").innerHTML=`<b>£${(shownBank/10).toFixed(1)}m</b>`
-    + `<span>${realBank!==null?"Bank · from FPL":"In the bank"}</span>`;
+  stat("#sBank",money(shownBank),realBank!==null?"Bank · from FPL":"In the bank",shownBank<0?"bad":"",
+    realBank!==null ? "Your actual bank, from FPL."
+      : "£100.0m minus what this squad costs at today's prices — not your real bank unless you built this squad today.");
   const run = starters.length ? starters.reduce((t,p)=>t+runScore(p),0)/starters.length : null;
-  $("#sRun").className="stat"+(run!==null&&run>=.5?" ok":"");
-  $("#sRun").innerHTML=`<b>${run===null?"–":Math.round(run*100)+"%"}</b><span>Fixture run</span>`;
-  $("#sRun").title="Average fixture ease across your starting eleven over the next "
-    + horizon + " gameweeks. Higher is easier — 50% is an average run.";
+  stat("#sRun",run===null?"–":Math.round(run*100)+"%","Fixture run",run!==null&&run>=.5?"ok":"",
+    "Average fixture ease across your starting eleven over the next "+horizon+" gameweeks. Higher is easier — 50% is an average run.");
 
   const rulesSquad=squad.map(toRules);
   let problems = squad.length
     // Budget is checked against the real bank once we have one. A team that has
     // been running all season is worth more than £100m, so measuring an imported
     // squad against today's prices calls every legal team "over budget".
-    ? validateSquad(rulesSquad,{bank:shownBank,teamName:id=>(TEAMS[id]?TEAMS[id][0]:"team "+id)})
-        .concat(xi.length?validateXI(xi,rulesSquad):[])
-    : ["Pick 15 players to get started — 2 keepers, 5 defenders, 5 midfielders, 3 forwards."];
+    ? validateSquad(rulesSquad,{bank:shownBank,teamName}).concat(xi.length?validateXI(xi,rulesSquad):[])
+    : ["Pick 15 players to get started — 2 keepers, 5 defenders, 5 midfielders, 3 forwards — or load your FPL team above."];
+  if(squad.length===15 && !hasXP())
+    problems=problems.concat(["Expected points are not available at the moment, so the planner is off. The squad still works."]);
   const done = squad.length===15 && problems.length===0;
   $("#problems").className="problems"+(done?" done":"");
   $("#problems").innerHTML = done
     ? `<li>A legal squad, inside budget.</li>`
     : problems.slice(0,6).map(p=>`<li>${esc(p)}</li>`).join("");
+}
 
-  renderList();
+function renderPlan(){
+  $("#planCard").hidden=false;
+  const rows=baseSquad();
+  const first=PLAN_GWS[0], last=PLAN_GWS[PLAN_GWS.length-1];
+  $("#ftGw").textContent="GW"+first;
+  $("#ftNow").textContent=baseFt();
+  $("#ftSrc").textContent = plan.ftSource==="history" ? "worked out from your transfer history — change it if FPL shows a different number"
+    : plan.ftSource==="user" ? "set by you"
+    : "FPL does not say how many you have — set it here";
+
+  // The plan against making no transfers and playing no chips, with the same
+  // line-up and captain calls where the players are still there. That
+  // difference is what the transfers and chips are worth.
+  const keep={};
+  for(const g in plan.weeks){ const w=plan.weeks[g]; keep[g]={start:w.start,bench:w.bench,captain:w.captain,transfers:[],chip:null}; }
+  const mine=total(R), idle=total(runPlan(keep));
+  const d=mine-idle;
+  $("#planSum").innerHTML=`<span><b>${f1(mine)}</b> xP over GW${first}–${last}</span>`
+    + (Object.values(plan.weeks).some(w=>w.transfers.length||w.chip)
+      ? ` <span class="d">without transfers or chips: ${f1(idle)} (${d>=0?"+":"−"}${f1(Math.abs(d))})</span>` : "");
+
+  const head=`<thead><tr><th class="who">Player</th>${R.map(w=>
+      `<th data-gw="${w.gw}" class="${w.gw===active?"on":""}" tabindex="0" title="Edit gameweek ${w.gw}">GW${w.gw}`
+      + `<small>${w.chip?chipShort(w.chip):"&nbsp;"}</small></th>`).join("")}</tr></thead>`;
+
+  let body="<tbody>";
+  rows.forEach((b,i)=>{
+    const p0=byId(b.id), t0=TEAMS[b.team]||["?","?"];
+    const gap = i<rows.length-1 && rows[i+1].pos!==b.pos;
+    body+=`<tr${gap?' class="gap"':""}><th class="who"><i style="background:${CLUB[t0[1]]||"#888"}"></i>`
+      + `<span class="nm">${esc(b.name)}</span><span class="tm">${POSNAME[b.pos]} · ${t0[1]} · ${(p0.c/10).toFixed(1)}</span></th>`;
+    R.forEach((w,k)=>{
+      const p=w.state.squad[i];
+      const x=xpAt(p.id,w.gw);
+      const cls=["c"];
+      if(!w.xi.includes(p.id)) cls.push("bench");
+      if(w.state.transfers.some(t=>t.in.id===p.id)) cls.push("in");
+      if(w.gw===active) cls.push("on");
+      if(w.gw===active && sel===p.id) cls.push("sel");
+      const cp = badgeFor(w,p.id,"cp");
+      const pl=byId(p.id);
+      body+=`<td class="${cls.join(" ")}" data-gw="${w.gw}" data-id="${p.id}" tabindex="0" title="${esc(p.name)} · GW${w.gw}">${cp}`
+        + (p.id!==b.id ? `<span class="n">${esc(p.name)}</span>` : "")
+        + `<span class="x">${x===null?"–":f1(x)}</span>`
+        + `<span class="o">${esc(pl?oppText(pl.t,w.gw):"")}</span></td>`;
+    });
+    body+="</tr>";
+  });
+  body+="</tbody>";
+
+  const on=w=>w.gw===active?"on":"";
+  const foot=`<tfoot>
+    <tr><th class="who">Transfers</th>${R.map(w=>`<td class="${w.cost?"bad":""}" title="${w.ft} free transfer${w.ft===1?"":"s"} available">`
+      + `${w.chip==="wildcard"||w.chip==="freehit"?`<span class="chip">${chipShort(w.chip)}</span>`:`${w.made}/${w.ft}`}${w.cost?` −${w.cost}`:""}</td>`).join("")}</tr>
+    <tr><th class="who">Bank</th>${R.map(w=>`<td class="${w.bank<0?"bad":""}">${(w.bank/10).toFixed(1)}</td>`).join("")}</tr>
+    <tr class="tot"><th class="who">Expected pts</th>${R.map(w=>`<td class="${on(w)}${w.problems.length?" bad":""}" title="${w.problems.length?esc(w.problems.join(" ")):"XI "+f1(w.points.xi)+", captain "+f1(w.points.captain)+(w.points.bench?", bench "+f1(w.points.bench):"")+(w.cost?", hits −"+w.cost:"")}">${f1(w.points.total)}${w.problems.length?" !":""}</td>`).join("")}</tr>
+  </tfoot>`;
+  $("#grid").innerHTML=head+body+foot;
+}
+// The armband as it will actually be worn: if the captain has no game, the
+// vice wears it (C), and the named captain shows as the vice.
+function badgeFor(w,id,cls){
+  const other = w.armband===w.captain ? w.vice : w.captain;
+  if(id===w.armband && w.armband!==null) return `<span class="${cls}">${w.chip==="triple"?"TC":"C"}</span>`;
+  if(id===other && other!==null) return `<span class="${cls} v">V</span>`;
+  return "";
+}
+const chipShort=c=>({wildcard:"WC",freehit:"FH",bench:"BB",triple:"TC"}[c]||"");
+const CHIPNAME={wildcard:"Wildcard",freehit:"Free Hit",bench:"Bench Boost",triple:"Triple Captain"};
+
+function renderWeek(w){
+  $("#weekCtl").hidden=false;
+  $("#autoXI").hidden=true;
+  $("#toPlan").hidden=true;
+  $("#squadTitle").textContent=`Gameweek ${w.gw}`;
+  $("#pickTitle").textContent= selling ? "Bring in" : "Transfer targets";
+  const players=ids=>ids.map(byId).filter(Boolean);
+  const starters=players(w.xi), benched=players(w.bench);
+  $("#pitch").innerHTML=[1,2,3,4]
+    .map(pos=>`<div class="row">${starters.filter(p=>p.p===pos).map(p=>slot(p,POSNAME[pos],w)).join("")}</div>`).join("");
+  $("#bench").innerHTML=benched.map(p=>slot(p,POSNAME[p.p],w)).join("");
+
+  const free = w.chip==="wildcard"||w.chip==="freehit";
+  stat("#sPicked", free ? chipShort(w.chip) : `${w.made}/${w.ft}`, free ? "Transfers free" : "Transfers / free","",
+    free ? `${CHIPNAME[w.chip]}: every transfer this week is free, and your ${w.ft} banked free transfer${w.ft===1?"":"s"} carr${w.ft===1?"ies":"y"} over.`
+         : `${w.ft} free transfer${w.ft===1?"":"s"} this week; ${w.ftLeft} left after these.`);
+  stat("#sValue", w.cost?`−${w.cost}`:"0", "Hits", w.cost?"bad":"", "Four points for every transfer beyond the free ones.");
+  stat("#sBank", money(w.bank), "Bank after", w.bank<0?"bad":"", realBank!==null
+    ? "Your FPL bank, plus sales, less signings, up to and including this week."
+    : "£100.0m less today's squad cost, plus sales, less signings. Load your team for your real bank.");
+  stat("#sRun", f1(w.points.total), "Expected pts", "ok",
+    `Starting XI ${f1(w.points.xi)} + captain ${f1(w.points.captain)}`
+    + (w.points.bench?` + bench ${f1(w.points.bench)}`:"") + (w.cost?` − hits ${w.cost}`:""));
+
+  // Chips: what can be played this week, given the ones already spent -- in
+  // the real game, and elsewhere in this plan.
+  const used=plan.used.concat(R.filter(x=>x.gw!==w.gw&&x.chip).map(x=>({chip:x.chip,gw:x.gw})));
+  const mine=week(w.gw).chip;
+  $("#chip").innerHTML=`<option value="">None</option>`+Object.keys(CHIPNAME).map(c=>{
+    const ok=chipAvailable(c,w.gw,used.filter(u=>u.gw!==w.gw)).ok;
+    return `<option value="${c}"${mine===c?" selected":""}${ok||mine===c?"":" disabled"}>${CHIPNAME[c]}${ok?"":" — not available"}</option>`;
+  }).join("");
+  $("#chip").title = plan.usedKnown ? "" : "The chips you have already played are not known unless your team is loaded by ID.";
+
+  const ts=week(w.gw).transfers;
+  $("#tlist").innerHTML=ts.map((t,k)=>{
+    const o=byId(t.out), n=byId(t.in);
+    return `<li><span class="o">${esc(o?o.n:t.out)}</span>&rarr;<span class="i">${esc(n?n.n:t.in)}</span>`
+      + `<button type="button" data-undo="${k}" title="Undo this transfer" aria-label="Undo this transfer">&times;</button></li>`;
+  }).join("");
+
+  const probs=w.problems;
+  const later=R.filter(x=>x.gw>w.gw&&x.problems.length).map(x=>x.gw);
+  const done=!probs.length;
+  $("#problems").className="problems"+(done?" done":"");
+  $("#problems").innerHTML = (done
+      ? `<li>A legal squad and XI${ts.length?", inside budget":""}.</li>`
+      : probs.slice(0,6).map(p=>`<li>${esc(p)}</li>`).join(""))
+    + (later.length?`<li>Later weeks have problems too: GW${later.join(", GW")}.</li>`:"")
+    + (!plan.usedKnown && mine ? `<li>Check you have not already played this chip — it is not known unless your team is loaded by ID.</li>` : "");
+  if(!done||later.length) $("#problems").className="problems";
+}
+
+function renderSelbar(){
+  const bar=$("#selbar");
+  const w=planMode()?resultFor(active):null;
+  const p=w&&sel!==null?byId(sel):null;
+  if(!p){ bar.hidden=true; document.body.classList.remove("selpad"); return; }
+  document.body.classList.add("selpad");
+  bar.hidden=false;
+  const x=xpAt(p.i,w.gw);
+  if(selling){
+    const r=room();
+    bar.innerHTML=`<div class="who">Replacing <b>${esc(p.n)}</b> in GW${w.gw}`
+      + `<small>${r?money(r.spend)+" to spend · pick from the list":""}</small></div>`
+      + `<button type="button" data-act="cancel">Cancel</button>`;
+    return;
+  }
+  const starting=w.xi.includes(p.i);
+  const isCap=w.captain===p.i && week(w.gw).captain===p.i;
+  bar.innerHTML=`<div class="who"><b>${esc(p.n)}</b> · GW${w.gw}`
+    + `<small>${esc(oppText(p.t,w.gw))} · ${x===null?"–":f1(x)} xP · ${starting?"starting":"on the bench"}</small></div>`
+    + `<button type="button" class="pri" data-act="sell">Transfer out</button>`
+    + `<button type="button" data-act="cap"${isCap?" disabled":""}>${isCap?"Captain":"Make captain"}</button>`
+    + `<button type="button" data-act="bench">${starting?"Bench":"Start"}</button>`
+    + `<button type="button" data-act="cancel" aria-label="Close">&times;</button>`;
 }
 
 function renderList(){
   const q=$("#q").value.trim().toLowerCase();
-  const sort=$("#sort").value;
-  const full = squad.filter(p=>p.p===pos).length >= DEFAULT_RULES.squad[pos];
+  let sort=$("#sort").value;
+  if(sort==="xp" && !hasXP()) sort="fx";
+  const plan_=planMode();
+  const wk=plan_?resultFor(active):null;
+  const inTeam=new Set(plan_ ? wk.state.squad.map(p=>p.id) : squad.map(p=>p.i));
+  const full = !plan_ && squad.filter(p=>p.p===pos).length >= DEFAULT_RULES.squad[pos];
+  const r = plan_ && selling ? room() : null;
+  // Transfers are like for like, so while replacing someone the position is his.
+  [...$("#posSeg").children].forEach(b=>{ b.disabled = !!r && +b.dataset.pos!==r.out.pos; });
+
+  const pm=$("#pickMsg");
+  if(plan_){
+    pm.hidden=false;
+    pm.className="pickmsg"+(r?" go":"");
+    pm.innerHTML = r
+      ? `Who replaces <b>${esc(r.out.name)}</b> in GW${active}? You have <b>${money(r.spend)}</b> to spend.`
+      : `To make a transfer, click a player in the plan or on the pitch, then <b>Transfer out</b>.`;
+  }else pm.hidden=true;
 
   let rows=PLAYERS.filter(p=>p.p===pos)
     .filter(p=>!q || p.n.toLowerCase().includes(q) || (TEAMS[p.t]&&TEAMS[p.t][0].toLowerCase().includes(q)));
 
-  const clubCount={}; squad.forEach(p=>clubCount[p.t]=(clubCount[p.t]||0)+1);
-  const key={fx:p=>-runScore(p), pts:p=>-p.pts, c:p=>-p.c, cheap:p=>p.c, own:p=>-p.own}[sort];
-  rows.sort((a,b)=>key(a)-key(b));
+  const clubCount={};
+  if(plan_){ if(r) Object.assign(clubCount,r.clubs); else wk.state.squad.forEach(p=>clubCount[p.team]=(clubCount[p.team]||0)+1); }
+  else squad.forEach(p=>clubCount[p.t]=(clubCount[p.t]||0)+1);
+  const xw=new Map(rows.map(p=>[p.i,xpWindow(p)]));
+  const key={xp:p=>-xw.get(p.i), fx:p=>-runScore(p), pts:p=>-p.pts, c:p=>-p.c, cheap:p=>p.c, own:p=>-p.own}[sort];
+  rows.sort((a,b)=>key(a)-key(b)||b.c-a.c);
   rows=rows.slice(0,120);
+
+  const shown=hasXP()?Math.min(horizon,PLAN_GWS.filter(g=>g>=(plan_?active:NEXT_GW)).length):0;
+  $("#listHd").innerHTML=`<span>£m</span>`+(hasXP()?`<span title="Expected points over the next ${shown} gameweeks">xP ${shown}</span>`:`<span>Pts</span>`);
 
   $("#list").innerHTML = rows.length ? rows.map(p=>{
     const t=TEAMS[p.t]||["?","?"];
-    const has=squad.some(x=>x.i===p.i);
-    const blocked = !has && (full || (clubCount[p.t]||0)>=DEFAULT_RULES.maxPerClub || p.c>bank());
-    const why = has ? "In your squad — click to remove"
-      : full ? `You already have ${DEFAULT_RULES.squad[pos]} ${POSNAME[pos]}`
-      : (clubCount[p.t]||0)>=DEFAULT_RULES.maxPerClub ? `Already 3 from ${t[0]}`
-      : p.c>bank() ? "Not enough money left" : "Click to add";
-    return `<div class="p${has?" in":""}" data-id="${p.i}" aria-disabled="${blocked}" title="${esc(why)}">
+    const has=inTeam.has(p.i);
+    let blocked, why;
+    if(plan_){
+      blocked = !r || has || p.p!==r.out.pos || (clubCount[p.t]||0)>=DEFAULT_RULES.maxPerClub || p.c>r.spend;
+      why = has ? "Already in your team that week"
+        : r && p.p!==r.out.pos ? `Replace a ${POSNAME[r.out.pos]} with a ${POSNAME[r.out.pos]}`
+        : !r ? "Choose who to replace first"
+        : (clubCount[p.t]||0)>=DEFAULT_RULES.maxPerClub ? `Already 3 from ${t[0]}`
+        : p.c>r.spend ? `Costs ${money(p.c)} — you have ${money(r.spend)}` : `Bring in for ${money(p.c)}`;
+      if(!r && !has) blocked=false;       // browsing is fine; the click explains what to do
+    }else{
+      blocked = !has && (full || (clubCount[p.t]||0)>=DEFAULT_RULES.maxPerClub || p.c>bank());
+      why = has ? "In your squad — click to remove"
+        : full ? `You already have ${DEFAULT_RULES.squad[pos]} ${POSNAME[pos]}`
+        : (clubCount[p.t]||0)>=DEFAULT_RULES.maxPerClub ? `Already 3 from ${t[0]}`
+        : p.c>bank() ? "Not enough money left" : "Click to add";
+    }
+    return `<div class="p${has?" in":""}" data-id="${p.i}" aria-disabled="${blocked}" title="${esc(why)}${p.news?" · "+esc(p.news):""}">
       <i style="background:${CLUB[t[1]]||"#888"}"></i>
-      <span class="nm">${esc(p.n)}</span>
+      <span class="nm">${esc(p.n)}${p.st&&p.st!=="a"?` <span class="tm" style="color:var(--warn)">${p.cop??"?"}%</span>`:""}</span>
       <span class="tm">${t[1]}</span>
       <span class="fx">${fxStrip(p)}</span>
       <span class="num">${(p.c/10).toFixed(1)}</span>
-      <span class="num">${p.pts}</span>
+      <span class="num${hasXP()?" xp":""}">${hasXP()?f1(xw.get(p.i)):p.pts}</span>
     </div>`;}).join("")
     : `<div class="empty">No players match that search.</div>`;
 }
 
 /* -------------------------------- events -------------------------------- */
-$("#posSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
-  pos=+b.dataset.pos;
-  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));
-  renderList();});
+function setPosSeg(){
+  [...$("#posSeg").children].forEach(x=>x.setAttribute("aria-pressed",+x.dataset.pos===pos?"true":"false"));
+}
+$("#posSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b||b.disabled)return;
+  pos=+b.dataset.pos; setPosSeg(); renderList();});
 $("#list").addEventListener("click",e=>{
   const row=e.target.closest(".p"); if(!row) return;
   const p=byId(+row.dataset.id); if(!p) return;
+  if(planMode()){
+    const w=resultFor(active);
+    if(w.state.squad.some(x=>x.id===p.i)){ select(active,p.i); return; }
+    if(!selling){
+      const m=$("#pickMsg"); m.className="pickmsg go";
+      m.innerHTML=`First choose who <b>${esc(p.n)}</b> would replace: click a player in the plan or on the pitch, then <b>Transfer out</b>.`;
+      return;
+    }
+    if(row.getAttribute("aria-disabled")!=="true") buy(p);
+    return;
+  }
   if(squad.some(x=>x.i===p.i)) remove(p.i);
   else if(row.getAttribute("aria-disabled")!=="true") add(p);
 });
-// Clicking a shirt takes him out; shift-clicking makes him captain. Both are
-// spelled out in the tooltip, because nobody guesses a modifier key.
+// Builder: clicking a shirt takes him out; shift-clicking makes him captain.
+// Planner: clicking a shirt chooses him, and the bar at the bottom says what
+// can be done with him that week.
 function onSlot(e){
   const s=e.target.closest(".slot"); if(!s||!s.dataset.id) return;
   const id=+s.dataset.id;
+  if(planMode()){ select(active,id); return; }
   if(e.shiftKey){ if(captain===id) vice=id; else captain=id; if(vice===captain) vice=null; save(); render(); }
   else remove(id);
 }
 $("#pitch").addEventListener("click",onSlot);
 $("#bench").addEventListener("click",onSlot);
+$("#grid").addEventListener("click",e=>{
+  const c=e.target.closest("td.c");
+  if(c){ select(+c.dataset.gw,+c.dataset.id); return; }
+  const h=e.target.closest("th[data-gw]");
+  if(h){ active=+h.dataset.gw; sel=null; selling=false; render(); }
+});
+$("#selbar").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-act]"); if(!b) return;
+  ({sell:startSelling, cap:makeCaptain, bench:toggleBench, cancel:clearSel})[b.dataset.act]();
+});
+addEventListener("keydown",e=>{ if(e.key==="Escape" && sel!==null) clearSel(); });
+// Grid cells, headers and shirts work from the keyboard too. Drawing replaces
+// them, so focus is put back on the same one afterwards.
+function keyed(e){
+  if(e.key!=="Enter" && e.key!==" ") return;
+  const t=e.target.closest("td.c,th[data-gw],.slot[data-id]"); if(!t) return;
+  e.preventDefault();
+  const q = t.matches("td.c") ? `td.c[data-gw="${t.dataset.gw}"][data-id="${t.dataset.id}"]`
+          : t.matches("th") ? `th[data-gw="${t.dataset.gw}"]` : `.slot[data-id="${t.dataset.id}"]`;
+  const where = t.closest("#grid") ? "#grid" : t.closest("#pitch") ? "#pitch" : "#bench";
+  t.click();
+  const again=document.querySelector(`${where} ${q}`) || document.querySelector(q);
+  if(again) again.focus();
+}
+["#grid","#pitch","#bench"].forEach(s=>$(s).addEventListener("keydown",keyed));
+$("#editSquad").addEventListener("click",()=>{ editing=true; sel=null; selling=false; render();
+  $("#problems").insertAdjacentHTML("afterbegin","<li>Changing the squad you start from. Click a shirt to take a player out, pick from the list to put one in, then plan transfers again.</li>"); });
+$("#toPlan").addEventListener("click",()=>{ editing=false; render(); });
+$("#tlist").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-undo]"); if(!b) return;
+  week(active).transfers.splice(+b.dataset.undo,1); savePlan(); render();
+});
+$("#chip").addEventListener("change",e=>{
+  week(active).chip=e.target.value||null; savePlan(); render();
+});
+$("#resetWeek").addEventListener("click",()=>{
+  delete plan.weeks[active]; sel=null; selling=false; savePlan(); render();
+});
+$("#resetPlan").addEventListener("click",()=>{ resetPlan(); savePlan(); render(); });
+function stepFt(d){
+  plan.ft=Math.max(0,Math.min(DEFAULT_RULES.maxBankedFreeTransfers,baseFt()+d));
+  plan.ftSource="user"; savePlan(); render();
+}
+$("#ftDown").addEventListener("click",()=>stepFt(-1));
+$("#ftUp").addEventListener("click",()=>stepFt(1));
 ["#q","#sort"].forEach(s=>$(s).addEventListener("input",renderList));
 $("#gws").addEventListener("input",e=>{horizon=+e.target.value; render();});
 $("#autoXI").addEventListener("click",()=>{autoXI();save();render();});
 $("#clear").addEventListener("click",()=>{
-  squad=[];xi=[];captain=null;vice=null;realBank=null;save();render();msg("");});
+  squad=[];xi=[];captain=null;vice=null;realBank=null;
+  plan={ft:null, ftSource:"default", used:[], usedKnown:false, weeks:{}, stale:false};
+  editing=false; importSeq++;
+  resetPlan(); save(); savePlan(); render(); msg("");});
 
 /* ------------------------------ importing -------------------------------
  * The FPL API sends no CORS header, so this page cannot fetch a squad itself —
@@ -597,7 +1191,7 @@ $("#clear").addEventListener("click",()=>{
  * where the worker is down, so it stays in permanently.
  * ---------------------------------------------------------------------- */
 const PROXY="https://orange-smoke-1a15.nxhom-fitsum.workers.dev/?url=";
-const picksUrl=id=>`https://fantasy.premierleague.com/api/entry/${id}/event/${Math.max(1,NEXT_GW-1)}/picks/`;
+const picksUrl=(id,gw=NEXT_GW-1)=>`https://fantasy.premierleague.com/api/entry/${id}/event/${Math.max(1,gw)}/picks/`;
 
 function msg(text,kind){
   const m=$("#importMsg"); m.textContent=text||""; m.className="msg"+(kind?" "+kind:"");
@@ -656,7 +1250,7 @@ function loadPasted(){
     + "Ctrl\u2011A then Ctrl\u2011C to copy all of it, then paste it here.","err");
 }
 
-function applyPicks(j){
+function applyPicks(j,note){
   const picks=j&&j.picks;
   if(!Array.isArray(picks)||!picks.length)
     return msg("No squad in that data. Make sure you copied the whole page.","err");
@@ -669,12 +1263,42 @@ function applyPicks(j){
   vice=(found.find(x=>x.pk.is_vice_captain)||{}).pk?.element ?? null;
   if(!xi.length) autoXI();
   realBank = j.entry_history && typeof j.entry_history.bank==="number" ? j.entry_history.bank : null;
+  // A newly loaded team is a new starting point: yesterday's plan was built on
+  // a squad that may no longer exist.
+  plan={ft:null, ftSource:"default", used:[], usedKnown:false, weeks:{}, stale:false};
+  resetPlan(); staleNote=""; editing=false; importSeq++;
 
-  save(); render();
+  save(); savePlan(); render();
   $("#importSteps").hidden=true;
+  // A Free Hit squad lasts one week; the team that carries on is the one
+  // from before it. Loading by ID fetches that instead (note says so); a
+  // pasted Free Hit week can only be flagged.
+  const fh = j.active_chip==="freehit" && !note;
   msg(`Loaded ${squad.length} players from gameweek ${j.entry_history?.event ?? NEXT_GW-1}.`
+      + (note?` ${note}`:"")
       + (lost?` ${lost} could not be matched.`:"")
-      + " Prices shown are today's — FPL does not publish what you paid.","ok");
+      + (fh?" That was a Free Hit week, so this is not the squad that carries on: paste the "
+           + "gameweek before it instead.":"")
+      + " Prices shown are today's — FPL does not publish what you paid.", fh?"err":"ok");
+  return true;
+}
+
+// Free transfers and chips played are not in the picks, but the manager's
+// history has what they are worked out from. Best effort: without it the page
+// says so and the stepper is there.
+async function fetchHistory(id,seq){
+  const stop=new AbortController();
+  const timer=setTimeout(()=>stop.abort(),8000);
+  try{
+    const r=await fetch(PROXY+encodeURIComponent(`https://fantasy.premierleague.com/api/entry/${id}/history/`),{signal:stop.signal});
+    if(!r.ok) return;
+    const h=await r.json();
+    if(seq!==importSeq) return;           // another team has been loaded since
+    plan.ft=ftFromHistory(h,NEXT_GW); plan.ftSource="history";
+    plan.used=chipsFromHistory(h); plan.usedKnown=true;
+    savePlan(); render();
+  }catch(e){ /* an estimate we can do without */ }
+  finally{ clearTimeout(timer); }
 }
 
 $("#loadTeam").addEventListener("click",async()=>{
@@ -683,29 +1307,44 @@ $("#loadTeam").addEventListener("click",async()=>{
   try{ localStorage.setItem("fdb-team-id",id); }catch(e){}
   if(!PROXY) return showSteps(id);
   msg("Loading your team\u2026","");
-  try{
+  const seq=++importSeq;
+  const get=async url=>{
     // If the worker is down, a browser can sit on a dead connection for a long
     // time. Give up after eight seconds and offer the manual route instead of
     // leaving someone staring at "Loading".
     const stop=new AbortController();
     const timer=setTimeout(()=>stop.abort(),8000);
     let r;
-    try{ r=await fetch(PROXY+encodeURIComponent(picksUrl(id)),{signal:stop.signal}); }
+    try{ r=await fetch(PROXY+encodeURIComponent(url),{signal:stop.signal}); }
     catch(e){ throw new Error(stop.signal.aborted ? "it took too long to answer" : "the proxy could not be reached"); }
     finally{ clearTimeout(timer); }
-    const body=await r.json().catch(()=>null);
+    return {r, body:await r.json().catch(()=>null)};
+  };
+  try{
+    let {r, body}=await get(picksUrl(id));
+    if(seq!==importSeq) return;           // a newer load has started
     // A wrong team ID is the ordinary mistake, not a broken proxy — say so
     // plainly instead of dropping them into the copy-and-paste fallback.
     if(r.status===404)
       return msg((body&&body.error) || "No team found with that ID. Check the number in the address of your FPL \u201cPoints\u201d page.","err");
     if(!r.ok) throw new Error((body&&body.error) || ("the server said "+r.status));
-    applyPicks(body);
+    let note;
+    if(body && body.active_chip==="freehit" && NEXT_GW-2>=1){
+      const prev=await get(picksUrl(id,NEXT_GW-2));
+      if(seq!==importSeq) return;
+      if(prev.r.ok && prev.body && Array.isArray(prev.body.picks)){
+        body=prev.body;
+        note=`You played your Free Hit in gameweek ${NEXT_GW-1}, so this is the squad from before it \u2014 the one that carries on.`;
+      }
+    }
+    if(applyPicks(body,note)) fetchHistory(id,importSeq);
   }catch(e){
     showSteps(id,"Could not load your team automatically \u2014 "+e.message
       +". You can still do it by hand:");
   }
 });
 $("#teamId").addEventListener("keydown",e=>{ if(e.key==="Enter") $("#loadTeam").click(); });
+
 
 /* --------------------------------- boot --------------------------------- */
 Promise.all([
@@ -722,13 +1361,28 @@ Promise.all([
   // whichever is further ahead, the file or the deadline calendar.
   NEXT_GW=M.nextGw;
   PLAYERS=pl.players;
+  BYID=new Map(PLAYERS.map(p=>[p.i,p]));
+  const gws=(pl.minutes&&Array.isArray(pl.minutes.gws))?pl.minutes.gws:[];
+  gws.forEach((g,k)=>{XPI[g]=k;});
+  // Only gameweeks still to come, and only if the numbers were really built
+  // (a player file from before the points model has no "xp" at all).
+  PLAN_GWS=PLAYERS.some(p=>Array.isArray(p.xp)) ? gws.filter(g=>g>=NEXT_GW) : [];
+  if(!hasXP()){
+    $("#sort").value="fx";
+    $("#about").innerHTML="<b>Expected points are not available at the moment.</b> The squad builder "
+      + "still works, with fixtures coloured by the same model as the ticker. The planner comes back "
+      + "with the next data update.";
+  }
   $("#stamp").textContent=`${d.season} · next GW${NEXT_GW} · updated `
     + new Date(d.generated).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
   $("#rampbar").style.background="linear-gradient(90deg,"+[0,.25,.5,.75,1].map(v=>shade(v)).join(",")+")";
   load();
+  loadPlan();
+  active=PLAN_GWS[0]??null;
   try{ const savedId=localStorage.getItem("fdb-team-id"); if(savedId) $("#teamId").value=savedId; }catch(e){}
   if(squad.length && !xi.length) autoXI();
   render();
+  if(staleNote) msg(staleNote,"err");
 }).catch(err=>{
   $("#pitch").innerHTML=`<div class="empty">Could not load the data files.<br>
     If you opened this page from your own computer rather than the web address, the browser
