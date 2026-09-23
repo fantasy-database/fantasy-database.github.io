@@ -318,17 +318,22 @@
 
   /* ---- the action bar for a chosen player ---- */
   .selbar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:20;
-    width:min(640px,calc(100vw - 24px));background:var(--surface-2);border:1px solid var(--accent);
+    width:min(780px,calc(100vw - 24px));background:var(--surface-2);border:1px solid var(--accent);
     border-radius:12px;box-shadow:0 12px 40px -8px rgba(0,0,0,.8);padding:10px 12px;
     display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:13px}
   .selbar[hidden]{display:none}
-  .selbar .who{flex:1 1 200px;min-width:0}
+  .selbar .who{flex:1 1 180px;min-width:0}
   .selbar .who small{display:block;color:var(--muted);font-size:11.5px}
   .selbar button{font:inherit;font-size:12.5px;font-weight:700;padding:7px 12px;border-radius:7px;cursor:pointer;
     border:1px solid var(--border-strong);background:var(--surface);color:var(--ink)}
   .selbar button.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
   .selbar button:hover{filter:brightness(1.1)}
   .selbar button[disabled]{opacity:.45;cursor:default}
+  .selbar .xpv{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:6px;background:var(--accent);
+    color:var(--accent-ink);font-family:"Roboto Mono",monospace;font-weight:800;font-size:15px;line-height:1.35;vertical-align:1px}
+  .selbar .xpv small{display:inline;font-size:10px;font-weight:700;color:var(--accent-ink);margin-left:3px}
+  .selbar button.x{position:absolute;top:-11px;right:-9px;width:26px;height:26px;padding:0;border-radius:50%;
+    font-size:15px;line-height:1;background:var(--surface-2);border-color:var(--accent)}
   body.selpad{padding-bottom:110px}
 
   @media (max-width:860px){
@@ -1125,12 +1130,13 @@ function renderSelbar(){
   const isCap=w.captain===p.i && week(w.gw).captain===p.i;
   const isVice=w.vice===p.i && week(w.gw).vice===p.i;
   bar.innerHTML=`<div class="who"><b>${esc(p.n)}</b> · GW${w.gw}`
-    + `<small>${esc(oppText(p.t,w.gw))} · ${x===null?"–":f1(x)} xP · ${starting?"starting":"on the bench"}${sellNote(w,p)}${flagOf(p)?`<br><span class="news">${esc(flagOf(p).news)}</span>`:""}</small></div>`
+    + ` <span class="xpv">${x===null?"–":f1(x)}<small>xP</small></span>`
+    + `<small>${esc(oppText(p.t,w.gw))} · ${starting?"starting":"on the bench"}${sellNote(w,p)}${flagOf(p)?`<br><span class="news">${esc(flagOf(p).news)}</span>`:""}</small></div>`
     + `<button type="button" class="pri" data-act="sell">Transfer out</button>`
     + `<button type="button" data-act="cap"${isCap?" disabled":""}>${isCap?"Captain":"Make captain"}</button>`
     + `<button type="button" data-act="vice"${isVice?" disabled":""}>${isVice?"Vice-captain":"Make vice"}</button>`
     + `<button type="button" data-act="sub">Substitute</button>`
-    + `<button type="button" data-act="cancel" aria-label="Close">&times;</button>`;
+    + `<button type="button" class="x" data-act="cancel" aria-label="Close">&times;</button>`;
 }
 
 function renderList(){
