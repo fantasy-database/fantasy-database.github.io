@@ -163,7 +163,10 @@ export const BAND = {
 export function bandOf(side, v, mode) {
   const edges = BAND[side + "_" + mode];
   if (!edges) return null;
-  const shown = side === "def" ? Math.round(v) : Math.round(v * 100) / 100;
+  // Rounded away from zero at a half, so -0.745 and +0.745 land in mirror
+  // bands (Math.round alone takes -0.745 up to -0.74).
+  const r2 = x => Math.sign(x) * Math.round(Math.abs(x) * 100) / 100;
+  const shown = side === "def" ? Math.round(v) : side === "fix" ? r2(v) : Math.round(v * 100) / 100;
   let i = 0;
   if (side === "fix") {
     // Symmetric: -0.75 is as red as +0.75 is green, so an edge belongs to the

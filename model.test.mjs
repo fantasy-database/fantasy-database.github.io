@@ -204,6 +204,8 @@ test("the bands are symmetric about an even game", () => {
   const rows = [[-2, 0], [-0.75, 0], [-0.74, 1], [-0.25, 1], [-0.24, 2], [0, 2],
                 [0.24, 2], [0.25, 3], [0.74, 3], [0.75, 4], [2, 4], [-0.7451, 0], [0.7451, 4]];
   for (const [v, want] of rows) assert.equal(M.bandOf("fix", v, "proj"), want, String(v));
+  for (const v of [0.745, 0.245, 0.2449, 0.7451, 0.005])
+    assert.equal(M.bandOf("fix", v, "proj") + M.bandOf("fix", -v, "proj"), 4, "half-cent mirror " + v);
   for (let v = -1.5; v <= 1.5; v += 0.01)
     assert.equal(M.bandOf("fix", v, "proj") + M.bandOf("fix", -v, "proj"), 4, "mirror " + v.toFixed(2));
 });
@@ -392,7 +394,7 @@ console.log("\nOne copy of the maths, not three");
 for (const page of ["index.html", "planner.html", "compare.html"]) {
   test(`${page} imports model.js rather than repeating it`, () => {
     const html = read(page);
-    assert.match(html, /import\s*\{[^}]*\}\s*from\s*"\.\/model\.js"/,
+    assert.match(html, /import\s*\{[^}]*\}\s*from\s*"\.\/model\.js(\?v=\d{8})?"/,
       "no import of model.js");
     for (const copy of ["function strengths(", "function collect(",
                         "function rawVal(", "const nextGwFrom", "hex2rgb"]) {
@@ -402,6 +404,24 @@ for (const page of ["index.html", "planner.html", "compare.html"]) {
     assert.ok(!/const BAND\s*=/.test(html), `${page} has its own band table again`);
   });
 }
+
+// A browser can hold an old model.js for ten minutes after a deploy while
+// fetching the new page, and a page drawn by the wrong model half-renders
+// (26 Sep: the Fixtures key over the Attack table). Every page asks for the
+// model by one version string; bump it in all of them whenever model.js changes.
+test("every page asks for the same version of model.js", () => {
+  const vs = ["index.html", "planner.html", "compare.html"].map(p =>
+    (read(p).match(/from\s*"\.\/model\.js\?v=(\d{8})"/) || [])[1]);
+  assert.ok(vs.every(Boolean), "a page imports model.js with no version: " + vs);
+  assert.equal(new Set(vs).size, 1, "pages disagree about the model version: " + vs);
+});
+test("the planner asks for planner.js by the same version", () => {
+  const html = read("planner.html");
+  const m = html.match(/from\s*"\.\/planner\.js\?v=(\d{8})"/);
+  const mv = html.match(/from\s*"\.\/model\.js\?v=(\d{8})"/);
+  assert.ok(m, "planner.html imports planner.js with no version");
+  assert.equal(m[1], mv && mv[1], "planner.js and model.js versions differ");
+});
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);
