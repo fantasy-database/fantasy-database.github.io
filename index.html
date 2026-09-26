@@ -154,7 +154,8 @@
     font-size:12.5px;color:var(--muted);flex-wrap:wrap}
   .keybar b{color:var(--ink);font-weight:700}
   .kbramp{display:inline-block;width:78px;height:10px;border-radius:3px;flex:0 0 auto}
-  .kbbands{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10.5px;color:var(--muted);white-space:nowrap}
+  .kbbands{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10.5px;color:var(--muted)}
+  .kbbands span{white-space:nowrap}
   .tscroll{overflow-x:auto}
   table{border-collapse:separate;border-spacing:0;width:100%;min-width:930px}
   thead th{font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;font-weight:600;letter-spacing:.1em;
@@ -182,6 +183,10 @@
     font-family:"Roboto Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.01em;
     min-width:64px;line-height:1.15}
   .cell u{display:block;text-decoration:none;font-size:9px;font-weight:500;opacity:.78;margin-top:1px}
+  /* the Based on control steps aside in Fixtures; .seg sets its own display */
+  .seg[hidden],.seglabel[hidden]{display:none}
+  /* Fixtures: colour and opponent only, as tall as a cell with a number under it */
+  .cell.plain{padding:12px 2px}
   .score{font-family:"Roboto Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;
     text-align:right;font-size:15px;font-weight:600;white-space:nowrap;line-height:1.25}
   .score .sub{display:block;font-weight:400}
@@ -285,6 +290,7 @@
     .delta{display:none}
     .cell{min-width:56px;font-size:10.5px;padding:5px 2px}
     .cell u{font-size:8.5px}
+    .cell.plain{padding:10.5px 2px}
     thead th{font-size:8.5px;padding:7px 4px}
     thead th b{font-size:9.5px}
 
@@ -338,7 +344,7 @@
   <div class="views">
     <span class="seglabel">Show</span>
     <div class="seg" id="sideSeg">
-      <button data-side="all" aria-pressed="false">Overall</button>
+      <button data-side="fix" aria-pressed="false">Fixtures</button>
       <button data-side="atk" aria-pressed="true">Attack</button>
       <button data-side="def" aria-pressed="false">Defence</button>
     </div>
@@ -348,7 +354,7 @@
       <button data-sort="worst" aria-pressed="false">Hardest</button>
       <button data-sort="az" aria-pressed="false">A&ndash;Z</button>
     </div>
-    <span class="seglabel">Based on</span>
+    <span class="seglabel" id="modeLbl">Based on</span>
     <div class="seg" id="modeSeg">
       <button data-mode="ease" aria-pressed="false">Opponents</button>
       <button data-mode="proj" aria-pressed="true">Expected returns</button>
@@ -443,8 +449,7 @@ const fmtDate=iso=>{const[y,m,d]=iso.slice(0,10).split("-").map(Number);
 const shade=t=>shadeOn(t,RAMP);                      // RAMP is refreshed by render()
 const good=(side,v)=>goodness(side,v,MODE);
 /* One rotation cell. Where the number is banded the colour comes off the raw
-   value; the "all" view averages two metrics, has no raw, and stays on the
-   ramp. */
+   value; the opponent index is not banded and stays on the ramp. */
 const cellShade=x=>x.raw!=null ? shadeOn(colourT(SIDE,x.raw,MODE),RAMP) : shade(x.v);
 const fmt=(side,v,withUnit)=>formatVal(side,v,MODE,withUnit);
 const rate=(side,t,f)=>M.rate(side,+t,f,MODE);
@@ -478,7 +483,10 @@ function render(){
     : `GW${from} – GW${to} <small>${span} gameweeks · ${fmtDate(DEADLINES[from-1])} – ${fmtDate(DEADLINES[to-1])}</small>`;
   // Five flat blocks where the colours are banded, so the key shows what the
   // grid shows rather than a smooth scale the grid never draws.
-  const kbBands = SIDE!=="all" && bandLabels(SIDE,MODE);
+  // Fixtures is goals for minus goals against, which only exists as a
+  // projection, so "Based on" has nothing to switch there and steps aside.
+  $("#modeSeg").hidden = $("#modeLbl").hidden = SIDE==="fix";
+  const kbBands = bandLabels(SIDE,MODE);
   $("#kbramp").style.background = kbBands
     ? "linear-gradient(90deg,"+[0,.25,.5,.75,1]
         .map((v,i)=>`${shade(v).bg} ${i*20}% ${(i+1)*20}%`).join(",")+")"
@@ -490,23 +498,22 @@ function render(){
     atk_proj:"<b>How many goals should they score?</b> Their own attack, against those defences. Every number is <b>xG</b> &mdash; expected goals for that fixture.",
     def_ease:"<b>How bad are the attacks they play?</b> Each fixture scores <b>0&ndash;100</b> &mdash; 100 is the most harmless attack you can face, 50 is average. The column is the average of those. Opponents only, so a leaky side can sit top.",
     def_proj:"<b>How often should they keep a clean sheet?</b> Their own defence, against those attacks. Every number is <b>CS</b> &mdash; the chance of conceding nothing.",
-    all_ease:"<b>How bad is the opposition, at both ends?</b> The opponents only, attack and defence averaged.",
-    all_proj:"<b>What should they produce, at both ends?</b> Goals and clean sheets averaged."};
+    fix_proj:"<b>Who should win it?</b> Each fixture is coloured by <b>expected goal difference</b> &mdash; the goals they should score less the goals they should concede. Hover a fixture for the expected score."};
   $("#viewNote").innerHTML=NOTE[SIDE+"_"+MODE];
   const DIR={
     atk_ease:"<b>Higher is better</b> &mdash; a bigger number means softer defences to attack.",
     atk_proj:"<b>Higher is better</b> &mdash; a bigger number means more goals expected.",
     def_ease:"<b>Higher is better</b> &mdash; a bigger number means weaker attacks to keep out.",
     def_proj:"<b>Higher is better</b> &mdash; a bigger number means a better chance of a clean sheet.",
-    all_ease:"<b>Higher is better</b> &mdash; a bigger number means weaker opposition at both ends.",
-    all_proj:"<b>Higher is better</b> &mdash; a bigger number means more expected at both ends."};
+    fix_proj:"<b>Green means they should outscore the opponent</b>, red that they should be outscored, and grey is close to an even game."};
   // from/to, not gws: gws is built further down and this runs before it
   const pricedGws=[];
   if(MODE==="proj" && MARKET) for(let g=from; g<=to; g++) if(MARKET[g]) pricedGws.push(g);
   // The five bands spelled out. There is no hover on a phone, and the whole
   // point of banding is that a colour means a range you can name.
-  $("#kbtext").innerHTML = DIR[SIDE+"_"+MODE] + " Green is an easier fixture, red a harder one."
-    + (kbBands ? ` <span class="kbbands">${kbBands.join("&nbsp;&middot; ")}</span>` : "");
+  $("#kbtext").innerHTML = DIR[SIDE+"_"+MODE] + (SIDE==="fix" ? "" : " Green is an easier fixture, red a harder one.")
+    // Each band stays whole; the list wraps between them on a narrow screen.
+    + (kbBands ? ` <span class="kbbands">${kbBands.map(l=>`<span>${l}</span>`).join(" &middot; ")}</span>` : "");
 
   // Which weeks are the market's and which are ours. Only the priced weeks inside
   // the window are named, so the line always matches what is actually on screen.
@@ -534,6 +541,10 @@ function render(){
       def:fx.map(f=>good("def",rate("def",id,f))),
       atkRaw:fx.map(f=>rate("atk",id,f)),
       defRaw:fx.map(f=>rate("def",id,f))};
+    if(SIDE==="fix"){
+      data[id].fixRaw=fx.map(f=>rate("fix",id,f));
+      data[id].fix=data[id].fixRaw.map(v=>good("fix",v));
+    }
   }
   // team-level aggregate per side
   const agg=s=>{const o={}; for(const id in TEAMS){const v=data[id][s];
@@ -546,16 +557,17 @@ function render(){
 
   const rows=Object.keys(TEAMS).map(id=>{
     const d=data[id];
-    const cells = SIDE==="all" ? d.atk.map((v,i)=>(v+d.def[i])/2) : d[SIDE];
-    const raws  = SIDE==="all" ? null : (SIDE==="atk"?d.atkRaw:d.defRaw);
+    const cells = d[SIDE];
+    const raws  = d[SIDE+"Raw"];
     const clamp=v=>Math.max(0,Math.min(1,v));
-    const overall_or_mean=cs=>cs.length ? cs.reduce((a,b)=>a+clamp(b),0)/cs.length*100 : 0;
-    const overall = overall_or_mean(cells);
-    const score = SIDE==="all" ? overall : (SIDE==="atk"?aggA[id]:aggD[id]);
+    const mean0to100=cs=>cs.length ? cs.reduce((a,b)=>a+clamp(b),0)/cs.length*100 : 0;
+    // Fixtures sorts and totals on the average expected goal difference itself.
+    const fixAvg = SIDE==="fix" && raws.length ? raws.reduce((a,b)=>a+b,0)/raws.length : 0;
+    const score = SIDE==="fix" ? fixAvg : (SIDE==="atk"?aggA[id]:aggD[id]);
     // the cells are scored 0-100, so the row summary must be too — showing the
     // raw opponent index here put two different scales in the same view
-    const shownVal = (SIDE==="all" || MODE==="ease")
-      ? overall_or_mean(cells)
+    const shownVal = SIDE==="fix" ? fixAvg
+      : MODE==="ease" ? mean0to100(cells)
       : (SIDE==="atk" ? rawA[id] : rawD[id]);
     return {id:+id,name:TEAMS[id][0],fx:d.fx,cells,raws,score,shownVal,
       fdrScore:d.fx.reduce((a,f)=>a+(6-f.fdr),0), promoted:!!M.rec[id].promoted, games:d.fx.length};
@@ -567,7 +579,7 @@ function render(){
                   : SORT==="worst" ? (a.score-b.score||a.name.localeCompare(b.name))
                   : (b.score-a.score||a.name.localeCompare(b.name)));
 
-  const colName = SIDE==="all" ? "Overall / 100" : SIDE==="atk"
+  const colName = SIDE==="fix" ? "Goal diff / game" : SIDE==="atk"
     ? (MODE==="ease" ? "Defences faced / 100" : "Total xG")
     : (MODE==="ease" ? "Attacks faced / 100"  : "Clean sheet %");
   $("#thead").innerHTML=`<th class="lft">#</th><th class="lft">Team</th>`
@@ -578,23 +590,27 @@ function render(){
     const rank=i+1, moved=fdrRank.get(r.id)-rank;
     const chip=moved===0?"":`<span class="delta" title="FPL's own rating ranks them ${fdrRank.get(r.id)}th here">${moved>0?"▲":"▼"}${Math.abs(moved)}</span>`;
     const tds=r.fx.map((f,j)=>{
-      // Banded modes colour off the raw number; "all" averages two metrics and
-      // has no raw, so it stays on the ramp.
-      const sh=(MODE==="proj"&&r.raws) ? shadeOn(colourT(SIDE,r.raws[j],MODE),RAMP)
-                                       : shade(r.cells[j]);
+      // Banded modes colour off the raw number; the opponent index is not
+      // banded and stays on the ramp.
+      const sh=MODE==="proj" ? shadeOn(colourT(SIDE,r.raws[j],MODE),RAMP)
+                             : shade(r.cells[j]);
       const nm=TEAMS[f.opp][1].toUpperCase(), label=`${nm} (${f.home?"H":"A"})`;
       const pct=Math.round(Math.max(0,Math.min(1,r.cells[j]))*100);
-      const val=(MODE==="proj"&&r.raws)?fmt(SIDE,r.raws[j],true):pct;
-      const isPriced = SIDE!=="all" && priced(SIDE,r.id,f);
-      return `<td><span class="cell${isPriced?" priced":""}" style="background:${sh.bg};color:${sh.fg}"
-        title="GW${f.gw} · ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"} · score ${pct}/100${r.raws?" · "+colName+" "+fmt(SIDE,r.raws[j]):""}${isPriced?" · bookmakers' odds":""}">${label}<u>${val}</u></span></td>`;
+      const val=MODE==="proj"?fmt(SIDE,r.raws[j],true):pct;
+      const isPriced = priced(SIDE,r.id,f);
+      // Fixtures shows the colour alone; the expected score is on hover.
+      const tip = SIDE==="fix"
+        ? `expected score ${(+rate("atk",r.id,f)).toFixed(1)}\u2013${(-Math.log(rate("def",r.id,f)/100)).toFixed(1)} · ${fmt("fix",r.raws[j],true)}`
+        : `score ${pct}/100 · ${colName} ${fmt(SIDE,r.raws[j])}`;
+      return `<td><span class="cell${isPriced?" priced":""}${SIDE==="fix"?" plain":""}" style="background:${sh.bg};color:${sh.fg}"
+        title="GW${f.gw} · ${TEAMS[f.opp][0]} ${f.home?"(home)":"(away)"} · ${tip}${isPriced?" · bookmakers' odds":""}">${label}${SIDE==="fix"?"":`<u>${val}</u>`}</span></td>`;
     }).join("");
     // every column says whether the headline number is a total or an average
     const per = r.games ? r.shownVal / r.games : 0;
     const sub = (MODE==="proj"&&SIDE==="atk")
       ? `<span class="sub">avg ${per.toFixed(2)} xG</span>`
       : `<span class="sub">avg per game</span>`;
-    const shown = (SIDE==="all"||MODE==="ease") ? Math.round(r.shownVal) : fmt(SIDE,r.shownVal);
+    const shown = SIDE==="fix" ? fmt("fix",r.shownVal) : MODE==="ease" ? Math.round(r.shownVal) : fmt(SIDE,r.shownVal);
     return `<tr class="${(SORT!=="az"&&rank<=6)?"top6":""}">
       <td class="rank">${rank}</td>
       <td class="pad"><span class="mrank">${rank}</span><span class="team"><i style="background:${CLUB[TEAMS[r.id][1]]||"#888"}"></i>${r.name}</span>${r.promoted?'<span class="prov" title="Promoted — started from the relegated-three average"></span>':""}${chip}<span class="mscore">${shown}${(MODE==="proj"&&SIDE==="atk")?` total <em>avg ${(r.games?r.shownVal/r.games:0).toFixed(2)}</em>`:" avg"}</span></td>
@@ -606,8 +622,8 @@ function render(){
   const ids=Object.keys(TEAMS);
   const byGw={}, byGwRaw={};
   ids.forEach(id=>{byGw[id]={}; byGwRaw[id]={}; data[id].fx.forEach((f,j)=>{
-    byGw[id][f.gw] = SIDE==="all" ? (data[id].atk[j]+data[id].def[j])/2 : data[id][SIDE][j];
-    byGwRaw[id][f.gw] = SIDE==="all" ? null : data[id][SIDE+"Raw"][j];});});
+    byGw[id][f.gw] = data[id][SIDE][j];
+    byGwRaw[id][f.gw] = data[id][SIDE+"Raw"][j];});});
   // One value per gameweek in the window, null for a week the side does not
   // play. That is the shape rotate() in model.js takes; the comparison page
   // builds the same shape out of a player's fixtures, so two teams and two
@@ -820,7 +836,10 @@ document.querySelectorAll("#presets .chipbtn").forEach(b=>b.addEventListener("cl
   const from=NEXT_GW, to=Math.min(38, NEXT_GW+(+b.dataset.next)-1);
   gwAnchor=null;
   $("#gwFrom").value=from;$("#gwTo").value=to;render();}));
+let modeBeforeFix=null;
 $("#sideSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.side==="fix" && SIDE!=="fix"){ modeBeforeFix=MODE; MODE="proj"; }
+  else if(b.dataset.side!=="fix" && SIDE==="fix" && modeBeforeFix){ MODE=modeBeforeFix; }
   SIDE=b.dataset.side;[...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
 $("#sortSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   SORT=b.dataset.sort;

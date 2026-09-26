@@ -165,12 +165,54 @@ test(`${EX.ramp221.length} points along the scale match, including out of range`
 
 console.log("\nAnchors and formatting");
 test("the anchor table is unchanged", () => {
-  assert.deepEqual(M.ANCHOR, EX.anchor);
+  const { fix_proj, ...frozen } = M.ANCHOR;
+  assert.deepEqual(frozen, EX.anchor);
+  assert.deepEqual(fix_proj, [-1.5, 1.5]);
 });
 
 console.log("\nColour bands");
 test("the band table is Nahom's", () => {
-  assert.deepEqual(M.BAND, { atk_proj: [1, 1.3, 1.6, 2], def_proj: [15, 25, 35, 45] });
+  assert.deepEqual(M.BAND, { atk_proj: [1, 1.3, 1.6, 2], def_proj: [15, 25, 35, 45],
+                             fix_proj: [-0.75, -0.25, 0.25, 0.75] });
+});
+
+console.log("\nFixtures: expected goal difference");
+test("each fixture is expected goals for minus expected goals against", () => {
+  // GW-by-GW over the frozen inputs: fix = atk xG + ln(CS), both from the model.
+  const m = M.fromData({ ...IN, nextGw: 1, deadlines: Array(38).fill("2099-01-01") });
+  let n = 0;
+  for (const [id, list] of Object.entries(m.fixtures(1, 38))) for (const f of list) {
+    const xgf = m.rate("atk", +id, f), cs = m.rate("def", +id, f);
+    assert.ok(Math.abs(m.rate("fix", +id, f) - (xgf + Math.log(cs / 100))) < 1e-12);
+    n++;
+  }
+  assert.ok(n > 100, "checked " + n);
+});
+test("the two sides of a game are exact mirror images", () => {
+  const m = M.fromData({ ...IN, nextGw: 1, deadlines: Array(38).fill("2099-01-01") });
+  const all = m.fixtures(1, 38);
+  let n = 0;
+  for (const [id, list] of Object.entries(all)) for (const f of list) {
+    const back = all[f.opp].find(g => g.gw === f.gw && g.opp === +id);
+    if (!back) continue;
+    assert.ok(Math.abs(m.rate("fix", +id, f) + m.rate("fix", f.opp, back)) < 1e-12);
+    n++;
+  }
+  assert.ok(n > 100);
+});
+test("the bands are symmetric about an even game", () => {
+  const rows = [[-2, 0], [-0.75, 0], [-0.74, 1], [-0.25, 1], [-0.24, 2], [0, 2],
+                [0.24, 2], [0.25, 3], [0.74, 3], [0.75, 4], [2, 4], [-0.7451, 0], [0.7451, 4]];
+  for (const [v, want] of rows) assert.equal(M.bandOf("fix", v, "proj"), want, String(v));
+  for (let v = -1.5; v <= 1.5; v += 0.01)
+    assert.equal(M.bandOf("fix", v, "proj") + M.bandOf("fix", -v, "proj"), 4, "mirror " + v.toFixed(2));
+});
+test("fixture numbers read signed", () => {
+  assert.equal(M.formatVal("fix", 1.344, "proj"), "+1.34");
+  assert.equal(M.formatVal("fix", -0.5, "proj", true), "\u22120.50 goal difference");
+  assert.equal(M.formatVal("fix", 0.001, "proj"), "0.00");
+  assert.deepEqual(M.bandLabels("fix", "proj"), ["\u22120.75 or worse", "\u22120.75 to \u22120.25",
+    "\u22120.25 to +0.25", "+0.25 to +0.75", "+0.75 or better"]);
 });
 test("every edge belongs to the band above it", () => {
   const cases = [

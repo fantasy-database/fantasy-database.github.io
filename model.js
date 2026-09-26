@@ -60,6 +60,17 @@ export function collect(fixtures, teamIds, from, to) {
  *   proj — the actual quantity: expected goals for, or clean sheet percentage
  * ------------------------------------------------------------------------- */
 export function rawVal(side, teamId, fixture, S, home, mode, pen = 1, market = null) {
+  // "fix" is the fixture as a whole: expected goals for minus expected goals
+  // against. The goals against are the opponent's expected goals, read back out
+  // of the clean-sheet chance (CS = e^-xGA), so it is built from exactly the two
+  // numbers the Attack and Defence views show -- odds included -- and cannot
+  // disagree with them. It only exists as a projection: an opponent index has
+  // no goals in it to take away.
+  if (side === "fix") {
+    const f = rawVal("atk", teamId, fixture, S, home, "proj", pen, market);
+    const cs = rawVal("def", teamId, fixture, S, home, "proj", pen, market);
+    return f + Math.log(cs / 100);
+  }
   // Where the bookmakers have priced the round, their number wins: over one or
   // two gameweeks the market sees the team news and rotation the ratings cannot.
   // `market` is { gameweek: { teamId: expected goals } }; a clean sheet is the
@@ -91,6 +102,7 @@ export function rawVal(side, teamId, fixture, S, home, mode, pen = 1, market = n
 export const ANCHOR = {
   atk_ease: [0.70, 1.32], atk_proj: [0.85, 2.45],
   def_ease: [0.72, 1.42], def_proj: [8, 50],
+  fix_proj: [-1.5, 1.5],
 };
 
 /** 0 = hardest, 1 = easiest. */
@@ -135,6 +147,10 @@ export const goodClamped = (side, v, mode) => Math.max(0, Math.min(1, good(side,
 export const BAND = {
   atk_proj: [1.00, 1.30, 1.60, 2.00],
   def_proj: [15, 25, 35, 45],
+  // Expected goal difference, symmetric about an even game: grey is within a
+  // quarter of a goal either way, the deepest colours three quarters or more.
+  // Across 2026/27's remaining fixtures that splits 16/20/28/20/16 per cent.
+  fix_proj: [-0.75, -0.25, 0.25, 0.75],
 };
 
 /*
@@ -149,6 +165,12 @@ export function bandOf(side, v, mode) {
   if (!edges) return null;
   const shown = side === "def" ? Math.round(v) : Math.round(v * 100) / 100;
   let i = 0;
+  if (side === "fix") {
+    // Symmetric: -0.75 is as red as +0.75 is green, so an edge belongs to the
+    // band further from even on either side of zero.
+    while (i < edges.length && (edges[i] < 0 ? shown > edges[i] : shown >= edges[i])) i++;
+    return i;
+  }
   while (i < edges.length && shown >= edges[i]) i++;
   return i;
 }
@@ -167,6 +189,12 @@ export function colourT(side, v, mode) {
 export function bandLabels(side, mode) {
   const edges = BAND[side + "_" + mode];
   if (!edges) return null;
+  if (side === "fix") {
+    const n = v => (v > 0 ? "+" : v < 0 ? "\u2212" : "") + Math.abs(v).toFixed(2);
+    return [n(edges[0]) + " or worse", n(edges[0]) + " to " + n(edges[1]),
+            n(edges[1]) + " to " + n(edges[2]), n(edges[2]) + " to " + n(edges[3]),
+            n(edges[3]) + " or better"];
+  }
   const pct = side === "def";
   const step = pct ? 1 : 0.01;
   const n = v => pct ? String(Math.round(v)) : v.toFixed(2);
@@ -180,6 +208,10 @@ export function bandLabels(side, mode) {
 
 /** How a number should read: "1.84 xG", "42% CS", or a bare index. */
 export function formatVal(side, v, mode, withUnit) {
+  if (side === "fix") {
+    const n = (v > 0.004 ? "+" : v < -0.004 ? "\u2212" : "") + Math.abs(v).toFixed(2);
+    return withUnit ? `${n} goal difference` : n;
+  }
   const n = mode === "ease" ? v.toFixed(2)
           : side === "atk" ? v.toFixed(2)
           : Math.round(v) + "%";
