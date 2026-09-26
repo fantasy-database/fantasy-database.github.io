@@ -142,6 +142,7 @@
   .p .flag{margin-left:5px;vertical-align:1px}
   .selbar .news{color:var(--warn)}
   .slot .kit{display:block;width:34px;height:31px;margin:0 auto 2px}
+  .slot img.kit{width:52px;height:auto;aspect-ratio:110/145;margin:0 auto 3px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}
   .slot.empty .kit{opacity:.25}
 
   /* ---- import ---- */
@@ -368,6 +369,7 @@
     .grid .who{min-width:104px;max-width:118px}
     .slot{width:62px;padding:4px 2px}
     .slot .nm{font-size:10.5px}
+    .slot img.kit{width:40px}
     .fxc b{font-size:8.5px;letter-spacing:0}
     .fxc i{font-size:7.5px}
     .row{gap:4px}
@@ -570,6 +572,20 @@ function kit(short){
        + `<g clip-path="url(#shirtClip)">${inner}</g>`
        + `<path d="M14 4h6q4 5 8 0h6l12 8-6 8-4-3v25H12V17l-4 3-6-8Z" fill="none"`
        + ` stroke="rgba(0,0,0,.5)" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+}
+// FPL's own shirt images, named by the club's permanent code (data.json's
+// teams[].code); a keeper's shirt has "_1" on the end. 110px wide, and the
+// 220px one for sharp screens. If an image does not arrive -- or the code is not
+// in data.json yet -- the drawn shirt above stands in for it.
+const SHIRTS="https://fantasy.premierleague.com/dist/img/shirts/standard/";
+let CODES={};              // short name -> FPL team code
+function shirt(short,keeper){
+  const code=CODES[short];
+  if(!code) return kit(short);
+  const f=`shirt_${code}${keeper?"_1":""}`;
+  return `<img class="kit shirt" src="${SHIRTS}${f}-110.png" srcset="${SHIRTS}${f}-220.png 2x" alt="" `
+    + `width="110" height="145" loading="lazy" decoding="async" `
+    + `onerror="this.insertAdjacentHTML('afterend',this.dataset.fb);this.remove()" data-fb="${esc(kit(short))}">`;
 }
 const SAVE_KEY="fdb-squad-v1";
 const PLAN_KEY="fdb-plan-v1";
@@ -1050,7 +1066,7 @@ function slot(p,role,wk){
     const sc = sel===p.i ? " sel" : subbing ? (SUBOK.has(p.i) ? " subok" : " subno") : "";
     const f=flagOf(p);
     return `<div class="slot${sc}${f?" f"+f.lvl:""}" data-id="${p.i}" tabindex="0" title="${esc(p.n)}${f?" — "+esc(f.news):""} — ${subbing&&SUBOK.has(p.i)?"click to swap":"click to transfer, captain or substitute"}">
-      ${badge}${flagHtml(f)}${kit(t[1])}<div class="nm">${esc(p.n)}</div>
+      ${badge}${flagHtml(f)}${shirt(t[1],p.p===1)}<div class="nm">${esc(p.n)}</div>
       <div class="mt">${t[1]} · ${(p.c/10).toFixed(1)}</div>
       ${fxChips(p,wk.gw)}${f?`<div class="news">${shortNews(f)}</div>`:""}</div>`;
   }
@@ -1058,7 +1074,7 @@ function slot(p,role,wk){
               : vice===p.i    ? `<span class="cap v">V</span>` : "";
   const f=flagOf(p);
   return `<div class="slot${f?" f"+f.lvl:""}" data-id="${p.i}" title="${esc(p.n)}${f?" — "+esc(f.news):""} — click to remove, shift-click to captain">
-    ${badge}${flagHtml(f)}${kit(t[1])}<div class="nm">${esc(p.n)}</div>
+    ${badge}${flagHtml(f)}${shirt(t[1],p.p===1)}<div class="nm">${esc(p.n)}</div>
     <div class="mt">${t[1]} · ${(p.c/10).toFixed(1)}</div>
     ${fxChips(p,NEXT_GW)}${f?`<div class="news">${shortNews(f)}</div>`:""}</div>`;
 }
@@ -1704,6 +1720,7 @@ Promise.all([
   fetch("market.json?t="+Date.now()).then(r=>r.ok?r.json():null).catch(()=>null)
 ]).then(([d,pl,mk])=>{
   for(const id in d.teams) TEAMS[id]=[d.teams[id].name,d.teams[id].short];
+  for(const id in d.teams) if(Number.isFinite(d.teams[id].code)) CODES[d.teams[id].short]=d.teams[id].code;
   FX=d.fixtures;
   // The fitted constants, not sliders. The ticker is where you argue with the
   // model; here you just want to know whether the run is kind.

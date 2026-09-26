@@ -740,8 +740,10 @@ def load_fpl(previous):
         return {
             "live": True, "boot": boot, "rawFixtures": raw,
             "short2id": {t["short_name"]: t["id"] for t in boot["teams"]},
+            # "code" is FPL's permanent club number; its shirt images are named by it.
             "meta": {t["id"]: {"name": t["name"],
-                               "short": t["short_name"].lower()}
+                               "short": t["short_name"].lower(),
+                               "code": t["code"]}
                      for t in boot["teams"]},
             "deadlines": [e["deadline_time"][:10] for e in boot["events"]],
             "deadlineTimes": [e["deadline_time"] for e in boot["events"]],
@@ -756,7 +758,8 @@ def load_fpl(previous):
                 f"FPL unreachable and no previous data.json to fall back on — {e}")
         log(f"!! FPL unreachable ({e})")
         log("   falling back to the fixtures and deadlines already in data.json")
-        meta = {int(k): {"name": v["name"], "short": v["short"]}
+        meta = {int(k): {"name": v["name"], "short": v["short"],
+                         **({"code": v["code"]} if "code" in v else {})}
                 for k, v in previous["teams"].items()}
         return {
             "live": False, "boot": None, "rawFixtures": None,
