@@ -82,68 +82,61 @@
   .problems.done{color:var(--accent)}
   .problems.done li::before{content:"\2713"}
 
-  /* ---- pitch: grass, markings, and boards along the top ---- */
-  .stadium{border-radius:10px;overflow:hidden;border:1px solid var(--border-strong);background:#0b0010}
-  .boards{display:flex;gap:3px;padding:4px 4px 0;background:#0b0010}
-  .board{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:7px;
-    height:26px;border-radius:3px 3px 0 0;background:linear-gradient(180deg,#2a0630,#1E0021);
-    border:1px solid #3d0f44;border-bottom:0;color:var(--accent);white-space:nowrap;overflow:hidden;
-    font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
-  .board.alt{background:var(--accent);color:#1E0021;border-color:var(--accent)}
-  .board svg{height:14px;width:auto;flex:none}
-  .board span b{font-weight:800;color:#fff}
-  @media (min-width:861px) and (max-width:1120px){.board:nth-child(3){display:none}}
-  .board.alt span b{color:#1E0021;opacity:.7}
-  .grass{position:relative;padding:18px 8px 16px;
-    background:repeating-linear-gradient(180deg,#2e8b3e 0 46px,#287c37 46px 92px)}
-  .grass::after{content:"";position:absolute;inset:0;pointer-events:none;
-    background:radial-gradient(ellipse at 50% 40%,transparent 55%,rgba(0,0,0,.28))}
-  .lines{position:absolute;inset:8px 8px 0;pointer-events:none;overflow:hidden;
-    border:2px solid rgba(255,255,255,.55);border-bottom:0}
-  .lines i{position:absolute;display:block;border:2px solid rgba(255,255,255,.55)}
-  .lines .l-box{top:-2px;left:21%;width:58%;height:19%;border-top:0}
-  .lines .l-six{top:-2px;left:37%;width:26%;height:7%;border-top:0}
-  .lines .l-dee{top:calc(19% - 2px);left:41%;width:18%;height:5%;border-top:0;border-radius:0 0 50% 50% / 0 0 100% 100%}
-  .lines .l-spot{top:13%;left:calc(50% - 3px);width:6px;height:6px;border:0;border-radius:50%;background:rgba(255,255,255,.6)}
-  .lines .l-half{left:-2px;right:-2px;bottom:0;border-width:2px 0 0}
-  .lines .l-circle{left:36%;width:28%;aspect-ratio:1;bottom:0;transform:translateY(50%);border-radius:50%}
-  .pitch{position:relative;z-index:1;display:grid;gap:12px;min-height:330px;align-content:space-around}
-  .row{display:flex;justify-content:center;gap:6px;flex-wrap:wrap}
-  .slot{width:88px;background:rgba(30,0,33,.92);border:1px solid var(--border-strong);
-    border-radius:7px;padding:5px 4px 5px;text-align:center;cursor:pointer;position:relative;
-    box-shadow:0 3px 10px -4px rgba(0,0,0,.6)}
-  .slot:hover{border-color:var(--accent)}
-  .slot.empty{background:rgba(30,0,33,.55);border-style:dashed;color:var(--muted)}
-  .slot .nm{font-weight:700;font-size:11.5px;line-height:1.15;
+  /* ---- pitch: the classic FPL look -- bright striped grass seen from behind
+     the goal, shirts on see-through cards, a white name bar, then the fixtures ---- */
+  .stadium{border-radius:10px;overflow:hidden;background:#27c35f}
+  .grass{position:relative;padding:46px 8px 22px;
+    background:repeating-linear-gradient(180deg,#35d06c 0 48px,#2bc563 48px 96px)}
+  .lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:block}
+  .lines *{vector-effect:non-scaling-stroke}
+  .adboard{position:absolute;top:9px;z-index:1;display:flex;align-items:center;gap:6px;height:28px;padding:0 11px;
+    background:#fff;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.18);color:#1E0021;
+    font-weight:800;font-size:15px;letter-spacing:-.01em;white-space:nowrap}
+  .adboard svg{height:17px;width:auto;flex:none}
+  .adboard span{color:#00A854} .adboard b{color:#1E0021}
+  .adboard.l{left:12px} .adboard.r{right:12px}
+  .pitch{position:relative;z-index:1;display:grid;gap:16px;min-height:330px;align-content:space-around}
+  .row{display:flex;justify-content:center;gap:10px}
+  .slot{width:96px;position:relative;cursor:pointer;text-align:center;border-radius:6px;overflow:visible;
+    background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.08));
+    box-shadow:0 2px 8px -2px rgba(0,0,0,.28)}
+  .slot:hover{background:linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,.14))}
+  .slot .kit{display:block;width:40px;height:37px;margin:6px auto 4px}
+  .slot img.kit{width:56px;height:auto;aspect-ratio:110/145;margin:6px auto 4px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.28))}
+  .slot .nm{background:#fff;color:#37003C;font-weight:700;font-size:12.5px;line-height:1.2;padding:3px 4px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .slot .mt{font-family:"Roboto Mono",monospace;font-size:9px;color:var(--muted);
-    text-transform:uppercase;letter-spacing:.06em}
+  .slot .mt{background:#EBEBE4;color:#37003C;font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:600;
+    padding:3px 2px;text-transform:uppercase;letter-spacing:.06em;border-radius:0 0 6px 6px}
+  .slot.empty{background:rgba(255,255,255,.1);outline:2px dashed rgba(255,255,255,.55);outline-offset:-2px;box-shadow:none}
+  .slot.empty .kit{opacity:.35}
   /* the next three fixtures: opponent, home or away, coloured by difficulty */
   .fxs{display:flex;gap:2px;margin-top:4px}
+  .slot .fxs{margin:0;padding:3px;background:#EBEBE4;border-radius:0 0 6px 6px}
   .fxc{flex:1 1 0;min-width:0;border-radius:3px;padding:2px 0 2px;text-align:center;
     font-family:"Roboto Mono",monospace;line-height:1.1;overflow:hidden}
   .fxc b{display:block;font-size:9.5px;font-weight:700;letter-spacing:.02em}
   .fxc i{display:block;font-style:normal;font-size:8.5px;font-weight:600;opacity:.8}
   .fxc.none{background:rgba(255,255,255,.08);color:var(--muted)}
-  .benchwrap .row{background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:9px 6px}
-  .benchwrap .slot{background:var(--surface)}
-  .slot .cap{position:absolute;top:-6px;left:-6px;width:17px;height:17px;border-radius:50%;
-    background:var(--accent);color:var(--accent-ink);font-size:10px;font-weight:800;
-    line-height:17px;font-family:"Roboto Mono",monospace}
-  .slot .cap.v{background:var(--muted);color:var(--ground)}
+  .slot .fxc.none{background:#D6D6CE;color:#6B6B66}
+  .slot .fxc{box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+  .benchwrap .row{background:repeating-linear-gradient(180deg,#2bc563 0 48px,#25b95b 48px 96px);border-radius:10px;padding:14px 6px}
+  /* armbands, FPL style: a dark disc with a white letter */
+  .slot .cap{position:absolute;top:4px;left:4px;z-index:1;width:19px;height:19px;border-radius:50%;
+    background:#1E0021;color:#fff;font-size:10.5px;font-weight:800;
+    line-height:19px;font-family:Barlow,Arial,sans-serif;box-shadow:0 0 0 1.5px #fff}
+  .slot .cap.v{background:#1E0021;color:#fff}
   /* FPL's own availability: yellow 75%, orange 50%, red 25% or out */
   .flag{display:inline-block;min-width:22px;height:17px;padding:0 5px;border-radius:9px;text-align:center;
     font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:800;line-height:17px;color:#1E0021;white-space:nowrap}
   .flag.y{background:#FFC845} .flag.o{background:#FF9F1C} .flag.r{background:#FF1751;color:#fff}
-  .slot .flag{position:absolute;top:-8px;right:-7px;z-index:1}
-  .slot.fy{border-color:#FFC845} .slot.fo{border-color:#FF9F1C} .slot.fr{border-color:#FF1751}
-  .slot .news{font-size:9px;line-height:1.15;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .slot.fy .news{color:#FFC845} .slot.fo .news{color:#FF9F1C} .slot.fr .news{color:#FF6B8A}
+  /* on the pitch: FPL's warning triangle top right, and the name bar in the same colour */
+  .slot .warn{position:absolute;top:4px;right:4px;z-index:1;width:20px;height:18px;
+    clip-path:polygon(50% 0,100% 100%,0 100%);font-family:Barlow,Arial,sans-serif;font-size:11px;font-weight:800;
+    line-height:21px;color:#1E0021;text-align:center}
+  .slot .warn.y{background:#FFE65B} .slot .warn.o{background:#FFAB1B} .slot .warn.r{background:#D81920;color:#fff}
+  .slot.fy .nm{background:#FFE65B} .slot.fo .nm{background:#FFAB1B} .slot.fr .nm{background:#D81920;color:#fff}
   .p .flag{margin-left:5px;vertical-align:1px}
   .selbar .news{color:var(--warn)}
-  .slot .kit{display:block;width:34px;height:31px;margin:0 auto 2px}
-  .slot img.kit{width:52px;height:auto;aspect-ratio:110/145;margin:0 auto 3px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}
-  .slot.empty .kit{opacity:.25}
 
   /* ---- import ---- */
   .import{margin-top:18px;background:var(--surface);border:1px solid var(--border);
@@ -299,8 +292,8 @@
   .tlist li button{font:inherit;width:20px;height:20px;border-radius:50%;border:0;background:var(--surface);color:var(--muted);cursor:pointer;line-height:1}
   .tlist li button:hover{color:var(--bad)}
   .slot .xp{font-family:"Roboto Mono",monospace;font-weight:700;font-size:12.5px;color:var(--accent)}
-  .slot.sel{outline:2px solid var(--accent);outline-offset:1px}
-  .slot.subok{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 3px 10px -4px rgba(0,0,0,.6)}
+  .slot.sel{outline:3px solid #fff;outline-offset:1px}
+  .slot.subok{box-shadow:0 0 0 3px #1E0021,0 0 0 5px var(--accent)}
   .slot.subok::after{content:"\21C5";position:absolute;bottom:-9px;left:calc(50% - 9px);width:18px;height:18px;border-radius:50%;
     background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:800;line-height:18px}
   .slot.subno{opacity:.38;cursor:default}
@@ -362,19 +355,26 @@
     font-size:15px;line-height:1;background:var(--surface-2);border-color:var(--accent)}
   body.selpad{padding-bottom:110px}
 
+  @media (min-width:861px) and (max-width:1120px){
+    .slot{width:78px} .row{gap:5px} .slot .nm{font-size:11.5px} .slot img.kit{width:48px}
+    .adboard{font-size:12.5px;height:25px;padding:0 8px}
+  }
   @media (max-width:860px){
     .cols{grid-template-columns:1fr}
     .wrap{padding:16px 0 44px}
     .mast,.cols,.note,.key,.banner,.plan,.import{margin-left:12px;margin-right:12px}
     .grid .who{min-width:104px;max-width:118px}
-    .slot{width:62px;padding:4px 2px}
-    .slot .nm{font-size:10.5px}
-    .slot img.kit{width:40px}
+    .slot{width:64px}
+    .slot .nm{font-size:10.5px;padding:2px 2px}
+    .slot img.kit{width:40px;margin:5px auto 3px}
+    .slot .fxs{padding:2px;gap:1px}
     .fxc b{font-size:8.5px;letter-spacing:0}
     .fxc i{font-size:7.5px}
     .row{gap:4px}
-    .grass{padding:16px 3px 14px}
-    .board:nth-child(3){display:none}
+    .grass{padding:42px 3px 16px}
+    .adboard{height:24px;font-size:12px;padding:0 8px;top:8px}
+    .adboard svg{height:14px}
+    .adboard.l{left:8px} .adboard.r{right:8px}
 
     .nav{margin-left:0;width:100%}
   }
@@ -463,9 +463,25 @@
         <p class="pitchhint" id="pitchHint" hidden>Click any player to <b>transfer</b> him, make him <b>captain</b> or <b>vice</b>, or <b>substitute</b> him.</p>
 
         <div class="stadium">
-          <div class="boards" aria-hidden="true"><div class="board"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="currentColor" stroke-width="5"/><g fill="currentColor"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="currentColor"/></svg><span>Fantasy <b>DataBase</b></span></div><div class="board alt"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="currentColor" stroke-width="5"/><g fill="currentColor"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="currentColor"/></svg><span>Fantasy <b>DataBase</b></span></div><div class="board"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="currentColor" stroke-width="5"/><g fill="currentColor"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="currentColor"/></svg><span>Fantasy <b>DataBase</b></span></div></div>
           <div class="grass">
-            <div class="lines" aria-hidden="true"><i class="l-box"></i><i class="l-six"></i><i class="l-dee"></i><i class="l-spot"></i><i class="l-half"></i><i class="l-circle"></i></div>
+            <!-- Seen from behind the goal: the touchlines lean out towards the bottom. Drawn
+                 stretched to the pitch, with strokes that stay 2px whatever its shape. -->
+            <svg class="lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+              <g fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="2">
+                <path d="M5 7H95L104 101M5 7-4 101"/>
+                <path d="M26.5 7 25.6 24H74.4L73.5 7"/>
+                <path d="M38.5 7 38.2 12.5H61.8L61.5 7"/>
+                <path d="M41.5 24Q50 30.5 58.5 24"/>
+                <path d="M-6 90H106"/>
+                <ellipse cx="50" cy="90" rx="13" ry="9"/>
+              </g>
+              <g fill="#fff"><ellipse cx="50" cy="18.6" rx=".5" ry=".4"/><ellipse cx="50" cy="90" rx=".6" ry=".5"/></g>
+              <g stroke="#fff" stroke-width="1" fill="none" stroke-opacity=".55">
+                <path d="M44 1V7M46.4 1V7M48.8 1V7M51.2 1V7M53.6 1V7M56 1V7M42 3H58M42 5H58"/></g>
+              <path d="M42 7V1H58V7" fill="none" stroke="#fff" stroke-width="2.5"/>
+            </svg>
+            <div class="adboard l" aria-hidden="true"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="#1E0021" stroke-width="5"/><g fill="#00C26A"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="#1E0021"/></svg><span>Fantasy <b>DataBase</b></span></div>
+            <div class="adboard r" aria-hidden="true"><svg viewBox="0 0 68 54" fill="none" aria-hidden="true"><rect x="8" y="3" width="52" height="35" rx="4.5" stroke="#1E0021" stroke-width="5"/><g fill="#00C26A"><rect x="17" y="26" width="5.5" height="7" rx="1.2"/><rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/><rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/><rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/></g><path d="M8 42h52l4 4.5H4L8 42Z" fill="#1E0021"/></svg><span>Fantasy <b>DataBase</b></span></div>
             <div class="pitch" id="pitch"></div>
           </div>
         </div>
@@ -1034,8 +1050,6 @@ function flagOf(p){
   return {txt:OUTLABEL[p.st]||"OUT", lvl:"r", news:p.news||OUTWORD[p.st]||"Unavailable"};
 }
 const flagHtml=f=>f?`<span class="flag ${f.lvl}" title="${esc(f.news)}">${f.txt}</span>`:"";
-// "Knock - 75% chance of playing" -> "Knock": the percentage is already on the flag.
-const shortNews=f=>esc(f.news.replace(/\s*-\s*\d+% chance of playing\s*$/i,"").replace(/\s*-\s*Expected back/i," · back"));
 
 /**
  * The next three gameweeks from `from`: opponent, H or A, coloured by how
@@ -1058,25 +1072,24 @@ function fxChips(p,from){
 }
 const fxFrom=()=>planMode()&&active ? active : NEXT_GW;
 
+// One card, the way FPL draws it: the shirt, a white name bar (coloured when
+// FPL has him as a doubt, with its warning triangle), then his next three
+// fixtures in the grey bar underneath.
+const warnHtml=f=>f?`<span class="warn ${f.lvl}" title="${esc(f.news)}">!</span>`:"";
 function slot(p,role,wk){
   if(!p) return `<div class="slot empty">${kit("")}<div class="nm">Empty</div><div class="mt">${role}</div></div>`;
   const t=TEAMS[p.t]||["?","?"];
+  const f=flagOf(p);
   if(wk){
     const badge = badgeFor(wk,p.i,"cap");
     const sc = sel===p.i ? " sel" : subbing ? (SUBOK.has(p.i) ? " subok" : " subno") : "";
-    const f=flagOf(p);
-    return `<div class="slot${sc}${f?" f"+f.lvl:""}" data-id="${p.i}" tabindex="0" title="${esc(p.n)}${f?" — "+esc(f.news):""} — ${subbing&&SUBOK.has(p.i)?"click to swap":"click to transfer, captain or substitute"}">
-      ${badge}${flagHtml(f)}${shirt(t[1],p.p===1)}<div class="nm">${esc(p.n)}</div>
-      <div class="mt">${t[1]} · ${(p.c/10).toFixed(1)}</div>
-      ${fxChips(p,wk.gw)}${f?`<div class="news">${shortNews(f)}</div>`:""}</div>`;
+    return `<div class="slot${sc}${f?" f"+f.lvl:""}" data-id="${p.i}" tabindex="0" title="${esc(p.n)} — ${t[0]} · £${(p.c/10).toFixed(1)}m${f?" — "+esc(f.news):""} — ${subbing&&SUBOK.has(p.i)?"click to swap":"click to transfer, captain or substitute"}">
+      ${badge}${warnHtml(f)}${shirt(t[1],p.p===1)}<div class="nm">${esc(p.n)}</div>${fxChips(p,wk.gw)}</div>`;
   }
   const badge = captain===p.i ? `<span class="cap">C</span>`
               : vice===p.i    ? `<span class="cap v">V</span>` : "";
-  const f=flagOf(p);
-  return `<div class="slot${f?" f"+f.lvl:""}" data-id="${p.i}" title="${esc(p.n)}${f?" — "+esc(f.news):""} — click to remove, shift-click to captain">
-    ${badge}${flagHtml(f)}${shirt(t[1],p.p===1)}<div class="nm">${esc(p.n)}</div>
-    <div class="mt">${t[1]} · ${(p.c/10).toFixed(1)}</div>
-    ${fxChips(p,NEXT_GW)}${f?`<div class="news">${shortNews(f)}</div>`:""}</div>`;
+  return `<div class="slot${f?" f"+f.lvl:""}" data-id="${p.i}" title="${esc(p.n)} — ${t[0]} · £${(p.c/10).toFixed(1)}m${f?" — "+esc(f.news):""} — click to remove, shift-click to captain">
+    ${badge}${warnHtml(f)}${shirt(t[1],p.p===1)}<div class="nm">${esc(p.n)}</div>${fxChips(p,NEXT_GW)}</div>`;
 }
 
 function stat(id,value,label,cls,title){
