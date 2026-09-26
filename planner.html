@@ -316,6 +316,31 @@
   .p .num{min-width:34px;text-align:right}
   .p .num.xp{color:var(--accent);font-weight:700}
 
+  /* ---- drafts: your team plus up to five saved what-ifs ---- */
+  .drafts{margin:0 0 12px;min-width:0}
+  .dtabs{display:flex;gap:6px;overflow-x:auto;min-width:0;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+  .dtab{flex:0 0 auto;max-width:190px;min-width:0;text-align:left;font:inherit;font-size:12.5px;font-weight:700;
+    padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--ink);cursor:pointer}
+  .dtab:hover{border-color:var(--accent)}
+  .dtab .dn{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dtab small{display:block;font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:500;color:var(--muted);white-space:nowrap}
+  .dtab[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .dtab[aria-pressed="true"] small{color:var(--accent-ink);opacity:.75}
+  .dcount{flex:0 0 auto;align-self:center;font-family:"Roboto Mono",monospace;font-size:9.5px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);padding:0 4px}
+  .dsave{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;padding:8px 10px;font-size:12.5px;
+    color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:8px}
+  .dsave.go{color:var(--ink);background:rgba(0,255,135,.08);border-color:rgba(0,255,135,.35)}
+  .dsave input{font:inherit;font-size:12.5px;flex:1 1 150px;min-width:0;max-width:260px;background:var(--surface);
+    border:1px solid var(--border-strong);color:var(--ink);border-radius:7px;padding:5px 9px}
+  .dsave input:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .dsave button{font:inherit;font-size:12.5px;font-weight:700;padding:6px 12px;border-radius:7px;cursor:pointer;
+    border:1px solid var(--border-strong);background:var(--surface);color:var(--ink)}
+  .dsave button.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .dsave button.warn{border-color:var(--bad);color:var(--bad)}
+  .dsave button:hover{filter:brightness(1.1)}
+  .dsave b{color:var(--ink)}
+
   /* ---- the action bar for a chosen player ---- */
   .selbar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:20;
     width:min(780px,calc(100vw - 24px));background:var(--surface-2);border:1px solid var(--accent);
@@ -417,6 +442,7 @@
           <button type="button" id="gwNext" class="pri" aria-label="Next gameweek">Next gameweek <span></span> &rsaquo;</button>
         </span></h2>
       <div class="body">
+        <div class="drafts" id="drafts" hidden></div>
         <div class="status">
           <div class="stat" id="sPicked"><b>0/15</b><span>Picked</span></div>
           <div class="stat" id="sValue"><b>£0.0m</b><span>Squad value</span></div>
@@ -654,6 +680,7 @@ function load(){
 }
 function savePlan(){
   try{ localStorage.setItem(PLAN_KEY,JSON.stringify({...plan, forGw:NEXT_GW})); }catch(e){}
+  saveDrafts();
 }
 function loadPlan(){
   try{
@@ -689,8 +716,107 @@ function cleanWeek(w){
     vice:Number.isFinite(w.vice)?w.vice:null
   };
 }
-function week(gw){ return plan.weeks[gw] || (plan.weeks[gw]=cleanWeek({})); }
-function resetPlan(){ plan.weeks={}; sel=null; selling=false; active=PLAN_GWS[0]??null; }
+/* ---------------------------------------------------------------------------
+ * Drafts. "Your team" is the squad as loaded, plus any changes not yet saved
+ * (plan.weeks, as before). Make a transfer there and the page offers to save
+ * it as a named draft; up to five are kept. While a draft is showing, every
+ * change goes straight into it. Drafts share the squad they started from, its
+ * bank and its free transfers, and are cleared when a deadline passes or
+ * that squad changes -- a plan for a team you no longer own means nothing.
+ * ------------------------------------------------------------------------- */
+const DRAFT_KEY="fdb-drafts-v1", MAX_DRAFTS=5;
+let drafts=[];           // [{id, name, weeks}]
+let cur=null;            // id of the draft showing, or null for your team
+let draftSeq=0, draftBase=null, draftNote="";
+let dui={mode:null, name:"", touched:false, del:false};   // the save row's own state
+const draftById=id=>drafts.find(d=>d.id===id)||null;
+const curWeeks=()=>{ const d=cur!==null?draftById(cur):null; return d ? d.weeks : plan.weeks; };
+// What a draft is built on: the squad you start from and its bank. If either
+// changes, the drafts no longer describe a team you have.
+const squadSig=()=>squad.map(p=>p.i).sort((a,b)=>a-b).join(",")+"|"+(realBank??"");
+const hasChanges=ws=>Object.values(ws).some(w=>w.transfers.length||w.chip);
+
+function saveDrafts(){
+  try{ localStorage.setItem(DRAFT_KEY,JSON.stringify({forGw:NEXT_GW, base:draftBase, cur, seq:draftSeq, list:drafts})); }
+  catch(e){}
+}
+function loadDrafts(){
+  try{
+    const d=JSON.parse(localStorage.getItem(DRAFT_KEY)||"null");
+    if(!d||typeof d!=="object"||!Array.isArray(d.list)) return;
+    draftSeq=Number.isFinite(d.seq)?d.seq:0;
+    if(d.forGw!==NEXT_GW){
+      // A deadline has gone by: wipe the slots clean.
+      if(d.list.length) draftNote=`Your drafts were cleared when the GW${d.forGw} deadline passed.`;
+      saveDrafts(); return;
+    }
+    if(d.base!==squadSig()){
+      if(d.list.length) draftNote="Your drafts were cleared because the squad they started from has changed.";
+      saveDrafts(); return;
+    }
+    draftBase=d.base;
+    drafts=d.list.filter(x=>x&&Number.isFinite(x.id)).slice(0,MAX_DRAFTS).map(x=>{
+      const weeks={};
+      for(const g in (x.weeks||{})) if(+g>=NEXT_GW) weeks[g]=cleanWeek(x.weeks[g]);
+      return {id:x.id, name:String(x.name||"Draft").slice(0,40), weeks};
+    });
+    cur=draftById(d.cur)?d.cur:null;
+  }catch(e){ drafts=[]; cur=null; }
+}
+function wipeDrafts(note){
+  if(drafts.length&&note) draftNote=note;
+  drafts=[]; cur=null; draftBase=null; dui={mode:null,name:"",touched:false,del:false};
+}
+// "Gakpo → Gross", or "Gakpo → Gross, Saka → Palmer +1" for more.
+function suggestName(ws){
+  const moves=[], chips=[];
+  for(const g of Object.keys(ws).sort((a,b)=>a-b)){
+    for(const t of ws[g].transfers){ const o=byId(t.out), n=byId(t.in); moves.push(`${o?o.n:t.out} → ${n?n.n:t.in}`); }
+    if(ws[g].chip) chips.push({c:ws[g].chip, g});
+  }
+  let s=moves.slice(0,2).join(", ")+(moves.length>2?` +${moves.length-2}`:"");
+  if(chips.length) s = s ? `${s} (${chips.map(x=>chipShort(x.c)+" GW"+x.g).join(", ")})`
+                         : chips.map(x=>CHIPNAME[x.c]+" GW"+x.g).join(", ");
+  return (s||"Draft").slice(0,40);
+}
+function switchTo(id){
+  cur=id; sel=null; selling=false; subbing=false;
+  dui={mode:null,name:"",touched:false,del:false};
+  saveDrafts(); render();
+}
+function saveDraft(replaceId){
+  const name=(dui.touched&&dui.name.trim()) || suggestName(plan.weeks);
+  const weeks=JSON.parse(JSON.stringify(plan.weeks));
+  let d=replaceId!=null ? draftById(replaceId) : null;
+  if(d){ d.name=name; d.weeks=weeks; }
+  else if(drafts.length>=MAX_DRAFTS){ dui.mode="replace"; render(); return; }
+  else{ d={id:++draftSeq, name, weeks}; drafts.push(d); }
+  draftBase=squadSig(); draftNote="";
+  plan.weeks={};                    // your team goes back to what you own
+  savePlan(); switchTo(d.id);
+}
+function deleteDraft(id){
+  drafts=drafts.filter(d=>d.id!==id);
+  if(!drafts.length) draftBase=null;
+  switchTo(null);
+}
+// One summary line per tab, for the end of the plan: how many transfers, the
+// hits they cost, and what is left in the bank.
+function draftSummary(rs){
+  if(!rs.length) return "";
+  const made=rs.reduce((t,w)=>t+w.made,0), cost=rs.reduce((t,w)=>t+w.cost,0), last=rs[rs.length-1];
+  const chips=rs.filter(w=>w.chip).map(w=>chipShort(w.chip));
+  if(!made&&!chips.length) return "No changes";
+  return [made?`${made} transfer${made===1?"":"s"}`:"", chips.join(" "), cost?`−${cost}`:"", `${money(last.bank)} left`]
+    .filter(Boolean).join(" · ");
+}
+
+function week(gw){ const W=curWeeks(); return W[gw] || (W[gw]=cleanWeek({})); }
+function resetPlan(){
+  const d=cur!==null?draftById(cur):null;
+  if(d) d.weeks={}; else plan.weeks={};
+  sel=null; selling=false; active=PLAN_GWS[0]??null;
+}
 
 /* ------------------------------- building -------------------------------- */
 // Before there are fifteen players this is a squad builder, as it always was.
@@ -948,14 +1074,21 @@ function render(){
   if(!M) return;
   if(planMode()){
     if(!PLAN_GWS.includes(active)) active=PLAN_GWS[0];
-    R=runPlan(plan.weeks);
+    // The squad drafts were built on has been changed by hand: they no longer apply.
+    if(drafts.length && draftBase!==squadSig()){
+      wipeDrafts("Your drafts were cleared because the squad they started from has changed.");
+      saveDrafts();
+    }
+    R=runPlan(curWeeks());
     const w=resultFor(active);
     if(sel!==null && !(w&&w.state.squad.some(p=>p.id===sel))){ sel=null; selling=false; subbing=false; }
     SUBOK = subbing&&sel!==null ? subPartners(w,sel) : new Set();
     renderPlan();
     renderWeek(w);
+    renderDrafts();
   }else{
     R=[]; sel=null; selling=false; subbing=false; SUBOK=new Set();
+    $("#drafts").hidden=true;
     renderBuilder();
   }
   renderSelbar();
@@ -1028,8 +1161,52 @@ function renderPlan(){
   $("#ftSrc").textContent = plan.ftSource==="history" ? "from your FPL history"
     : plan.ftSource==="user" ? "set by you" : "check the FPL app and set it here";
   $("#editSquad").hidden=false;
-  $("#resetPlan").hidden=!Object.keys(plan.weeks).length;
+  $("#resetPlan").hidden=!Object.keys(curWeeks()).length;
 }
+
+/* The tabs -- your team, then each draft -- and under them one row that
+ * changes with what is showing: save these changes, pick a slot to replace,
+ * or rename / delete the draft you are in. */
+function renderDrafts(){
+  const box=$("#drafts");
+  box.hidden=false;
+  const tab=(id,name,sub)=>`<button type="button" class="dtab" data-draft="${id===null?"":id}" aria-pressed="${cur===id}"`
+    + ` title="${esc(name)}"><span class="dn">${esc(name)}</span><small>${esc(sub)}</small></button>`;
+  const baseChanged=hasChanges(plan.weeks);
+  const baseSub = cur===null ? (baseChanged?"Unsaved: "+draftSummary(R):"As you own it")
+                             : (baseChanged?"Unsaved changes":"As you own it");
+  const tabs=[tab(null,"Your team",baseSub)]
+    .concat(drafts.map(d=>tab(d.id,d.name,draftSummary(d.id===cur?R:runPlan(d.weeks)))));
+  const count = `<span class="dcount">Drafts ${drafts.length}/${MAX_DRAFTS}</span>`;
+
+  let row="";
+  if(cur===null && baseChanged){
+    if(!dui.touched) dui.name=suggestName(plan.weeks);
+    if(dui.mode==="replace"){
+      row=`<div class="dsave go"><span>All ${MAX_DRAFTS} drafts are in use. <b>Replace which one?</b></span>`
+        + drafts.map(d=>`<button type="button" data-dact="replace" data-id="${d.id}">${esc(d.name)}</button>`).join("")
+        + `<button type="button" data-dact="cancel">Cancel</button></div>`;
+    }else{
+      row=`<div class="dsave go"><span>Save these changes as a draft</span>`
+        + `<input type="text" id="draftName" maxlength="40" value="${esc(dui.name)}" aria-label="Draft name">`
+        + `<button type="button" class="pri" data-dact="save">Save draft</button>`
+        + `<button type="button" data-dact="discard">Discard</button></div>`;
+    }
+  }else if(cur!==null){
+    const d=draftById(cur);
+    row=`<div class="dsave"><input type="text" id="draftName" maxlength="40" value="${esc(d.name)}" aria-label="Draft name">`
+      + `<span>Changes here update this draft.</span>`
+      + (dui.del ? `<button type="button" class="warn" data-dact="delyes">Yes, delete it</button><button type="button" data-dact="delno">Keep</button>`
+                 : `<button type="button" data-dact="del">Delete draft</button>`)
+      + `</div>`;
+  }else if(draftNote){
+    row=`<div class="dsave">${esc(draftNote)}</div>`;
+  }
+  const html=`<div class="dtabs" role="group" aria-label="Your team and drafts">${tabs.join("")}${count}</div>${row}`;
+  // Leave it alone while someone is typing a name into it, if nothing else moved.
+  if(html!==lastDraftHtml){ box.innerHTML=html; lastDraftHtml=html; }
+}
+let lastDraftHtml="";
 function goTo(gw){ if(gw===undefined) return; active=gw; sel=null; selling=false; subbing=false; render(); }
 
 // The armband as it will actually be worn: if the captain has no game, the
@@ -1272,9 +1449,41 @@ $("#chip").addEventListener("change",e=>{
   week(active).chip=e.target.value||null; savePlan(); render();
 });
 $("#resetWeek").addEventListener("click",()=>{
-  delete plan.weeks[active]; sel=null; selling=false; savePlan(); render();
+  delete curWeeks()[active]; sel=null; selling=false; savePlan(); render();
 });
 $("#resetPlan").addEventListener("click",()=>{ resetPlan(); savePlan(); render(); });
+$("#drafts").addEventListener("click",e=>{
+  const t=e.target.closest("[data-draft]");
+  if(t){ switchTo(t.dataset.draft==="" ? null : +t.dataset.draft); return; }
+  const b=e.target.closest("button[data-dact]"); if(!b) return;
+  const a=b.dataset.dact;
+  if(a==="save") saveDraft();
+  else if(a==="replace") saveDraft(+b.dataset.id);
+  else if(a==="cancel"){ dui.mode=null; render(); }
+  else if(a==="discard"){ plan.weeks={}; dui={mode:null,name:"",touched:false,del:false}; sel=null; selling=false; savePlan(); render(); }
+  else if(a==="del"){ dui.del=true; render(); }
+  else if(a==="delno"){ dui.del=false; render(); }
+  else if(a==="delyes") deleteDraft(cur);
+});
+$("#drafts").addEventListener("input",e=>{
+  if(e.target.id!=="draftName") return;
+  const v=e.target.value;
+  if(cur===null){ dui.name=v; dui.touched=true; e.target.setAttribute("value",v); return; }
+  // Renaming the draft that is showing: the tab follows as you type.
+  const d=draftById(cur); if(!d) return;
+  d.name=v.slice(0,40); saveDrafts();
+  const tab=$(`#drafts .dtab[data-draft="${cur}"]`);
+  if(tab){ tab.querySelector(".dn").textContent=d.name||"Draft"; tab.title=d.name; }
+});
+$("#drafts").addEventListener("change",e=>{
+  // An empty name is put back to the suggested one when the box is left.
+  if(e.target.id!=="draftName"||cur===null) return;
+  const d=draftById(cur); if(d&&!d.name.trim()){ d.name=suggestName(d.weeks); saveDrafts(); }
+  lastDraftHtml=""; render();
+});
+$("#drafts").addEventListener("keydown",e=>{
+  if(e.key==="Enter" && e.target.id==="draftName"){ e.preventDefault(); if(cur===null) saveDraft(); else e.target.blur(); }
+});
 function stepFt(d){
   plan.ft=Math.max(0,Math.min(DEFAULT_RULES.maxBankedFreeTransfers,baseFt()+d));
   plan.ftSource="user"; savePlan(); render();
@@ -1285,6 +1494,7 @@ $("#ftUp").addEventListener("click",()=>stepFt(1));
 $("#autoXI").addEventListener("click",()=>{autoXI();save();render();});
 $("#clear").addEventListener("click",()=>{
   squad=[];xi=[];captain=null;vice=null;realBank=null;BUY={};
+  wipeDrafts(); draftNote=""; saveDrafts();
   plan={ft:null, ftSource:"default", used:[], usedKnown:false, weeks:{}, stale:false};
   editing=false; importSeq++;
   resetPlan(); save(); savePlan(); render(); msg("");});
@@ -1374,6 +1584,10 @@ function applyPicks(j,note){
   // A newly loaded team is a new starting point: yesterday's plan was built on
   // a squad that may no longer exist.
   plan={ft:null, ftSource:"default", used:[], usedKnown:false, weeks:{}, stale:false};
+  // Drafts survive loading the same team again; a different squad clears them.
+  cur=null; dui={mode:null,name:"",touched:false,del:false};
+  if(drafts.length && draftBase!==squadSig())
+    wipeDrafts("Your drafts were cleared because the team you loaded is not the one they started from.");
   resetPlan(); staleNote=""; editing=false; importSeq++;
 
   save(); savePlan(); render();
@@ -1516,6 +1730,7 @@ Promise.all([
     + new Date(d.generated).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
   load();
   loadPlan();
+  loadDrafts();
   active=PLAN_GWS[0]??null;
   try{ const savedId=localStorage.getItem("fdb-team-id"); if(savedId) $("#teamId").value=savedId; }catch(e){}
   if(squad.length && !xi.length) autoXI();
