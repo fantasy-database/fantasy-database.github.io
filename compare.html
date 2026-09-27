@@ -346,7 +346,7 @@
 
 <script type="module" id="app">
 import { fromData, marketByTeamId, rotate,
-         goodClamped, colourT, bandLabels, shade, rampFromCss, formatVal } from "./model.js?v=20260927";
+         goodClamped, colourT, shade, rampFromCss } from "./model.js?v=20260927";
 
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
@@ -410,16 +410,22 @@ const winnerOf=(key,vals)=>{
 };
 
 /* ------------------------------- fixtures -------------------------------- */
-const sideFor=p=>p.p<=2 ? "def" : "atk";
+// A player's fixture is his club's fixture. Every tile on this page takes the
+// one team-level rating the ticker's Fixtures view shows -- expected goal
+// difference, bookmakers' odds where the round is priced and our own model
+// after that -- in the same five bands. Two players at one club therefore
+// always draw the same colour: the model has team data, not player data, so it
+// has no grounds for calling a fixture kinder to one of them than the other.
+const FDR="fix";
 function fixturesFor(teamId){
   return (M.fixtures(gwFrom,gwTo)[teamId]||[]);
 }
-// One entry per gameweek in the window for one player: the mean of his side's
-// fixtures that week, in both the 0-1 goodness the colours use and the raw
+// One entry per gameweek in the window for one player: the mean of his club's
+// fixture ratings that week, in both the 0-1 goodness the colours use and the raw
 // number the cells print. A gameweek he does not play scores 0 and is flagged
 // blank — never a sentinel, which is what put a negative average on screen once.
 function gwSeries(p,gws){
-  const side=sideFor(p), fx=fixturesFor(p.t);
+  const side=FDR, fx=fixturesFor(p.t);
   const byGw={}; fx.forEach(f=>{(byGw[f.gw]=byGw[f.gw]||[]).push(f);});
   return gws.map(g=>{
     const list=byGw[g]||[];
@@ -514,44 +520,36 @@ function render(){
     + gws.map(g=>`<th>GW${g}</th>`).join("") + `<th>Average</th></tr></thead>`;
 
   const fbody=players.map(p=>{
-    const side=sideFor(p), fx=fixturesFor(p.t);
+    const side=FDR, fx=fixturesFor(p.t);
     const byGw={}; fx.forEach(f=>{ (byGw[f.gw]=byGw[f.gw]||[]).push(f); });
-    let sum=0,n=0,rawSum=0;
+    let n=0,rawSum=0;
     const cells=gws.map(g=>{
       const list=byGw[g];
-      if(!list) return `<td class="fx"><span class="fxcell" style="background:var(--surface-2);color:var(--muted)">–<b>no game</b></span></td>`;
+      if(!list) return `<td class="fx"><span class="fxcell" style="background:var(--surface-2);color:var(--muted)" title="GW${g}: no game">no game</span></td>`;
       const anyPriced=list.some(f=>M.priced(p.t,f));
       return `<td class="fx${anyPriced?" priced":""}">`+list.map(f=>{
         const v=M.rate(side,p.t,f,"proj");
-        const t=goodClamped(side,v,"proj");
-        sum+=t; n++; rawSum+=v;
+        n++; rawSum+=v;
         const c=shade(colourT(side,v,"proj"),RAMP), opp=D.teams[f.opp];
-        return `<span class="fxcell" style="background:${c.bg};color:${c.fg}">`
-             + `${esc(opp?opp.short.toUpperCase():"?")} (${f.home?"H":"A"})`
-             + `<b>${formatVal(side,v,"proj",true)}</b></span>`;
+        return `<span class="fxcell" style="background:${c.bg};color:${c.fg}"`
+             + ` title="GW${f.gw}: ${esc(opp?opp.name:"?")} ${f.home?"(home)":"(away)"}${M.priced(p.t,f)?" · bookmakers' odds":""}">`
+             + `${esc(opp?opp.short.toUpperCase():"?")} (${f.home?"H":"A"})</span>`;
       }).join("")+`</td>`;
     }).join("");
-    // The percentage stays the mean goodness, which is what "ease" has always
-    // meant here; the colour is the band the average number itself falls in.
-    const avg=n?sum/n:0;
+    // Colour only, like every other tile: the band the club's average goal
+    // difference across the window falls in.
     const ac=shade(colourT(side,n?rawSum/n:0,"proj"),RAMP);
     const t=D.teams[p.t]||{short:"?"};
     return `<tr><th class="lft">${esc(p.n)} <span style="color:var(--muted);font-family:'Roboto Mono',monospace;font-size:10px">${esc(t.short.toUpperCase())}</span></th>`
       + cells
-      + `<td class="fx"><span class="fxcell" style="background:${ac.bg};color:${ac.fg}">${Math.round(avg*100)}%<b>ease</b></span></td></tr>`;
+      + `<td class="fx"><span class="fxcell" style="background:${ac.bg};color:${ac.fg}" title="Average across the window">avg</span></td></tr>`;
   }).join("");
 
   $("#fxTable").innerHTML=fhead+`<tbody>${fbody}</tbody>`;
 
-  const sides=new Set(players.map(sideFor));
-  const keyBands = sides.size===1
-    ? bandLabels(sides.has("def")?"def":"atk","proj").join("&nbsp;&middot; ") : null;
-  $("#fxKey").innerHTML = (sides.size===1
-    ? (sides.has("def")
-        ? `Keepers and defenders are rated on <b>clean sheet chance</b> — the percentage is how often that fixture should end 0&#8209;0 at their end.`
-        : `Midfielders and forwards are rated on <b>their team's expected goals</b> in that fixture — not their own, the side's.`)
-    : `Mixed positions: keepers and defenders show <b>clean sheet chance</b>, midfielders and forwards show <b>their team's expected goals</b>. The colours are comparable; the numbers are not.`)
-    + (keyBands ? ` <span class="keybands">${keyBands}</span>` : "");
+  $("#fxKey").innerHTML = `Coloured by <b>the club's fixture</b>, as on the ticker's Fixtures view: `
+    + `<b>green means they should outscore the opponent</b>, red that they should be outscored, and grey is close to an even game. `
+    + `Teammates always share a colour.`;
 
   // Which of the columns on screen came from the odds, in words.
   const priced=[]; for(let g=gwFrom; g<=gwTo; g++) if(MARKET&&MARKET[g]) priced.push(g);
@@ -592,7 +590,7 @@ function fillRotPicks(players){
 
 function renderRot(players,gws){
   const out=$("#rotOut"), row=$("#rotPickRow"), intro=$("#rotIntro");
-  const noun = pos<=2 ? "clean sheet chance" : "their team's expected goals";
+  const noun = "fixture rating";
 
   if(players.length<2){
     row.hidden=true;
@@ -615,7 +613,7 @@ function renderRot(players,gws){
   intro.innerHTML=`Start whichever of the two has the better week. The score is the average`
     + ` <b>${noun}</b> of whoever you would have started across GW${gwFrom}\u2013GW${gwTo};`
     + ` the gain is what rotating adds over simply starting the better of the two every week.`
-    + ` <b>Higher is better</b> in both.`;
+    + ` <b>Higher is better</b> in both &mdash; 50% is an even game.`;
 
   const sa=gwSeries(A,gws), sb=gwSeries(B,gws);
   // The rule is rotate() in model.js, the same one the ticker uses for two
@@ -626,7 +624,7 @@ function renderRot(players,gws){
                                      sb.map(x=>x.blank?null:x.t));
   const pick=picks.map(p=>Object.assign({}, p.take?sb[p.i]:sa[p.i], {who:p.take?B:A}));
 
-  const side=sideFor(A);
+  const side=FDR;
   const strip=pick.map(x=>{
     if(x.blank) return `<div class="pcell blank" title="GW${x.gw}: neither one plays">`
       + `<b>GW${x.gw}</b>\u2014<u>blank</u></div>`;
@@ -635,8 +633,7 @@ function renderRot(players,gws){
       return `${esc(o?o.short.toUpperCase():"?")} (${f.home?"H":"A"})`;}).join(" + ");
     return `<div class="pcell" style="background:${sh.bg};color:${sh.fg}"`
       + ` title="GW${x.gw}: start ${esc(x.who.n)} \u2014 ${opps}">`
-      + `<b>GW${x.gw}</b><i>${esc(x.who.n)}</i><u>${opps}</u>`
-      + `<u>${formatVal(side,x.raw,"proj",true)}</u></div>`;
+      + `<b>GW${x.gw}</b><i>${esc(x.who.n)}</i><u>${opps}</u></div>`;
   }).join("");
 
   const played=pick.filter(x=>!x.blank);

@@ -455,7 +455,7 @@
           <div class="stat" id="sPicked"><b>0/15</b><span>Picked</span></div>
           <div class="stat" id="sValue"><b>£0.0m</b><span>Squad value</span></div>
           <div class="stat" id="sBank"><b>£100.0m</b><span>In the bank</span></div>
-          <div class="stat" id="sRun" title="Average fixture ease across your starting eleven over the window. Higher is easier."><b>–</b><span>Fixture run</span></div>
+          <div class="stat" id="sRun" title="Average fixture rating across your starting eleven over the window, the same rating as the fixture colours. Higher is easier."><b>–</b><span>Fixture run</span></div>
         </div>
         <div class="weekctl" id="weekCtl" hidden>
           <span id="ftBox">Free transfers
@@ -558,7 +558,7 @@
 <script type="module" id="app">
 import { DEFAULT_RULES, sellPrice, validateSquad, validateXI, chipAvailable,
          simulate, ftFromHistory, chipsFromHistory, purchasePrices, priceInWeek } from "./planner.js?v=20260927";
-import { fromData, marketByTeamId, goodClamped, colourT, bandLabels, formatVal,
+import { fromData, marketByTeamId, goodClamped, colourT,
          shade as shadeOn, rampFromCss } from "./model.js?v=20260927";
 
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
@@ -643,15 +643,16 @@ let importSeq=0;         // the latest import; an older one's late reply is igno
 
 /* ---------------------------------------------------------------------------
  * The fixture colours are model.js, the same file the ticker and the
- * comparison page use. A keeper or defender is rated on the clean sheet and
- * everyone else on the goals, because those two do not move together.
+ * comparison page use. A player's fixture is his club's fixture: every chip
+ * takes the one team-level rating the ticker's Fixtures view shows -- expected
+ * goal difference, bookmakers' odds where the round is priced and our own
+ * model after that -- in the same five bands. Teammates always share a colour;
+ * the model has team data, not player data, so it cannot rate a fixture as
+ * kinder to one of them than another.
  * ------------------------------------------------------------------------- */
-// Projected numbers in the fixtures page's five bands: a keeper or defender's
-// fixture by clean sheet chance, anyone else's by his side's expected goals.
-// Same numbers, same colours as the ticker and the comparison page.
+const FDR="fix";
 const shade=t=>shadeOn(t,rampFromCss());
-const ease=(side,team,f)=>goodClamped(side, M.rate(side,team,f,"proj"), "proj");
-const sideFor=p=>p.p<=2 ? "def" : "atk";
+const ease=(team,f)=>goodClamped(FDR, M.rate(FDR,team,f,"proj"), "proj");
 
 function fixturesFor(teamId){
   const to=Math.min(38,NEXT_GW+horizon-1);
@@ -660,7 +661,7 @@ function fixturesFor(teamId){
 function runScore(p){
   const fx=fixturesFor(p.t);
   if(!fx.length) return 0;
-  return fx.reduce((a,f)=>a+ease(sideFor(p),p.t,f),0)/fx.length;
+  return fx.reduce((a,f)=>a+ease(p.t,f),0)/fx.length;
 }
 const byId=id=>BYID.get(id);
 // planner.js speaks {id,pos,team,buy}; players.json speaks {i,p,t,c}. One place
@@ -1083,19 +1084,19 @@ function flagOf(p){
 const flagHtml=f=>f?`<span class="flag ${f.lvl}" title="${esc(f.news)}">${f.txt}</span>`:"";
 
 /**
- * The next three gameweeks from `from`: opponent, H or A, coloured by how
- * kind the fixture is for this player's position. A double shows both games;
+ * The next three gameweeks from `from`: opponent, H or A, coloured by his
+ * club's fixture rating. A double shows both games;
  * a blank shows a grey dash, so three weeks are always three weeks.
  */
 function fxChips(p,from){
-  const side=sideFor(p), out=[];
+  const side=FDR, out=[];
   for(let g=from; g<from+3 && g<=38; g++){
     const fx=M.fixtures(g,g)[p.t]||[];
     if(!fx.length){ out.push(`<span class="fxc none" title="GW${g}: no game"><b>–</b><i>GW${g}</i></span>`); continue; }
     for(const f of fx){
       const v=M.rate(side,p.t,f,"proj"), c=shade(colourT(side,v,"proj")), t=TEAMS[f.opp]||["?","?"];
       out.push(`<span class="fxc" style="background:${c.bg};color:${c.fg}" `
-        + `title="GW${g}: ${esc(t[0])} (${f.home?"home":"away"}) — ${formatVal(side,v,"proj",true)}">`
+        + `title="GW${g}: ${esc(t[0])} (${f.home?"home":"away"})${M.priced(p.t,f)?" · bookmakers' odds":""}">`
         + `<b>${esc(t[1].toUpperCase())}</b><i>${f.home?"H":"A"}</i></span>`);
     }
   }
@@ -1194,7 +1195,7 @@ function renderBuilder(){
       : "£100.0m minus what this squad costs at today's prices — not your real bank unless you built this squad today.");
   const run = starters.length ? starters.reduce((t,p)=>t+runScore(p),0)/starters.length : null;
   stat("#sRun",run===null?"–":Math.round(run*100)+"%","Fixture run",run!==null&&run>=.5?"ok":"",
-    "Average fixture ease across your starting eleven over the next "+horizon+" gameweeks. Higher is easier — 50% is an average run.");
+    "Average fixture rating across your starting eleven over the next "+horizon+" gameweeks, the same rating as the fixture colours. Higher is easier — 50% is an even game.");
 
   const rulesSquad=squad.map(toRules);
   let problems = squad.length
