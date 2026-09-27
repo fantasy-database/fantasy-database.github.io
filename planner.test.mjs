@@ -311,6 +311,37 @@ test("the signing plays and is captain when he is the best bet", () => {
   assert.equal(r[1].captain, 60);
   assert.equal(r[1].points.total, 20 + 6 + 6);
 });
+test("with no order set, outfield subs are ranked by xP", () => {
+  // Varied xP, so the ranking is actually exercised (flat xP ties everyone).
+  const xp = id => (id * 37) % 11;
+  const r = run({}, [5], { xp });
+  const [gk, ...out] = r[0].bench, pos = id => sq0.find(p => p.id === id).pos;
+  assert.equal(pos(gk), 1);
+  assert.deepEqual(out, [...out].sort((a, b) => xp(b) - xp(a) || a - b));
+});
+test("the manager's bench order is kept, keeper still first", () => {
+  const b0 = run({})[0].bench;
+  const want = [b0[3], b0[1], b0[2]];
+  const r = run({ 5: { order: want } });
+  assert.deepEqual(r[0].bench, [b0[0], ...want]);
+  assert.deepEqual(r[1].bench, b0, "the order is for that week only");
+});
+test("a bench order ignores players no longer on the bench and places newcomers after", () => {
+  const b0 = run({})[0].bench;
+  const r = run({ 5: { order: [b0[2], 9999, b0[1]] } });
+  assert.deepEqual(r[0].bench, [b0[0], b0[2], b0[1], b0[3]]);
+});
+test("reordering the bench changes no points, even on a bench boost", () => {
+  const xp = id => (id * 37) % 11;
+  for (const chip of [null, "bench", "triple"]) {
+    const b0 = run({ 5: { chip } }, [5], { xp })[0];
+    const out = b0.bench.slice(1);
+    const r = run({ 5: { chip, order: [out[2], out[0], out[1]] } }, [5], { xp })[0];
+    assert.deepEqual(r.bench.slice(1), [out[2], out[0], out[1]], String(chip));
+    assert.deepEqual(r.points, b0.points, String(chip));
+    assert.deepEqual(r.xi, b0.xi, String(chip));
+  }
+});
 test("a banked transfer is spent, the rest roll on", () => {
   const r = run({ 6: { transfers: [{ out: sq0[7].id, in: 60 }] } });
   assert.deepEqual(r.map(w => w.ft), [1, 2, 2]);

@@ -374,7 +374,7 @@ export function bestXI(squad, xpOf, { start = [], bench = [], rules = DEFAULT_RU
  * Run a plan forward, one gameweek at a time.
  *
  *   base   { squad: [rules player], bank, ft }  -- the team before the first deadline
- *   weeks  { [gw]: { transfers: [{out: id, in: id}], chip, start: [ids], bench: [ids],
+ *   weeks  { [gw]: { transfers: [{out: id, in: id}], chip, start: [ids], bench: [ids], order: [ids],
  *                    captain: id, vice: id } }  -- what the manager plans to do
  *   gws    the gameweeks to run, in order
  *
@@ -427,10 +427,15 @@ export function simulate(base, weeks, gws, { xp, player, prices = null, rules = 
                : ranked.find(id => id !== captain) ?? null;
     const armband = captain !== null && xpOf(captain) > 0 ? captain : vice;
 
-    // Bench order as FPL shows it: the spare keeper first, then outfielders by xP.
+    // Bench order as FPL shows it: the spare keeper first, then the outfield
+    // substitutes -- in the manager's own order (w.order) where he has set one,
+    // and by xP for anyone his order does not mention (a new signing, or a
+    // player who has only just dropped to the bench).
     const benchIds = state.squad.filter(p => !xi.includes(p.id));
+    const pref = Array.isArray(w.order) ? w.order : [];
+    const place = id => { const k = pref.indexOf(id); return k < 0 ? pref.length : k; };
     const bench = [...benchIds.filter(p => p.pos === 1), ...benchIds.filter(p => p.pos !== 1)
-      .sort((a, b) => xpOf(b.id) - xpOf(a.id) || a.id - b.id)].map(p => p.id);
+      .sort((a, b) => place(a.id) - place(b.id) || xpOf(b.id) - xpOf(a.id) || a.id - b.id)].map(p => p.id);
 
     const xiPts = xi.reduce((t, id) => t + xpOf(id), 0);
     const capPts = armband === null ? 0 : xpOf(armband) * (chip === "triple" ? 2 : 1);

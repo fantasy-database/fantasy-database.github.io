@@ -466,7 +466,7 @@
         </div>
         <ul class="tlist" id="tlist"></ul>
         <ul class="problems" id="problems"></ul>
-        <p class="pitchhint" id="pitchHint" hidden>Click any player to <b>transfer</b> him, make him <b>captain</b> or <b>vice</b>, or <b>substitute</b> him.</p>
+        <p class="pitchhint" id="pitchHint" hidden>Click any player to <b>transfer</b> him, make him <b>captain</b> or <b>vice</b>, or <b>substitute</b> him. To reorder the bench, substitute one sub for another.</p>
 
         <div class="stadium">
           <div class="grass">
@@ -557,9 +557,9 @@
 
 <script type="module" id="app">
 import { DEFAULT_RULES, sellPrice, validateSquad, validateXI, chipAvailable,
-         simulate, ftFromHistory, chipsFromHistory, purchasePrices, priceInWeek } from "./planner.js?v=20260926";
+         simulate, ftFromHistory, chipsFromHistory, purchasePrices, priceInWeek } from "./planner.js?v=20260927";
 import { fromData, marketByTeamId, goodClamped, colourT, bandLabels, formatVal,
-         shade as shadeOn, rampFromCss } from "./model.js?v=20260926";
+         shade as shadeOn, rampFromCss } from "./model.js?v=20260927";
 
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
@@ -747,7 +747,7 @@ function cleanWeek(w){
     transfers:(Array.isArray(w.transfers)?w.transfers:[])
       .filter(t=>t&&Number.isFinite(t.out)&&Number.isFinite(t.in)).map(t=>({out:t.out,in:t.in})),
     chip:["wildcard","freehit","bench","triple"].includes(w.chip)?w.chip:null,
-    start:ids(w.start), bench:ids(w.bench),
+    start:ids(w.start), bench:ids(w.bench), order:ids(w.order),
     captain:Number.isFinite(w.captain)?w.captain:null,
     vice:Number.isFinite(w.vice)?w.vice:null
   };
@@ -928,24 +928,40 @@ function clearSel(){ sel=null; selling=false; subbing=false; render(); }
 /**
  * Substitutions, the way FPL does them: choose the player, press Substitute,
  * and everyone he can legally swap places with lights up -- bench players if
- * he is starting, starters if he is on the bench. Click one to swap them.
+ * he is starting, starters if he is on the bench. An outfield substitute can
+ * also swap with another outfield substitute, which changes the bench order;
+ * the spare keeper always sits first, as in FPL. Click one to swap them.
  */
+const isKeeper=(r,id)=>(r.state.squad.find(p=>p.id===id)||{}).pos===1;
 function subPartners(r,x){
   const starting=r.xi.includes(x), out=new Set();
   for(const c of (starting ? r.bench : r.xi)){
     const nx = starting ? r.xi.map(id=>id===x?c:id) : r.xi.map(id=>id===c?x:id);
     if(!validateXI(nx,r.state.squad).length) out.add(c);
   }
+  if(!starting && !isKeeper(r,x))
+    for(const c of r.bench) if(c!==x && !isKeeper(r,c)) out.add(c);
   return out;
 }
+// The outfield substitutes in order, as the page shows them this week.
+const benchOrder=r=>r.bench.filter(id=>!isKeeper(r,id));
 function startSub(){ if(sel===null) return; subbing=true; selling=false; render(); }
 function trySub(id){
   const r=resultFor(active); if(!r) return;
   if(id===sel){ subbing=false; render(); return; }
   if(!SUBOK.has(id)) return;
+  const w=week(active);
+  // Two substitutes: swap their places on the bench, nothing else moves.
+  if(!r.xi.includes(sel) && !r.xi.includes(id)){
+    w.order=benchOrder(r).map(x=>x===sel?id:x===id?sel:x);
+    subbing=false; sel=null;
+    savePlan(); render(); return;
+  }
   const starting=r.xi.includes(sel);
   const nx = starting ? r.xi.map(x=>x===sel?id:x) : r.xi.map(x=>x===id?sel:x);
-  const w=week(active);
+  // The player going off takes the bench place of the one coming on.
+  const off = starting ? sel : id, on = starting ? id : sel;
+  w.order=benchOrder(r).map(x=>x===on?off:x);
   // Once the manager moves anyone, that week's XI is his: pinned as chosen,
   // so the numbers cannot quietly put someone back.
   w.start=nx; w.bench=[];
@@ -997,6 +1013,10 @@ function buy(q){
   const w=week(active);
   w.transfers=netTransfers([...w.transfers,{out:sel,in:q.i}]);
   w.start=w.start.filter(id=>id!==sel); w.bench=w.bench.filter(id=>id!==sel);
+  // A signing for a substitute takes his place on the bench, as in FPL --
+  // counted from the bench as it is shown, if no order has been set yet.
+  if(benchOrder(r.w).includes(sel))
+    w.order=(w.order.length?w.order:benchOrder(r.w)).map(id=>id===sel?q.i:id);
   if(w.captain===sel) w.captain=null;
   if(w.vice===sel) w.vice=null;
   sel=null; selling=false;
@@ -1018,12 +1038,19 @@ function swapped(r,x){
   }
   return null;
 }
+// `sel` comes off the bench into the XI `nx`; whoever he replaced takes his
+// bench place, the same rule as a substitution.
+function promote(r,w,nx){
+  const off=r.xi.find(id=>!nx.includes(id));
+  w.start=nx; w.bench=[];
+  w.order=benchOrder(r).map(id=>id===sel?off:id);
+}
 function makeCaptain(){
   const r=resultFor(active); if(!r||sel===null) return;
   const w=week(active);
   if(!r.xi.includes(sel)){                // a captain has to start
     const nx=swapped(r,sel); if(!nx) return;
-    w.start=nx; w.bench=[];
+    promote(r,w,nx);
   }
   if(r.vice===sel) w.vice=r.captain;       // the two armbands swap, as in FPL
   w.captain=sel;
@@ -1034,7 +1061,7 @@ function makeVice(){
   const w=week(active);
   if(!r.xi.includes(sel)){                // a vice-captain has to start too
     const nx=swapped(r,sel); if(!nx) return;
-    w.start=nx; w.bench=[];
+    promote(r,w,nx);
   }
   if(r.captain===sel) w.captain=r.vice;
   w.vice=sel;
@@ -1338,7 +1365,7 @@ function renderSelbar(){
   const starting=w.xi.includes(p.i);
   if(subbing){
     bar.innerHTML=`<div class="who">Substituting <b>${esc(p.n)}</b> in GW${w.gw}`
-      + `<small>${SUBOK.size ? `Click a highlighted player to swap with him ${starting?"(from the bench)":"(from the starting XI)"}`
+      + `<small>${SUBOK.size ? `Click a highlighted player to swap with him ${starting?"(from the bench)":isKeeper(w,p.i)?"(from the starting XI)":"(from the starting XI, or another substitute to change the bench order)"}`
                              : "No one can swap with him without breaking the formation"}</small></div>`
       + `<button type="button" data-act="cancel">Cancel</button>`;
     return;
