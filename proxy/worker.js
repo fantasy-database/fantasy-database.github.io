@@ -19,6 +19,8 @@
  */
 
 const ALLOWED_ORIGINS = [
+  "https://fantasydatabase.app",
+  "https://www.fantasydatabase.app",
   "https://fantasy-database.github.io",
   "http://localhost:8899",          // local testing; harmless to leave in
 ];
