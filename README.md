@@ -2,7 +2,7 @@
 
 An expected-goals fixture ticker and player database for Fantasy Premier League.
 
-**Live site:** https://nahomfitsum6gh.github.io/fpl-ticker/
+**Live site:** https://fantasydatabase.app
 
 ## What it does
 
