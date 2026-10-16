@@ -63,6 +63,9 @@
   .nav a{font-weight:600;font-size:13px;text-decoration:none;color:var(--muted);
     padding:7px 14px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border)}
   .nav a[aria-current]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .nav{flex-wrap:wrap}
+  .nav a.coffee{color:var(--accent);border-color:var(--accent)}
+  .nav a.coffee:hover{background:var(--accent);color:var(--accent-ink)}
   .nav a:hover{color:var(--ink)}
   .nav a[aria-current]:hover{color:var(--accent-ink)}
 
@@ -274,6 +277,7 @@
       <a href="/players">Players</a>
       <a href="/compare" aria-current="page">Compare</a>
       <a href="/planner">Planner</a>
+      <a class="coffee" href="https://buymeacoffee.com/fpldatabase" target="_blank" rel="noopener" title="Buy me a coffee">☕ Support</a>
     </nav>
   </header>
 
