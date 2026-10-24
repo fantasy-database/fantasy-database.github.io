@@ -25,5 +25,7 @@ press-conference team news. Nothing needs to be done by hand.
 | --- | --- |
 | `index.html` | Fixture ticker |
 | `players.html` | Player database |
+| `privacy.html` | Privacy notice (linked from every page's footer) |
+| `fonts/` | Self-hosted Barlow and Roboto Mono, so no page calls Google |
 | `update.py` | Builds both data files |
 | `data.json` / `players.json` | Generated — do not edit by hand |

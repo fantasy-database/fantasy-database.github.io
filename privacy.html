@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="What Fantasy DataBase collects, what stays in your browser, and who else is involved when you use the site.">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%231E0021'/><g fill='%2300FF87'><rect x='10' y='42' width='8' height='12' rx='2'/><rect x='22' y='34' width='8' height='20' rx='2'/><rect x='34' y='26' width='8' height='28' rx='2'/><rect x='46' y='16' width='8' height='38' rx='2'/></g></svg>">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1E0021">
+<title>Privacy · Fantasy DataBase</title>
+<link rel="canonical" href="https://fantasydatabase.app/privacy">
+<link rel="stylesheet" href="/fonts/fonts.css">
+<style>
+  :root{
+    --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44;
+    --border:#4B1A52; --ink:#FFFFFF; --muted:#B9A3BE; --accent:#00FF87; --accent-ink:#1E0021;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--ground);color:var(--ink);
+    font-family:Barlow,Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1220px;margin:0 auto;padding:26px 18px 60px}
+  .mast{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 26px;
+    padding-bottom:14px;border-bottom:3px solid var(--accent)}
+  .mast h1{font-weight:800;font-size:clamp(26px,4.4vw,40px);line-height:.98;letter-spacing:-.03em;margin:0}
+  .mast h1 em{font-style:normal;color:var(--accent)}
+  .brand{display:flex;align-items:center;gap:13px;text-decoration:none;color:inherit}
+  .brand .mark{flex:none;height:clamp(34px,5.4vw,50px);width:auto;display:block}
+  .mast .sect{margin:6px 0 0;font-family:"Roboto Mono",ui-monospace,monospace;font-size:11px;
+    font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .nav{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .nav a{font-weight:600;font-size:13px;text-decoration:none;color:var(--muted);
+    padding:7px 14px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border)}
+  .nav a:hover{color:var(--ink)}
+  .nav a.coffee{color:var(--accent);border-color:var(--accent)}
+  .nav a.coffee:hover{background:var(--accent);color:var(--accent-ink)}
+  main{max-width:72ch;margin-top:26px}
+  .lede{font-size:17px;color:var(--ink);margin:0 0 6px}
+  .updated{font-family:"Roboto Mono",monospace;font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 22px}
+  h2{font-size:19px;font-weight:700;margin:30px 0 8px;letter-spacing:-.01em}
+  p,li{color:var(--muted)}
+  p b,li b{color:var(--ink);font-weight:600}
+  ul{padding-left:20px;margin:8px 0}
+  li{margin:4px 0}
+  a{color:var(--accent);text-underline-offset:2px}
+  code{font-family:"Roboto Mono",monospace;font-size:12.5px;background:var(--surface-2);
+    border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--ink)}
+  .box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin:0 0 8px}
+  .box ul{margin:0}
+  @media (max-width:700px){.wrap{padding:16px 12px 44px}.nav{margin-left:0;width:100%}}
+</style>
+<!-- GoatCounter: cookieless visit counting. Dashboard at
+     https://fantasydatabase.goatcounter.com/ -->
+<script data-goatcounter="https://fantasydatabase.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <div>
+      <a class="brand" href="/" aria-label="Fantasy DataBase home">
+        <svg class="mark" viewBox="0 0 68 54" fill="none" aria-hidden="true" focusable="false">
+          <rect x="8" y="3" width="52" height="35" rx="4.5" stroke="#00FF87" stroke-width="4.5"/>
+          <g fill="#00FF87">
+            <rect x="17" y="26" width="5.5" height="7" rx="1.2"/>
+            <rect x="25.5" y="22" width="5.5" height="11" rx="1.2"/>
+            <rect x="34" y="17.5" width="5.5" height="15.5" rx="1.2"/>
+            <rect x="42.5" y="12" width="5.5" height="21" rx="1.2"/>
+          </g>
+          <path d="M8 42h52l4 4.5H4L8 42Z" fill="#00FF87"/>
+          <path d="M3 47.5h62a2.5 2.5 0 0 1-2.5 2.5H5.5A2.5 2.5 0 0 1 3 47.5Z" fill="#00FF87"/>
+          <path d="M28 43.5h12l-1.5 1.8h-9L28 43.5Z" fill="#1E0021"/>
+        </svg>
+        <h1><em>Fantasy</em> DataBase</h1>
+      </a>
+      <p class="sect">Privacy</p>
+    </div>
+    <nav class="nav">
+      <a href="/">Fixtures</a>
+      <a href="/players">Players</a>
+      <a href="/compare">Compare</a>
+      <a href="/planner">Planner</a>
+      <a class="coffee" href="https://buymeacoffee.com/fpldatabase" target="_blank" rel="noopener" title="Buy me a coffee">☕ Support</a>
+    </nav>
+  </header>
+
+  <main>
+    <p class="lede">Fantasy DataBase has no accounts, no ads, no tracking cookies, and sells nothing about you.</p>
+    <p class="updated">Last updated 24 October 2026</p>
+
+    <div class="box">
+      <ul>
+        <li><b>No sign-up.</b> You never give this site your name, email or FPL password.</li>
+        <li><b>No cookies.</b> The site sets none, so there is no cookie banner to click through.</li>
+        <li><b>Your squad stays on your device.</b> Planner squads, drafts and settings are saved in your own browser, not on any server of ours.</li>
+        <li><b>Visits are counted, not tracked.</b> We see how many people use each page, not who they are.</li>
+      </ul>
+    </div>
+
+    <h2>Who runs this site</h2>
+    <p>Fantasy DataBase (fantasydatabase.app) is an independent fan site run by one person in the
+      United Kingdom. For the purposes of UK data protection law, that person is the controller of the small amount
+      of information described below.</p>
+
+    <h2>Counting visits</h2>
+    <p>We use <a href="https://www.goatcounter.com/" rel="noopener">GoatCounter</a>, a privacy-focused visit counter,
+      to see which pages are used. It keeps daily totals per page, broken down by the site you came from, browser,
+      operating system, screen width, language and country. It does <b>not</b> use cookies or local storage and does
+      not store your IP address or any tracking ID. To avoid counting the same visit twice it briefly holds your IP
+      address and browser details in memory, for up to 8 hours, and then discards them. Nothing is combined with
+      other data or used for advertising.
+      See <a href="https://www.goatcounter.com/help/privacy" rel="noopener">GoatCounter's privacy policy</a>.</p>
+    <p>If you block the counter with an ad or tracker blocker, the site still works exactly the same.</p>
+
+    <h2>What your browser stores</h2>
+    <p>Some features remember your choices using your browser's local storage. This data never leaves your device and
+      we cannot see it:</p>
+    <ul>
+      <li>the two teams you last picked in the Fixtures page's pair builder;</li>
+      <li>your Planner squad, plans and saved drafts;</li>
+      <li>the FPL team ID you last loaded, so you don't have to type it again.</li>
+    </ul>
+    <p>These are only saved because you used the feature. To remove them, clear this site's data in your browser
+      settings.</p>
+
+    <h2>Loading your FPL team</h2>
+    <p>When you type a team ID into the Planner, your browser asks the official Fantasy Premier League API for that
+      team's public picks, season history and transfers, plus public player stats: the same information anyone can see on the FPL website. FPL does not
+      let other sites ask for it directly, so the request passes through a small relay we run on
+      <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener">Cloudflare Workers</a>. The relay only
+      forwards the request; beyond a one-minute cache of the public FPL response, it stores nothing and we keep no record of team IDs. Cloudflare, like any network provider,
+      handles your IP address to deliver the request and may keep standard technical logs under its own policy.
+      We never ask for, see or store your FPL login.</p>
+
+    <h2>Other services involved</h2>
+    <ul>
+      <li><b>Hosting.</b> The site is served by <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub Pages</a>,
+        which, like any web host, logs visitor IP addresses for security and keeps them under its own policy. We do not have access to those logs.</li>
+      <li><b>Fonts.</b> The site's fonts are served from this site itself, so loading a page does not contact Google or any other font provider.</li>
+      <li><b>Buy Me a Coffee.</b> The ☕ Support button takes you to <a href="https://buymeacoffee.com/privacy-policy" rel="noopener">Buy Me a Coffee</a>,
+        a separate site with its own privacy policy. If you choose to support the site, we see only what you choose to share there, such as a name and message; payment details are handled by them and never reach us.</li>
+    </ul>
+
+    <h2>Why this is allowed, and how long it is kept</h2>
+    <p>Counting visits and running the team-loading relay rely on our legitimate interest in keeping the site working
+      and understanding which parts are useful, in a way that has minimal impact on you. GoatCounter's aggregated
+      statistics are kept while the site runs. Nothing else is kept by us at all.</p>
+
+    <h2>Your rights</h2>
+    <p>Under UK data protection law you can ask what information we hold about you, and ask for it to be corrected or
+      deleted. In practice we hold nothing that identifies you, but you are welcome to ask. If you are unhappy with how
+      your information is handled, you can complain to the
+      <a href="https://ico.org.uk/make-a-complaint/" rel="noopener">Information Commissioner's Office</a>.</p>
+
+    <h2>Contact</h2>
+    <p>Questions about this page can be sent through the
+      <a href="https://github.com/fantasy-database/fantasy-database.github.io/issues" rel="noopener">site's GitHub page</a>
+      or as a message on our <a href="https://buymeacoffee.com/fpldatabase" rel="noopener">Buy Me a Coffee page</a>.</p>
+
+    <h2>Not affiliated</h2>
+    <p>Fantasy DataBase is an independent fan site. It is not affiliated with, endorsed by or connected to the
+      Premier League, Fantasy Premier League or any club. Fixtures, prices, player data and shirt images come from
+      the public Fantasy Premier League API and remain the property of their owners. Expected-goals data comes from
+      <a href="https://understat.com/" rel="noopener">Understat</a>. Ratings and projections are estimates, not advice.</p>
+
+    <p style="margin-top:28px">If anything here changes, this page will be updated and the date at the top will change with it.</p>
+  </main>
+</div>
+</body>
+</html>
