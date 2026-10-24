@@ -10,9 +10,10 @@ on:
     - cron: "0 16 * * 5"
     # And late on Friday, for the weeks whose deadline is Friday 18:30 UK time:
     # the last odds and team news before the cut-off. Actions often starts
-    # 10-20 minutes late, which still lands before 18:30. Cron is UTC, so this
-    # is 17:40 in winter and 18:40 in summer; the season's Friday deadlines
-    # from late October on are all in winter time. About 16 odds credits a month.
+    # 10-20 minutes late, which still lands before 18:30. Cron is UTC: this is
+    # 17:40 UK time in winter (late Oct - late Mar). In summer time it lands at
+    # 18:40, after the deadline, and the 16:00 run above (17:00 UK) is the late
+    # one instead. About 16 odds credits a month.
     - cron: "40 17 * * 5"
   workflow_dispatch:        # adds a "Run workflow" button so you can trigger it by hand
 
