@@ -417,7 +417,7 @@ import { fromData, marketByTeamId, rotate,
 let SIDE="atk", MODE="proj", SORT="best";
 const PROMOTED_K=4;
 const OVR=(()=>{const q=new URLSearchParams(location.search), o={};
-  for(const k of ["kAtk","kDef","kp","home"]){const v=parseFloat(q.get(k)); if(Number.isFinite(v)) o[k]=v;}
+  for(const k of ["kAtk","kDef","kp","home","kMarket"]){const v=parseFloat(q.get(k)); if(Number.isFinite(v)) o[k]=v;}
   return o;})();
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
@@ -455,7 +455,7 @@ function buildModel(){
   if(!D) return;
   MARKET=marketByTeamId(MKT_RAW, D.teams);
   M=fromData(D,{kAtk:OVR.kAtk, kDef:OVR.kDef, kPromoted:OVR.kp??PROMOTED_K,
-                home:OVR.home, market:MARKET});
+                kMarket:OVR.kMarket, home:OVR.home, market:MARKET});
 }
 
 function render(){
@@ -506,9 +506,9 @@ function render(){
       `<b>GW${many?pricedGws[0]+" and GW"+last:pricedGws[0]}</b> `
     + `${many?"come":"comes"} from bookmakers' odds &mdash; marked <span class="dot"></span> &mdash; because over `
     + `the next round or two the market sees the team news, injuries and rotation that our ratings cannot. `
-    + (rest ? `<b>${rest}</b> ${rest.includes(" to ")?"come":"comes"} from our own expected-goals model, `
-              + `which is all there is that far ahead.`
-            : "Everything further out comes from our own expected-goals model.");
+    + (rest ? `<b>${rest}</b> ${rest.includes(" to ")?"come":"comes"} from our expected-goals model, `
+              + `leaned toward the bookmakers\u2019 recent view of each side.`
+            : "Everything further out comes from our expected-goals model, leaned toward the bookmakers\u2019 recent view of each side.");
 
   const fixtures=M.fixtures(from,to);
   const gws=[]; for(let g=from;g<=to;g++) gws.push(g);
@@ -683,7 +683,7 @@ function renderMatches(){
     $("#mvSrc").innerHTML = (MARKET && MARKET[gw])
       ? `<b>GW${gw}</b> comes from bookmakers' odds &mdash; marked <span class="dot"></span> &mdash; `
         + `because over the next round the market sees the team news and rotation that our ratings cannot.`
-      : `From our own expected-goals model. The bookmakers have not priced GW${gw} yet.`;
+      : `From our expected-goals model, leaned toward the bookmakers\u2019 recent view of each side. They have not priced GW${gw} yet.`;
   } finally { MODE=saved; }
 }
 

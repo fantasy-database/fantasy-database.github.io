@@ -207,7 +207,7 @@ def expected(r, mins, gf, ga, pos, defcon=True, p=None):
 # ---- the side's expected goals: model.js, in Python ------------------------
 # The same numbers the ticker shows. model.test.mjs freezes model.js's output
 # in model.fixture.json; points_test.py checks this port against that file.
-def strengths(teams, matches_played, kA, kD, kp=4):
+def strengths(teams, matches_played, kA, kD, kp=4, km=None):
     b = {}
     n = matches_played
     for tid, r in teams.items():
@@ -216,9 +216,32 @@ def strengths(teams, matches_played, kA, kD, kp=4):
         b[tid] = (wa * r["a26"] + (1 - wa) * r["pa"], wd * r["d26"] + (1 - wd) * r["pd"])
     la = sum(v[0] for v in b.values()) / len(b)
     ld = sum(v[1] for v in b.values()) / len(b)
-    return {"ATK": {t: v[0] / la for t, v in b.items()},
-            "DEF": {t: v[1] / ld for t, v in b.items()},
-            "base": (la + ld) / 2}
+    ATK = {t: v[0] / la for t, v in b.items()}
+    DEF = {t: v[1] / ld for t, v in b.items()}
+    ATK, DEF = market_blend(teams, ATK, DEF, km)
+    return {"ATK": ATK, "DEF": DEF, "base": (la + ld) / 2}
+
+
+def market_blend(teams, ATK, DEF, km):
+    """
+    Lean each side's ratings toward the bookmakers' (mA / mD, from every round
+    they have priced), more the more rounds they have priced: w = mN/(mN+km),
+    blended in logs and renormalised to mean 1. No km, or no market ratings,
+    leaves them untouched. model.js marketBlend() is the same function.
+    """
+    if not km or not any("mA" in r for r in teams.values()):
+        return ATK, DEF
+    A2, D2 = {}, {}
+    for t, r in teams.items():
+        if "mA" in r and r.get("mN"):
+            w = r["mN"] / (r["mN"] + km)
+            A2[t] = math.exp((1 - w) * math.log(ATK[t]) + w * math.log(r["mA"]))
+            D2[t] = math.exp((1 - w) * math.log(DEF[t]) + w * math.log(r["mD"]))
+        else:
+            A2[t], D2[t] = ATK[t], DEF[t]
+    ma = sum(A2.values()) / len(A2)
+    md = sum(D2.values()) / len(D2)
+    return {t: v / ma for t, v in A2.items()}, {t: v / md for t, v in D2.items()}
 
 
 def side_goals(S, team, opp, home, gw, home_mult, pen, market=None):

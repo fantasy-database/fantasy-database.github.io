@@ -556,9 +556,9 @@ function render(){
       `<b>GW${many?priced[0]+" and GW"+lastP:priced[0]}</b> `
     + `${many?"come":"comes"} from bookmakers' odds &mdash; marked <span class="dot"></span> &mdash; because over `
     + `the next round or two the market sees the team news, injuries and rotation that our ratings cannot. `
-    + (rest ? `<b>${rest}</b> ${rest.includes(" to ")?"come":"comes"} from our own expected-goals model, `
-              + `which is all there is that far ahead.`
-            : "Everything further out comes from our own expected-goals model.");
+    + (rest ? `<b>${rest}</b> ${rest.includes(" to ")?"come":"comes"} from our expected-goals model, `
+              + `leaned toward the bookmakers\u2019 recent view of each side.`
+            : "Everything further out comes from our expected-goals model, leaned toward the bookmakers\u2019 recent view of each side.");
 
   foot(players);
   paintGwPick();

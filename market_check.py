@@ -46,7 +46,8 @@ def strengths(teams, n, k_atk, k_def, k_promoted):
 def model_projections(d, gw):
     atk, dfn, base = strengths(d["teams"], d["matchesPlayed"],
                                d["fit"]["kAtk"], d["fit"]["kDef"], 4)
-    # level: the overall goal scale fitted against the market (update.py GOAL_LEVEL)
+    # level: the overall goal scale fitted against the market (update.py GOAL_LEVEL).
+    # Deliberately the xG model alone, without the market blend: the honest score.
     h, pen = d["fit"]["home"], d["fit"]["pen"] * d["fit"].get("level", 1)
     out = {}
     for fx in d["fixtures"]:

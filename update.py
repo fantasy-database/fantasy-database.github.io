@@ -16,6 +16,7 @@ import collections
 
 import minutes as MN
 import points as PT
+import odds as odds_mod
 
 FPL = "https://fantasy.premierleague.com/api"
 UND = "https://understat.com"
@@ -66,6 +67,14 @@ ATTACK_K = 24
 # beat the old model on the fifth in all five folds. See
 # claude/backtest-level-and-katk.md. Refit with that harness, not by hand.
 GOAL_LEVEL = 0.95
+# How far each side's ratings lean toward the bookmakers' view of it: weight
+# mN/(mN + MARKET_K), mN being the fixtures the books priced for that side in
+# the last odds.WINDOW rounds -- so at most 6/16 = 0.375. Forecasting the market
+# 2-4 weeks ahead, GW5-9 2026/27, anything from 3 to 10 helped about equally;
+# an independent review found 10 as good as 5 and steadier, and the gain small
+# and not yet shown against results. claude/backtest-market-blend.md.
+# 0 switches it off.
+MARKET_K = 10
 
 
 def goal_scale(fit):
@@ -222,7 +231,102 @@ def fit_k(matches, A, D, base, hfac):
     return out
 
 
-def score_against_market(data, market):
+
+def market_step(teams, fixtures, next_gw, hfac, data, prev_m, fetch_priced):
+    """
+    Fetch the bookmakers' prices, add them to the season's history, and attach
+    the market's own attack and defence to each team in `teams` (mA / mD / mN),
+    setting data["fit"]["kMarket"].
+
+    Never raises. If the odds cannot be fetched the history kept in the last
+    market.json still applies; if anything about the history itself is wrong,
+    the ratings go out without the market and the build carries on -- the same
+    model the site ran before 24 Oct 2026.
+
+    Returns (odds_ok, by_gw, credits remaining, history).
+    """
+    # A new season starts a new history: gameweek numbers repeat every year,
+    # and last season's sides are not this season's.
+    history = prev_m.get("history") or {}
+    if prev_m.get("season") != data.get("season"):
+        if history:
+            log(f"   market history is from {prev_m.get('season')}, not {data.get('season')} -- starting afresh")
+        history = {}
+    odds_ok, by_gw, remaining = False, {}, None
+    try:
+        if not os.environ.get("ODDS_API_KEY"):
+            raise RuntimeError("ODDS_API_KEY is not set")
+        priced, remaining = fetch_priced()
+        if not priced:
+            raise ValueError("the odds feed returned no priced fixtures")
+
+        # Join each priced fixture to its gameweek through data.json's own
+        # fixture list, keyed on (home id, away id) -- unique within a season.
+        # Joining on the fixture rather than the date means a rearranged game
+        # lands in the right gameweek, which a date lookup would get wrong.
+        id_by_short = {t["short"]: tid for tid, t in teams.items()}
+        pair_gw = {(str(f[1]), str(f[2])): f[0] for f in fixtures}
+        unjoined, fx_by_gw = [], {}
+        for pf in priced:
+            h, a = id_by_short.get(pf["home"]), id_by_short.get(pf["away"])
+            gw = pair_gw.get((h, a)) if h and a else None
+            if gw is None:
+                unjoined.append(f"{pf['home']}-{pf['away']}")
+                continue
+            slot = by_gw.setdefault(str(gw), {})
+            slot[pf["home"]] = round(pf["home_xg"], 3)
+            slot[pf["away"]] = round(pf["away_xg"], 3)
+            fx_by_gw.setdefault(str(gw), []).append(
+                [pf["home"], pf["away"], round(pf["home_xg"], 3), round(pf["away_xg"], 3)])
+        if unjoined:
+            log(f"   odds: {len(unjoined)} priced fixtures matched no scheduled "
+                f"game and were dropped ({', '.join(unjoined[:5])})")
+        if not by_gw:
+            raise ValueError("no priced fixture could be joined to a gameweek")
+        history = odds_mod.update_history(history, fx_by_gw, next_gw)
+        # A game postponed out of a round still open must not keep its old
+        # price there, or it counts twice once it is rescheduled.
+        for g in list(history):
+            if int(g) >= next_gw:
+                history[g] = [r for r in history[g]
+                              if pair_gw.get((id_by_short.get(r[0]), id_by_short.get(r[1]))) == int(g)]
+        odds_ok = True
+    except Exception as e:
+        by_gw = {}
+        log(f"!! odds not fetched ({e}) - keeping the previous market.json")
+
+    # The market's own attack and defence for each side, from the last
+    # odds.WINDOW rounds the books have priced -- rounds whose deadline has
+    # passed, frozen at their last prices, plus the next one.
+    try:
+        if not MARKET_K:
+            raise RuntimeError("MARKET_K is 0")
+        mrat = odds_mod.implied_ratings(history, hfac, next_gw)
+        if not mrat:
+            raise ValueError("too few priced fixtures yet")
+        bad = [s for s, v in mrat.items()
+               if not (0.3 <= v["mA"] <= 3 and 0.3 <= v["mD"] <= 3)]
+        if bad:
+            raise ValueError(f"market rating out of range for {', '.join(bad)}")
+        shorts = {t["short"] for t in teams.values()}
+        missing = shorts - set(mrat)
+        if missing:
+            raise ValueError(f"no market rating for {', '.join(sorted(missing))}")
+        for rec in teams.values():
+            rec.update(mrat[rec["short"]])
+        data["fit"]["kMarket"] = MARKET_K
+        rounds = sorted(int(g) for g in history if int(g) <= next_gw and history[g])[-odds_mod.WINDOW:]
+        log(f"market ratings from {sum(len(history[str(g)]) for g in rounds)} priced "
+            f"fixtures (GW{rounds[0]}-{rounds[-1]}), kMarket={MARKET_K}")
+    except Exception as e:
+        for rec in teams.values():
+            for k in ("mA", "mD", "mN"):
+                rec.pop(k, None)
+        data["fit"].pop("kMarket", None)
+        log(f"!! market ratings not used ({e}) - xG ratings alone this build")
+    return odds_ok, by_gw, remaining, history
+
+def score_against_market(data, market, blended=False):
     """
     Put the model's next-gameweek projection beside the market's and score it.
 
@@ -231,24 +335,18 @@ def score_against_market(data, market):
     r     - do we rank the teams the same way
     slope - regress market on model; ~1 means our spread is right, >1 too flat
 
-    Deliberately read-only: it never touches a rating. Where we disagree is a
-    prompt to go and look, not a correction to apply.
+    blended=False scores the xG model alone, ignoring the market ratings the
+    site now blends in -- the honest test of our own modelling. blended=True
+    scores what the site shows, which has partly borrowed from the market and
+    so will always look closer to it.
+
+    Read-only: it never touches a rating.
     """
     gw = data["nextGw"]
-    n_played = data["matchesPlayed"]
     fit = data["fit"]
-    b = {}
-    for tid, t in data["teams"].items():
-        promoted = bool(t.get("promoted"))
-        wa = n_played / (n_played + (PROMOTED_K if promoted else fit["kAtk"]))
-        wd = n_played / (n_played + (PROMOTED_K if promoted else fit["kDef"]))
-        b[tid] = [wa * t["a26"] + (1 - wa) * t["pa"],
-                  wd * t["d26"] + (1 - wd) * t["pd"]]
-    ma = sum(v[0] for v in b.values()) / len(b)
-    md = sum(v[1] for v in b.values()) / len(b)
-    atk = {k: v[0] / ma for k, v in b.items()}
-    dfn = {k: v[1] / md for k, v in b.items()}
-    base = (ma + md) / 2
+    S = PT.strengths(data["teams"], data["matchesPlayed"], fit["kAtk"], fit["kDef"],
+                     PROMOTED_K, fit.get("kMarket") if blended else None)
+    atk, dfn, base = S["ATK"], S["DEF"], S["base"]
 
     model = {}
     for fx in data["fixtures"]:
@@ -590,7 +688,8 @@ def expected_points(players, pos_of, fc, lives, finished, raw_fixtures, want, mo
     bookmakers', exactly as the ticker shows them.
     """
     S = PT.strengths(model["teams"], model["matchesPlayed"],
-                     model["fit"]["kAtk"], model["fit"]["kDef"], PROMOTED_K)
+                     model["fit"]["kAtk"], model["fit"]["kDef"], PROMOTED_K,
+                     model["fit"].get("kMarket"))
     sides = {f["id"]: (f["team_h"], f["team_a"]) for f in raw_fixtures}
     team_of = {e["id"]: e["team"] for e in players}
     srows = PT.live_stat_rows(lives, finished)
@@ -887,6 +986,16 @@ def main():
         "fplLive": fpl["live"],
     }
 
+    # --- bookmaker odds, and the market's view of each side ----------------
+    # Before data.json is written, because since 24 Oct 2026 the market's view
+    # of each side feeds the ratings (MARKET_K). market_step() never raises.
+    try:
+        prev_m = json.loads(OUT_M.read_text()) if OUT_M.exists() else {}
+    except ValueError:
+        prev_m = {}
+    odds_ok, by_gw, remaining, history = market_step(
+        teams, fixtures, next_gw, hfac, data, prev_m, odds_mod.priced_fixtures)
+
     # --- refuse to publish anything that looks wrong -----------------------
     problems = []
     if len(data["teams"]) != 20:
@@ -925,65 +1034,41 @@ def main():
 
     OUT.write_text(json.dumps(data, separators=(",", ":")))
 
-    # --- bookmaker odds ----------------------------------------------------
-    # A reference forecast, fetched the same way the players are: in its own
-    # try, so a third-party outage or an exhausted quota never stops the site
-    # rebuilding. Nothing here feeds the model -- it is the scorecard the model
-    # is measured against (claude/backtest-odds-benchmark.md).
-    try:
-        if not os.environ.get("ODDS_API_KEY"):
-            raise RuntimeError("ODDS_API_KEY is not set")
-        import odds as odds_mod
-        priced, remaining = odds_mod.priced_fixtures()
-        if not priced:
-            raise ValueError("the odds feed returned no priced fixtures")
+    if odds_ok:
+        try:
+            market = by_gw.get(str(next_gw), {})
+            # Two scorecards. "scorecard" is the xG model alone -- the honest test
+            # of our own modelling, since the blended one has borrowed from the very
+            # market it is being scored against. "scorecardBlend" is what the site
+            # actually shows. Read the first to judge the model.
+            scored = score_against_market(data, market)
+            blend = score_against_market(data, market, blended=True)
+            OUT_M.write_text(json.dumps({
+                "generated": data["generated"],
+                "nextGw": next_gw,
+                "creditsRemaining": remaining,
+                "gw": by_gw,                  # every priced gameweek, for the ticker
+                "market": market,             # the next one alone, for the scorecard
+                "model": scored["model"],
+                "scorecard": scored["scorecard"],
+                "scorecardBlend": blend["scorecard"],
+                "season": data["season"],     # the history below belongs to it
+                "history": history,           # every round priced this season
+            }, separators=(",", ":")))
+            sc, sb = scored["scorecard"], blend["scorecard"]
+            card = ("not enough priced fixtures to score" if sc["rmse"] is None else
+                    f"xG alone: bias {sc['bias']:+.3f}, RMSE {sc['rmse']:.3f}, "
+                    f"r {sc['r']:.3f}, slope {sc['slope']:.3f}; as shown: RMSE {sb['rmse']:.3f}")
+            log(f"wrote {OUT_M.name}: GW{'/GW'.join(sorted(by_gw, key=int))} priced "
+                f"({sum(len(v) for v in by_gw.values())} team-fixtures), {card} "
+                f"({remaining} credits left)")
+            for row in scored["worst"]:
+                log(f"    {row['team'].upper():5} model {row['model']:.2f}  "
+                    f"market {row['market']:.2f}  {row['diff']:+.2f}")
+        except Exception as e:
+            log(f"!! market.json not written ({e}) - keeping the previous one")
 
-        # Join each priced fixture to its gameweek through data.json's own
-        # fixture list, keyed on (home id, away id) -- unique within a season.
-        # Joining on the fixture rather than the date means a rearranged game
-        # lands in the right gameweek, which a date lookup would get wrong.
-        id_by_short = {t["short"]: tid for tid, t in teams.items()}
-        pair_gw = {(str(f[1]), str(f[2])): f[0] for f in fixtures}
-        by_gw, unjoined = {}, []
-        for pf in priced:
-            h, a = id_by_short.get(pf["home"]), id_by_short.get(pf["away"])
-            gw = pair_gw.get((h, a)) if h and a else None
-            if gw is None:
-                unjoined.append(f"{pf['home']}-{pf['away']}")
-                continue
-            slot = by_gw.setdefault(str(gw), {})
-            slot[pf["home"]] = round(pf["home_xg"], 3)
-            slot[pf["away"]] = round(pf["away_xg"], 3)
-        if unjoined:
-            log(f"   odds: {len(unjoined)} priced fixtures matched no scheduled "
-                f"game and were dropped ({', '.join(unjoined[:5])})")
-        if not by_gw:
-            raise ValueError("no priced fixture could be joined to a gameweek")
-        market = by_gw.get(str(next_gw), {})
-
-        # score the model against it, so every build leaves a record
-        scored = score_against_market(data, market)
-        OUT_M.write_text(json.dumps({
-            "generated": data["generated"],
-            "nextGw": next_gw,
-            "creditsRemaining": remaining,
-            "gw": by_gw,                  # every priced gameweek, for the ticker
-            "market": market,             # the next one alone, for the scorecard
-            "model": scored["model"],
-            "scorecard": scored["scorecard"],
-        }, separators=(",", ":")))
-        sc = scored["scorecard"]
-        card = ("not enough priced fixtures to score" if sc["rmse"] is None else
-                f"bias {sc['bias']:+.3f}, RMSE {sc['rmse']:.3f}, "
-                f"r {sc['r']:.3f}, slope {sc['slope']:.3f}")
-        log(f"wrote {OUT_M.name}: GW{'/GW'.join(sorted(by_gw, key=int))} priced "
-            f"({sum(len(v) for v in by_gw.values())} team-fixtures), {card} "
-            f"({remaining} credits left)")
-        for row in scored["worst"]:
-            log(f"    {row['team'].upper():5} model {row['model']:.2f}  "
-                f"market {row['market']:.2f}  {row['diff']:+.2f}")
-    except Exception as e:
-        log(f"!! odds not fetched ({e}) - keeping the previous market.json")
+    # bookmaker odds were fetched above, before data.json, and written there
 
     # The odds run before the players now: the points model uses the same
     # bookmakers' numbers the ticker shows, and market.json is what the ticker

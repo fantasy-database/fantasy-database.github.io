@@ -193,6 +193,30 @@ test("a data.json with no level reads as 1", () => {
   assert.equal(a.pen, b.pen);
 });
 
+console.log("\nMarket blend (24 Oct 2026)");
+test("no market ratings, or kMarket 0, changes nothing", () => {
+  const base = { ...IN, nextGw: 1, deadlines: Array(38).fill("2099-01-01") };
+  const a = M.fromData(base), b = M.fromData({ ...base, fit: { ...IN.fit, kMarket: 5 } });
+  assert.deepEqual(a.S.ATK, b.S.ATK);
+  const teams = JSON.parse(JSON.stringify(IN.teams));
+  for (const id in teams) Object.assign(teams[id], { mA: 1.3, mD: 0.8, mN: 5 });
+  const c = M.fromData({ ...base, teams, fit: { ...IN.fit, kMarket: 0 } });
+  assert.deepEqual(a.S.ATK, c.S.ATK);
+});
+test("market ratings pull a side toward the market, and the league still averages 1", () => {
+  const base = { ...IN, nextGw: 1, deadlines: Array(38).fill("2099-01-01") };
+  const teams = JSON.parse(JSON.stringify(IN.teams));
+  const ids = Object.keys(teams);
+  for (const id of ids) Object.assign(teams[id], { mA: 1, mD: 1, mN: 5 });
+  teams[ids[0]].mA = 2;                                   // the market loves one attack
+  const plain = M.fromData({ ...base, teams, fit: { ...IN.fit } }).S;
+  const bl = M.fromData({ ...base, teams, fit: { ...IN.fit, kMarket: 5 } }).S;
+  assert.ok(bl.ATK[ids[0]] > plain.ATK[ids[0]], "pulled up");
+  const mean = ids.reduce((s, i) => s + bl.ATK[i], 0) / ids.length;
+  assert.ok(Math.abs(mean - 1) < 1e-12, "mean " + mean);
+  assert.equal(bl.base, plain.base);
+});
+
 console.log("\nColour bands");
 test("the band table is Nahom's (top xG band 2.25+ since 24 Oct 2026)", () => {
   assert.deepEqual(M.BAND, { atk_proj: [1, 1.3, 1.6, 2.25], def_proj: [15, 25, 35, 45],

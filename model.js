@@ -21,7 +21,7 @@
  * repeatable — defence needs about three times the evidence. Promoted sides use
  * their own k, because they have no top-flight record to regress toward.
  * ------------------------------------------------------------------------- */
-export function strengths(rec, matchesPlayed, kA, kD, kp) {
+export function strengths(rec, matchesPlayed, kA, kD, kp, km = 0) {
   const b = {}, n = matchesPlayed;
   for (const id in rec) {
     const r = rec[id];
@@ -35,7 +35,36 @@ export function strengths(rec, matchesPlayed, kA, kD, kp) {
   const ATK = {}, DEF = {};
   ids.forEach(i => { ATK[i] = b[i][0] / la; DEF[i] = b[i][1] / ld; });
   const w = x => matchesPlayed / (matchesPlayed + x);
-  return { ATK, DEF, base: (la + ld) / 2, wA: w(kA), wD: w(kD), wP: w(kp) };
+  const m = marketBlend(rec, ATK, DEF, km);
+  return { ATK: m.ATK, DEF: m.DEF, base: (la + ld) / 2, wA: w(kA), wD: w(kD), wP: w(kp) };
+}
+
+/*
+ * Lean each side toward the bookmakers' view of it. update.py keeps every
+ * round the books have priced and solves a market attack and defence for each
+ * team (mA / mD, from mN priced fixtures). The xG ratings cannot see a summer
+ * of transfers; the market can. Weight mN/(mN+km), blended in logs and
+ * renormalised to mean 1, so one odd week of prices moves nothing much.
+ * km = 0, or no market ratings, leaves the ratings untouched. points.py
+ * market_blend() is the same function. claude/backtest-market-blend.md.
+ */
+export function marketBlend(rec, ATK, DEF, km) {
+  const ids = Object.keys(ATK);
+  if (!km || !ids.some(i => rec[i] && rec[i].mA != null)) return { ATK, DEF };
+  const A2 = {}, D2 = {};
+  for (const i of ids) {
+    const r = rec[i];
+    if (r && r.mA != null && r.mN) {
+      const w = r.mN / (r.mN + km);
+      A2[i] = Math.exp((1 - w) * Math.log(ATK[i]) + w * Math.log(r.mA));
+      D2[i] = Math.exp((1 - w) * Math.log(DEF[i]) + w * Math.log(r.mD));
+    } else { A2[i] = ATK[i]; D2[i] = DEF[i]; }
+  }
+  const ma = ids.reduce((s, i) => s + A2[i], 0) / ids.length;
+  const md = ids.reduce((s, i) => s + D2[i], 0) / ids.length;
+  const outA = {}, outD = {};
+  ids.forEach(i => { outA[i] = A2[i] / ma; outD[i] = D2[i] / md; });
+  return { ATK: outA, DEF: outD };
 }
 
 /** Every team's fixtures between two gameweeks, in order. */
@@ -300,6 +329,7 @@ export function recordsFrom(teams) {
     const t = teams[id];
     rec[id] = { pa: t.pa, pd: t.pd, a26: t.a26, d26: t.d26 };
     if (t.promoted) rec[id].promoted = 1;
+    if (t.mA != null) { rec[id].mA = t.mA; rec[id].mD = t.mD; rec[id].mN = t.mN; }
   }
   return rec;
 }
@@ -352,10 +382,10 @@ export function nextGwFrom(d) {
 }
 
 
-export function fromData(d, { kAtk, kDef, kPromoted = 4, home, pen, market = null } = {}) {
+export function fromData(d, { kAtk, kDef, kPromoted = 4, kMarket, home, pen, market = null } = {}) {
   const rec = recordsFrom(d.teams);
   const S = strengths(rec, d.matchesPlayed,
-    kAtk ?? d.fit.kAtk, kDef ?? d.fit.kDef, kPromoted);
+    kAtk ?? d.fit.kAtk, kDef ?? d.fit.kDef, kPromoted, kMarket ?? d.fit.kMarket ?? 0);
   // The fitted constants are not a user setting — update.py measures them and
   // writes them into data.json — but the ticker lets a query string override
   // them for testing, so they are overridable here rather than in the page.

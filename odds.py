@@ -185,3 +185,88 @@ def priced_fixtures(api_key=None):
             + "\nAdd them to NAME_TO_SHORT. Refusing to publish a partial table."
         )
     return out, remaining
+
+
+# ---------------------------------------------------------------------------
+# The market's view of each team, kept across the season
+#
+# Each build sees only the next round or two of prices, so on its own the
+# market can only speak for the next couple of gameweeks. Kept round by round,
+# it also says something lasting about each side -- who the books think is
+# better or worse than their xG -- which is exactly what the xG ratings cannot
+# see after a summer of transfers. claude/backtest-market-blend.md.
+# ---------------------------------------------------------------------------
+
+def update_history(history, by_gw, next_gw):
+    """
+    history: {gw: [[home, away, home_xg, away_xg], ...]} -- one row per priced
+    fixture, keyed by short code, so a double gameweek stays unambiguous.
+    by_gw: the same shape for this build's prices.
+
+    A gameweek still open (>= next_gw) takes the latest prices, merged fixture
+    by fixture so a game the feed omits today keeps yesterday's price; one
+    whose deadline has passed is frozen at the last prices seen before it.
+    Returns a new dict; never mutates its input.
+    """
+    out = {g: [list(r) for r in rows] for g, rows in (history or {}).items()}
+    for g, rows in by_gw.items():
+        if int(g) >= next_gw and rows:
+            # Merge by fixture rather than replace: a feed that omits a game one
+            # day must not wipe the price it had the day before.
+            merged = {(r[0], r[1]): list(r) for r in out.get(str(g), [])}
+            merged.update({(r[0], r[1]): list(r) for r in rows})
+            out[str(g)] = list(merged.values())
+    return out
+
+
+# Only the most recent rounds count, so a side's market rating describes it as
+# the books see it now rather than an average back to August, and the weight
+# it gets (mN / (mN + km)) stops growing after this many rounds.
+WINDOW = 6
+# With one or two rounds, each side has played too few opponents for its
+# attack and defence to be told apart -- the solve fits any split. Three first.
+MIN_ROUNDS = 3
+
+
+def implied_ratings(history, home, upto_gw, iters=200, window=WINDOW, min_rounds=MIN_ROUNDS):
+    """
+    Market attack and defence per team, from the priced fixtures of the last
+    `window` rounds up to and including upto_gw: xg = base * A[team] *
+    D[opponent] * home^(+/-1), solved by alternating updates and normalised to
+    mean 1, like the xG ratings.
+
+    Returns {short: {"mA": A, "mD": D, "mN": fixtures priced}}, or {} with
+    fewer than `min_rounds` rounds to go on.
+    """
+    rounds = sorted(int(g) for g in (history or {}) if int(g) <= upto_gw and history[g])
+    rounds = rounds[-window:]
+    if len(rounds) < min_rounds:
+        return {}
+    rows = []
+    for g in rounds:
+        for h, a, hx, ax in history[str(g)]:
+            rows.append((h, a, True, float(hx)))
+            rows.append((a, h, False, float(ax)))
+    teams = sorted({r[0] for r in rows})
+    A = {t: 1.0 for t in teams}
+    D = {t: 1.0 for t in teams}
+    m = lambda is_home: home if is_home else 1 / home
+    b = sum(r[3] for r in rows) / len(rows)
+    by_att = {t: [r for r in rows if r[0] == t] for t in teams}
+    by_def = {t: [r for r in rows if r[1] == t] for t in teams}
+    for _ in range(iters):
+        for t in teams:
+            den = sum(b * D[o] * m(hm) for _, o, hm, _ in by_att[t])
+            if den:
+                A[t] = sum(x for *_, x in by_att[t]) / den
+        for t in teams:
+            den = sum(b * A[s] * m(hm) for s, _, hm, _ in by_def[t])
+            if den:
+                D[t] = sum(x for *_, x in by_def[t]) / den
+        ma = sum(A.values()) / len(A)
+        md = sum(D.values()) / len(D)
+        A = {t: v / ma for t, v in A.items()}
+        D = {t: v / md for t, v in D.items()}
+        b = sum(r[3] for r in rows) / sum(A[s] * D[o] * m(hm) for s, o, hm, _ in rows)
+    return {t: {"mA": round(A[t], 4), "mD": round(D[t], 4), "mN": len(by_att[t])}
+            for t in teams}
