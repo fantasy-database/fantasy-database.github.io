@@ -122,10 +122,11 @@ export const goodClamped = (side, v, mode) => Math.max(0, Math.min(1, good(side,
  * one of five colours rather than one of a thousand, which is what makes a
  * column readable at a glance.
  *
- *   xG   <1.00 | 1.00-1.29 | 1.30-1.59 | 1.60-1.99 | 2.00+
+ *   xG   <1.00 | 1.00-1.29 | 1.30-1.59 | 1.60-2.24 | 2.25+
  *   CS    <15% |   15-24%  |   25-34%  |   35-44%  |   45%+
  *
- * Nahom's own table, set 22 September 2026. The expected-goals row follows FPL
+ * Nahom's own table, set 22 September 2026; the top xG band raised from 2.00
+ * to 2.25 at his request on 24 October 2026. The expected-goals row began as FPL
  * Joe's; the clean sheet row is his, and is deliberately stingier than theirs
  * in the middle — their grey starts at 20%, his at 25%, so a fixture has to be
  * a genuinely good one before it stops reading as red.
@@ -133,7 +134,7 @@ export const goodClamped = (side, v, mode) => Math.max(0, Math.min(1, good(side,
  * The two rows are independent. That is a choice, not an oversight: a clean
  * sheet is the Poisson complement of the opponent's expected goals, so a scale
  * derived from the xG row would colour the two sides of a fixture as exact
- * opposites, and one derived from these numbers does not — a 2.00 xG attack is
+ * opposites, and one derived from these numbers does not — a 2.25 xG attack is
  * dark green while the defence facing that same number reads red rather than
  * dark red. An earlier build did derive them and was rejected: it put far more
  * green on the defensive column than the raw clean sheet numbers deserve.
@@ -145,7 +146,7 @@ export const goodClamped = (side, v, mode) => Math.max(0, Math.min(1, good(side,
  * it keeps the continuous ramp.
  * ------------------------------------------------------------------------- */
 export const BAND = {
-  atk_proj: [1.00, 1.30, 1.60, 2.00],
+  atk_proj: [1.00, 1.30, 1.60, 2.25],
   def_proj: [15, 25, 35, 45],
   // Expected goal difference, symmetric about an even game: grey is within a
   // quarter of a goal either way, the deepest colours three quarters or more.
@@ -358,7 +359,10 @@ export function fromData(d, { kAtk, kDef, kPromoted = 4, home, pen, market = nul
   // The fitted constants are not a user setting — update.py measures them and
   // writes them into data.json — but the ticker lets a query string override
   // them for testing, so they are overridable here rather than in the page.
-  const H = home ?? d.fit.home, P = pen ?? d.fit.pen;
+  // `level` scales every projected goal; it is fitted against the bookmakers
+  // (update.py, GOAL_LEVEL). A data.json from before it existed reads as 1.
+  // A ?pen= override for testing is still scaled by it.
+  const H = home ?? d.fit.home, P = (pen ?? d.fit.pen) * (d.fit.level ?? 1);
   return {
     S, rec,
     home: H,

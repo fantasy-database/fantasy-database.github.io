@@ -170,9 +170,32 @@ test("the anchor table is unchanged", () => {
   assert.deepEqual(fix_proj, [-1.5, 1.5]);
 });
 
+console.log("\nGoal level (24 Oct 2026)");
+test("fit.level scales every projected goal, and nothing else", () => {
+  const base = { ...IN, nextGw: 1, deadlines: Array(38).fill("2099-01-01") };
+  const plain = M.fromData({ ...base, fit: { ...IN.fit, level: undefined } });
+  const lvl = M.fromData({ ...base, fit: { ...IN.fit, level: 0.95 } });
+  let n = 0;
+  for (const [id, list] of Object.entries(plain.fixtures(1, 38))) for (const f of list) {
+    const a0 = plain.rate("atk", +id, f), a1 = lvl.rate("atk", +id, f);
+    assert.ok(Math.abs(a1 - 0.95 * a0) < 1e-12, "xG scales");
+    const c0 = plain.rate("def", +id, f), c1 = lvl.rate("def", +id, f);
+    assert.ok(c1 > c0, "fewer goals against means a better clean sheet chance");
+    assert.equal(lvl.rate("atk", +id, f, "ease"), plain.rate("atk", +id, f, "ease"), "ease untouched");
+    n++;
+  }
+  assert.ok(n > 100, "checked " + n);
+});
+test("a data.json with no level reads as 1", () => {
+  const base = { ...IN, nextGw: 1, deadlines: Array(38).fill("2099-01-01") };
+  const a = M.fromData({ ...base, fit: { ...IN.fit, level: undefined } });
+  const b = M.fromData({ ...base, fit: { ...IN.fit, level: 1 } });
+  assert.equal(a.pen, b.pen);
+});
+
 console.log("\nColour bands");
-test("the band table is Nahom's", () => {
-  assert.deepEqual(M.BAND, { atk_proj: [1, 1.3, 1.6, 2], def_proj: [15, 25, 35, 45],
+test("the band table is Nahom's (top xG band 2.25+ since 24 Oct 2026)", () => {
+  assert.deepEqual(M.BAND, { atk_proj: [1, 1.3, 1.6, 2.25], def_proj: [15, 25, 35, 45],
                              fix_proj: [-0.75, -0.25, 0.25, 0.75] });
 });
 
@@ -219,7 +242,7 @@ test("fixture numbers read signed", () => {
 test("every edge belongs to the band above it", () => {
   const cases = [
     ["atk", [[0.99, 0], [1, 1], [1.29, 1], [1.3, 2], [1.59, 2],
-             [1.6, 3], [1.99, 3], [2, 4], [9, 4]]],
+             [1.6, 3], [1.99, 3], [2, 3], [2.24, 3], [2.25, 4], [9, 4]]],
     ["def", [[14, 0], [15, 1], [24, 1], [25, 2], [34, 2],
              [35, 3], [44, 3], [45, 4], [100, 4]]],
   ];
@@ -248,7 +271,7 @@ test("the ease index is not banded and keeps the ramp", () => {
 });
 test("the key reads the way the bands are written", () => {
   assert.deepEqual(M.bandLabels("atk", "proj"),
-    ["<1.00", "1.00\u20131.29", "1.30\u20131.59", "1.60\u20131.99", "2.00+"]);
+    ["<1.00", "1.00\u20131.29", "1.30\u20131.59", "1.60\u20132.24", "2.25+"]);
   assert.deepEqual(M.bandLabels("def", "proj"),
     ["<15%", "15\u201324%", "25\u201334%", "35\u201344%", "45%+"]);
 });

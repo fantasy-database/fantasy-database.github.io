@@ -51,6 +51,27 @@ PROMOTED_PRIOR = {"a": 1.1145, "d": 1.9492}
 # judgement rather than a fitted value. Matches the front end.
 PROMOTED_K = 4
 
+# Attack blend constant. fit_k() measures how well half a season predicts the
+# other half, which is the right question within one season but cannot see a
+# summer of transfers, so it under-trusts last season (it gives 8). Scored
+# against the bookmakers' prices for GW5-9 of 2026/27 -- 100 team-fixtures,
+# each held out in turn -- attack is best anywhere from 20 to 48 and 24 sits
+# in the middle (16 is within noise of it); five earlier backtests all wanted
+# it higher than 8 too. Defence keeps fit_k()'s value: the same test finds
+# nothing to choose between kDef 10-35.
+ATTACK_K = 24
+# Overall goal level. The model ran +0.08 xG a side above the market in every
+# one of GW5-9 (this season's Understat xG is ~5% above last season's and the
+# market does not believe it). 0.95 removes that bias; fitted on four weeks it
+# beat the old model on the fifth in all five folds. See
+# claude/backtest-level-and-katk.md. Refit with that harness, not by hand.
+GOAL_LEVEL = 0.95
+
+
+def goal_scale(fit):
+    """Penalties back in, and the overall level -- every projected goal uses both."""
+    return fit["pen"] * fit.get("level", 1.0)
+
 # Both sources sit behind Cloudflare and refuse traffic that does not look like
 # a browser, so present as one and retry a few times before giving up.
 UA = {
@@ -235,9 +256,9 @@ def score_against_market(data, market):
             continue
         h, a = str(fx[1]), str(fx[2])
         model[data["teams"][h]["short"]] = round(
-            base * atk[h] * dfn[a] * fit["home"] * fit["pen"], 3)
+            base * atk[h] * dfn[a] * fit["home"] * goal_scale(fit), 3)
         model[data["teams"][a]["short"]] = round(
-            base * atk[a] * dfn[h] / fit["home"] * fit["pen"], 3)
+            base * atk[a] * dfn[h] / fit["home"] * goal_scale(fit), 3)
 
     pairs = [(model[k], market[k]) for k in model if k in market]
     card = {"n": len(pairs)}
@@ -614,7 +635,7 @@ def expected_points(players, pos_of, fc, lives, finished, raw_fixtures, want, mo
         opp = f["team_a"] if t == f["team_h"] else f["team_h"]
         mk = None if (per_gw[(gw, t)] > 1 or per_gw[(gw, opp)] > 1) else market
         gf, ga = PT.side_goals(S, str(t), str(opp), t == f["team_h"], gw,
-                               model["fit"]["home"], model["fit"]["pen"], mk)
+                               model["fit"]["home"], goal_scale(model["fit"]), mk)
         out[(pid, fid)] = PT.expected(rate[pid], o, gf, ga, pos_of[pid])["total"]
     if not all(-3.0 <= x <= 25.0 for x in out.values()):
         raise ValueError("an expected points figure is out of range")
@@ -856,8 +877,8 @@ def main():
         "season": f"{season}/{str(season + 1)[2:]}",
         "matchesPlayed": played,
         "nextGw": next_gw,
-        "fit": {"kAtk": fit["kAtk"], "kDef": fit["kDef"],
-                "home": round(hfac, 3), "pen": pen},
+        "fit": {"kAtk": ATTACK_K, "kDef": fit["kDef"],
+                "home": round(hfac, 3), "pen": pen, "level": GOAL_LEVEL},
         "promotedPrior": PROMOTED_PRIOR,
         "teams": teams,
         "deadlines": deadlines,
@@ -894,6 +915,8 @@ def main():
                 problems.append(f"{t['name']} {key}={v}")
     if not (1.0 <= data["fit"]["home"] <= 1.4):
         problems.append(f"home factor {data['fit']['home']}")
+    if not (0.8 <= data["fit"].get("level", 1.0) <= 1.2):
+        problems.append(f"goal level {data['fit'].get('level')}")
     if problems:
         print("REFUSING TO WRITE — data failed validation:", file=sys.stderr)
         for p in problems:
@@ -999,7 +1022,7 @@ def main():
     print(f"wrote {OUT.name}: {len(data['teams'])} teams, "
           f"{data['matchesPlayed']} matches played, next GW{data['nextGw']}, "
           f"kAtk={data['fit']['kAtk']} kDef={data['fit']['kDef']} "
-          f"home={data['fit']['home']}")
+          f"home={data['fit']['home']} level={data['fit'].get('level', 1.0)}")
 
 
 if __name__ == "__main__":

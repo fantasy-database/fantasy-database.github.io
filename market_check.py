@@ -46,7 +46,8 @@ def strengths(teams, n, k_atk, k_def, k_promoted):
 def model_projections(d, gw):
     atk, dfn, base = strengths(d["teams"], d["matchesPlayed"],
                                d["fit"]["kAtk"], d["fit"]["kDef"], 4)
-    h, pen = d["fit"]["home"], d["fit"]["pen"]
+    # level: the overall goal scale fitted against the market (update.py GOAL_LEVEL)
+    h, pen = d["fit"]["home"], d["fit"]["pen"] * d["fit"].get("level", 1)
     out = {}
     for fx in d["fixtures"]:
         gwk, home, away = fx[0], str(fx[1]), str(fx[2])
