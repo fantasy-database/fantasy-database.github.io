@@ -143,13 +143,11 @@
     font-size:10px;color:var(--muted);margin-top:4px}
 
   .tablecard{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+  .keybar[hidden]{display:none}
   .keybar{display:flex;align-items:center;gap:10px;padding:9px 12px;
     border-bottom:1px solid var(--border);background:var(--surface-2);
     font-size:12.5px;color:var(--muted);flex-wrap:wrap}
   .keybar b{color:var(--ink);font-weight:700}
-  .kbramp{display:inline-block;width:78px;height:10px;border-radius:3px;flex:0 0 auto}
-  .kbbands{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10.5px;color:var(--muted)}
-  .kbbands span{white-space:nowrap}
   .tscroll{overflow-x:auto}
   table{border-collapse:separate;border-spacing:0;width:100%;min-width:930px}
   thead th{font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;font-weight:600;letter-spacing:.1em;
@@ -170,8 +168,6 @@
   .team i{display:block;width:4px;height:15px;border-radius:2px;flex:0 0 auto;
     box-shadow:0 0 0 1px rgba(255,255,255,.18)}
   .prov{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--accent);margin-left:5px;vertical-align:2px}
-  .delta{font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;font-weight:600;margin-left:5px;
-    padding:1px 4px;border-radius:4px;border:1px solid var(--border-strong);color:var(--muted);vertical-align:1px}
   .cellwrap{display:block}
   .cell{display:block;border-radius:4px;padding:6px 2px;text-align:center;
     font-family:"Roboto Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.01em;
@@ -279,7 +275,6 @@
     .mscore{display:block;font-family:"Roboto Mono",monospace;font-size:12px;font-weight:700;
       color:var(--ink);margin-top:3px;letter-spacing:-.01em}
     .mscore em{font-style:normal;font-weight:500;color:var(--muted);font-size:11px}
-    .delta{display:none}
     .cell{min-width:56px;font-size:10.5px;padding:5px 2px}
     .cell u{font-size:8.5px}
     .cell.plain{padding:10.5px 2px}
@@ -369,8 +364,7 @@
   </section>
 
   <div class="tablecard">
-    <div class="keybar"><span class="kbramp" id="kbramp"></span><span id="kbtext"></span>
-      <p class="kbsrc" id="kbsrc"></p></div>
+    <div class="keybar" id="keybar"><p class="kbsrc" id="kbsrc"></p></div>
     <div class="tscroll"><table>
       <thead><tr id="thead"></tr></thead>
       <tbody id="rows"></tbody>
@@ -408,7 +402,7 @@
 
 <script type="module" id="app">
 import { fromData, marketByTeamId, rotate,
-         good as goodness, colourT, bandLabels, formatVal,
+         good as goodness, colourT, formatVal,
          shade as shadeOn, rampFromCss } from "./model.js?v=20261025";
 
 // Always expected returns: the opponent-only index was removed on 26 Sep 2026
@@ -446,6 +440,7 @@ const rate=(side,t,f)=>M.rate(side,+t,f,MODE);
 /* Whether the number this cell shows came from the bookmakers rather than the
    model. Only the expected-returns view uses the odds at all, which is why the
    mode is part of the question. */
+const SRC_LINE=`<span class="dot"></span> Fixtures with a dot use bookmakers' odds, which pick up team news and injuries. The rest come from our xG model.`;
 const priced=(side,t,f)=>MODE==="proj"&&M.priced(+t,f,side);
 
 /* The fitted constants are not a user setting: update.py measures them from last
@@ -471,44 +466,19 @@ function render(){
   $("#gwReadout").innerHTML = span===1
     ? `GW${from} <small>${from===NEXT_GW?"next gameweek":"one gameweek"} · ${fmtDate(DEADLINES[from-1])}</small>`
     : `GW${from} – GW${to} <small>${span} gameweeks · ${fmtDate(DEADLINES[from-1])} – ${fmtDate(DEADLINES[to-1])}</small>`;
-  // Five flat blocks, because every view is banded: the key shows what the
-  // grid shows. Fixtures is colour only, so its key carries no numbers.
-  const kbBands = SIDE==="fix" ? null : bandLabels(SIDE,MODE);
-  $("#kbramp").style.background = "linear-gradient(90deg,"+[0,.25,.5,.75,1]
-    .map((v,i)=>`${shade(v).bg} ${i*20}% ${(i+1)*20}%`).join(",")+")";
-  $("#kbramp").title = kbBands ? kbBands.join("  ·  ") : "";
-
   const NOTE={
     atk_proj:"<b>How many goals should they score?</b> Their own attack, against those defences. Every number is <b>xG</b> &mdash; expected goals for that fixture.",
     def_proj:"<b>How often should they keep a clean sheet?</b> Their own defence, against those attacks. Every number is <b>CS</b> &mdash; the chance of conceding nothing.",
     fix_proj:"<b>Who should win it?</b> Each fixture is coloured by how many more goals they should score than concede."};
   $("#viewNote").innerHTML=NOTE[SIDE+"_"+MODE];
-  const DIR={
-    atk_proj:"<b>Higher is better</b> &mdash; a bigger number means more goals expected.",
-    def_proj:"<b>Higher is better</b> &mdash; a bigger number means a better chance of a clean sheet.",
-    fix_proj:"<b>Green means they should outscore the opponent</b>, red that they should be outscored, and grey is close to an even game."};
   // from/to, not gws: gws is built further down and this runs before it
   const pricedGws=[];
   if(MODE==="proj" && MARKET) for(let g=from; g<=to; g++) if(MARKET[g]) pricedGws.push(g);
-  // The five bands spelled out. There is no hover on a phone, and the whole
-  // point of banding is that a colour means a range you can name.
-  $("#kbtext").innerHTML = DIR[SIDE+"_"+MODE] + (SIDE==="fix" ? "" : " Green is an easier fixture, red a harder one.")
-    // Each band stays whole; the list wraps between them on a narrow screen.
-    + (kbBands ? ` <span class="kbbands">${kbBands.map(l=>`<span>${l}</span>`).join(" &middot; ")}</span>` : "");
-
-  // Which weeks are the market's and which are ours. Only the priced weeks inside
-  // the window are named, so the line always matches what is actually on screen.
-  const last=pricedGws[pricedGws.length-1];
-  const rest=(last!=null && last<to)
-    ? (last+1===to ? `GW${to}` : `GW${last+1} to GW${to}`) : null;
-  const many = pricedGws.length>1;
-  $("#kbsrc").innerHTML = !pricedGws.length ? "" :
-      `<b>GW${many?pricedGws[0]+" and GW"+last:pricedGws[0]}</b> `
-    + `${many?"come":"comes"} from bookmakers' odds &mdash; marked <span class="dot"></span> &mdash; because over `
-    + `the next round or two the market sees the team news, injuries and rotation that our ratings cannot. `
-    + (rest ? `<b>${rest}</b> ${rest.includes(" to ")?"come":"comes"} from our expected-goals model, `
-              + `leaned toward the bookmakers\u2019 recent view of each side.`
-            : "Everything further out comes from our expected-goals model, leaned toward the bookmakers\u2019 recent view of each side.");
+  // A dot marks a number taken from the bookmakers. They price whole rounds
+  // near the deadline and only some fixtures further out, so the line talks
+  // about dotted fixtures rather than naming gameweeks.
+  $("#kbsrc").innerHTML = pricedGws.length ? SRC_LINE : "";
+  $("#keybar").hidden = !pricedGws.length;
 
   const fixtures=M.fixtures(from,to);
   const gws=[]; for(let g=from;g<=to;g++) gws.push(g);
@@ -545,11 +515,9 @@ function render(){
     const score = SIDE==="fix" ? fixAvg : (SIDE==="atk"?aggA[id]:aggD[id]);
     const shownVal = SIDE==="fix" ? fixAvg : (SIDE==="atk" ? rawA[id] : rawD[id]);
     return {id:+id,name:TEAMS[id][0],fx:d.fx,cells,raws,score,shownVal,
-      fdrScore:d.fx.reduce((a,f)=>a+(6-f.fdr),0), promoted:!!M.rec[id].promoted, games:d.fx.length};
+      promoted:!!M.rec[id].promoted, games:d.fx.length};
   });
 
-  const fdrOrder=[...rows].sort((a,b)=>b.fdrScore-a.fdrScore||a.name.localeCompare(b.name));
-  const fdrRank=new Map(fdrOrder.map((r,i)=>[r.id,i+1]));
   rows.sort((a,b)=> SORT==="az" ? a.name.localeCompare(b.name)
                   : SORT==="worst" ? (a.score-b.score||a.name.localeCompare(b.name))
                   : (b.score-a.score||a.name.localeCompare(b.name)));
@@ -559,10 +527,8 @@ function render(){
     + gws.map(g=>`<th>GW${g}<b>${fmtDate(DEADLINES[g-1]).replace(" ","&nbsp;")}</b></th>`).join("")
     + (SIDE==="fix" ? "" : `<th class="rgt">${colName}</th>`);
 
-  const ordinal=n=>n+((n%100>=11&&n%100<=13)?"th":["th","st","nd","rd"][n%10]||"th");
   $("#rows").innerHTML=rows.map((r,i)=>{
-    const rank=i+1, moved=fdrRank.get(r.id)-rank;
-    const chip=moved===0?"":`<span class="delta" title="FPL's own rating ranks them ${ordinal(fdrRank.get(r.id))} here">${moved>0?"▲":"▼"}${Math.abs(moved)}</span>`;
+    const rank=i+1;
     const tds=r.fx.map((f,j)=>{
       // Every view is banded: the colour comes off the raw number.
       const sh=shadeOn(colourT(SIDE,r.raws[j],MODE),RAMP);
@@ -582,7 +548,7 @@ function render(){
     const shown = fmt(SIDE,r.shownVal);
     return `<tr class="${(SORT!=="az"&&rank<=6)?"top6":""}">
       <td class="rank">${rank}</td>
-      <td class="pad"><span class="mrank">${rank}</span><span class="team"><i style="background:${CLUB[TEAMS[r.id][1]]||"#888"}"></i>${r.name}</span>${r.promoted?'<span class="prov" title="Promoted — started from the relegated-three average"></span>':""}${chip}${SIDE==="fix" ? "" : `<span class="mscore">${shown}${SIDE==="atk"?` total <em>avg ${(r.games?r.shownVal/r.games:0).toFixed(2)}</em>`:" avg"}</span>`}</td>
+      <td class="pad"><span class="mrank">${rank}</span><span class="team"><i style="background:${CLUB[TEAMS[r.id][1]]||"#888"}"></i>${r.name}</span>${r.promoted?'<span class="prov" title="Promoted — started from the relegated-three average"></span>':""}${SIDE==="fix" ? "" : `<span class="mscore">${shown}${SIDE==="atk"?` total <em>avg ${(r.games?r.shownVal/r.games:0).toFixed(2)}</em>`:" avg"}</span>`}</td>
       ${tds}
       ${SIDE==="fix" ? "" : `<td class="pad score">${shown} ${sub}</td>`}</tr>`;
   }).join("");
@@ -680,10 +646,8 @@ function renderMatches(){
     }).join("");
     // Same wording as the scale above the table, so the dot means one thing on
     // this page rather than two.
-    $("#mvSrc").innerHTML = (MARKET && MARKET[gw])
-      ? `<b>GW${gw}</b> comes from bookmakers' odds &mdash; marked <span class="dot"></span> &mdash; `
-        + `because over the next round the market sees the team news and rotation that our ratings cannot.`
-      : `From our expected-goals model, leaned toward the bookmakers\u2019 recent view of each side. They have not priced GW${gw} yet.`;
+    $("#mvSrc").innerHTML = (MARKET && MARKET[gw]) ? SRC_LINE
+      : `All from our xG model &mdash; the bookmakers have not priced GW${gw} yet.`;
   } finally { MODE=saved; }
 }
 
