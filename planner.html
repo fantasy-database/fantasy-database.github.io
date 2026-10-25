@@ -110,6 +110,8 @@
   .slot .mt{background:#ECEAF0;color:#37003C;font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:600;
     padding:3px 2px;text-transform:uppercase;letter-spacing:.06em;border-radius:0 0 6px 6px}
   .slot.empty{background:rgba(255,255,255,.1);outline:2px dashed rgba(255,255,255,.55);outline-offset:-2px;box-shadow:none}
+  .slot.empty[data-pos]{cursor:pointer}
+  .slot.empty[data-pos]:hover,.slot.empty[data-pos]:focus-visible{background:rgba(255,255,255,.2)}
   .slot.empty .kit{opacity:.35}
   /* the next three fixtures: opponent, home or away, coloured by difficulty */
   .fxs{display:flex;gap:2px;margin-top:4px}
@@ -538,15 +540,7 @@
     </section>
   </div>
 
-  <div class="banner" id="about">
-    <b>How the expected points work.</b> A player's xP for a gameweek starts from how likely he is
-    to play and for how long, then takes his usual share of his side's chances and sets it against how
-    many goals his side should score and concede in that fixture &mdash; the same fixture model as the
-    ticker. Clean sheets, saves, defensive contributions, cards and bonus are added the same way.
-    Tuned on 2024/25 and then tested week by week through 2025/26, it had lower error than points per
-    game or recent form one, four and eight weeks ahead, and the 20 players it rated highest each week
-    outscored theirs. It is an average, not a prediction: a 6&nbsp;xP player still blanks often.
-  </div>
+  <div class="banner" id="about" hidden></div>
 
   <p class="note">
     Your squad and plan are saved in this browser only. Loading your team reads the same public
@@ -867,22 +861,38 @@ const planMode=()=>hasXP() && squad.length===15 && !editing;
 function add(p){
   if(squad.some(x=>x.i===p.i)) return;
   if(squad.filter(x=>x.p===p.p).length >= DEFAULT_RULES.squad[p.p]) return;
-  squad.push(p); editing=true; autoXI(); save(); render();
+  squad.push(p); editing=true; shapeXI();
+  if(squad.length===15) autoArmbands(); else { captain=null; vice=null; }
+  save(); render();
 }
 function remove(id){
   editing=true;
   squad=squad.filter(p=>p.i!==id);
-  xi=xi.filter(x=>x!==id);
-  if(captain===id) captain=null;
-  if(vice===id) vice=null;
+  shapeXI(); captain=null; vice=null;
   save(); render();
 }
 function bank(){
   return DEFAULT_RULES.budget - squad.reduce((t,p)=>t+p.c,0);
 }
+// How good a player looks this week: expected points when there are any, else fixture run.
+const pickVal=p=>hasXP() ? (xpAt(p.i,PLAN_GWS[0])||0) : runScore(p);
+// A squad built by hand fills a 4-3-3: 2 GK, 5 DEF, 5 MID, 3 FWD is exactly a
+// 4-3-3 with a keeper, a defender and two midfielders on the bench. The best
+// of each position (by pickVal) start; the rest sit on the bench.
+const SHAPE={1:1,2:4,3:3,4:3}, BENCH_SHAPE=[1,2,3,3];
+function shapeXI(){
+  xi=[];
+  for(const pos of [1,2,3,4])
+    xi.push(...squad.filter(p=>p.p===pos).sort((a,b)=>pickVal(b)-pickVal(a)).slice(0,SHAPE[pos]).map(p=>p.i));
+}
+// Captain the best starter, vice the next best -- set once the squad is full.
+function autoArmbands(){
+  const best=xi.map(byId).filter(Boolean).sort((a,b)=>pickVal(b)-pickVal(a));
+  captain=best[0]?.i??null; vice=best[1]?.i??null;
+}
 /** Best legal XI for the builder: by expected points when there are any, else by fixture run. */
 function autoXI(){
-  const val=p=>hasXP() ? (xpAt(p.i,PLAN_GWS[0])||0) : runScore(p);
+  const val=pickVal;
   const best=[...squad].sort((a,b)=>val(b)-val(a));
   const chosen=[], count={1:0,2:0,3:0,4:0};
   const min={1:1,2:3,3:2,4:1}, max={1:1,2:5,3:5,4:3};
@@ -897,8 +907,9 @@ function autoXI(){
     chosen.push(p); count[p.p]++;
   }
   xi=chosen.map(p=>p.i);
-  if(!captain || !xi.includes(captain)) captain=xi[0]??null;
-  if(!vice || vice===captain || !xi.includes(vice)) vice=xi.find(id=>id!==captain)??null;
+  const ranked=[...chosen].sort((a,b)=>val(b)-val(a)).map(p=>p.i);
+  if(!captain || !xi.includes(captain)) captain=ranked[0]??null;
+  if(!vice || vice===captain || !xi.includes(vice)) vice=ranked.find(id=>id!==captain)??null;
 }
 
 /* -------------------------------- planning ------------------------------- */
@@ -1111,8 +1122,8 @@ const fxFrom=()=>planMode()&&active ? active : NEXT_GW;
 // FPL has him as a doubt, with its warning triangle), then his next three
 // fixtures in the grey bar underneath.
 const warnHtml=f=>f?`<span class="warn ${f.lvl}" title="${esc(f.news)}">!</span>`:"";
-function slot(p,role,wk){
-  if(!p) return `<div class="slot empty">${kit("")}<div class="nm">Empty</div><div class="mt">${role}</div></div>`;
+function slot(p,role,wk,pos){
+  if(!p) return `<div class="slot empty"${pos?` data-pos="${pos}" tabindex="0" title="Pick a ${role}"`:""}>${kit("")}<div class="nm">Empty</div><div class="mt">${role}</div></div>`;
   const t=TEAMS[p.t]||["?","?"];
   const f=flagOf(p);
   if(wk){
@@ -1128,9 +1139,10 @@ function slot(p,role,wk){
 }
 
 // "GKP", then "1. DEF", "2. MID", "3. FWD": the order FPL brings them on.
-function benchRow(players,wk){
+function benchRow(players,wk){ return benchItems(players.map(p=>({p,pos:p.p})),wk); }
+function benchItems(items,wk){
   let n=0;
-  return players.map(p=>`<div class="bslot"><div class="blbl">${p.p===1?"GKP":`${++n}. ${POSNAME[p.p]}`}</div>${slot(p,POSNAME[p.p],wk)}</div>`).join("");
+  return items.map(({p,pos})=>`<div class="bslot"><div class="blbl">${pos===1?"GKP":`${++n}. ${POSNAME[pos]}`}</div>${slot(p,POSNAME[pos],wk,pos)}</div>`).join("");
 }
 
 function stat(id,value,label,cls,title){
@@ -1179,12 +1191,22 @@ function renderBuilder(){
   const starters=xi.map(byId).filter(Boolean);
   const benched=squad.filter(p=>!inXI(p.i));
 
-  $("#pitch").innerHTML=[1,2,3,4]
-    .map(pos=>`<div class="row">${starters.filter(p=>p.p===pos).map(p=>slot(p,POSNAME[pos])).join("")}</div>`)
-    .join("");
-  $("#bench").innerHTML = benched.length
-    ? benchRow([...benched.filter(p=>p.p===1),...benched.filter(p=>p.p!==1)])
-    : `<div class="bslot"><div class="blbl">Bench</div>${slot(null,"Bench")}</div>`;
+  // Until the squad is full, the 4-3-3 and its bench are drawn with an empty
+  // shirt in every place still to fill.
+  const building=squad.length<15;
+  $("#pitch").innerHTML=[1,2,3,4].map(pos=>{
+    const here=starters.filter(p=>p.p===pos);
+    const gaps=building ? Math.max(0,SHAPE[pos]-here.length) : 0;
+    return `<div class="row">${here.map(p=>slot(p,POSNAME[pos])).join("")}${Array.from({length:gaps},()=>slot(null,POSNAME[pos],null,pos)).join("")}</div>`;
+  }).join("");
+  let items=benched.map(p=>({p,pos:p.p}));
+  if(building){
+    const need=[...BENCH_SHAPE];
+    for(const it of items){ const k=need.indexOf(it.pos); if(k>=0) need.splice(k,1); }
+    items=items.concat(need.map(pos=>({p:null,pos})));
+  }
+  items=[...items.filter(x=>x.pos===1),...items.filter(x=>x.pos!==1).sort((a,b)=>a.pos-b.pos)];
+  $("#bench").innerHTML = benchItems(items);
 
   const b=bank();
   stat("#sPicked",`${squad.length}/15`,"Picked");
@@ -1206,7 +1228,7 @@ function renderBuilder(){
     // been running all season is worth more than £100m, so measuring an imported
     // squad against today's prices calls every legal team "over budget".
     ? validateSquad(rulesSquad,{bank:shownBank,teamName}).concat(xi.length?validateXI(xi,rulesSquad):[])
-    : ["Pick 15 players to get started — 2 keepers, 5 defenders, 5 midfielders, 3 forwards — or load your FPL team above."];
+    : ["Click an empty shirt to pick a player for that spot, or load your FPL team above. Captain and vice are picked for you once all 15 are in."];
   if(squad.length===15 && !hasXP())
     problems=problems.concat(["Expected points are not available at the moment, so the planner is off. The squad still works."]);
   const done = squad.length===15 && problems.length===0;
@@ -1481,7 +1503,14 @@ $("#list").addEventListener("click",e=>{
 // Planner: clicking a shirt chooses him, and the bar at the bottom says what
 // can be done with him that week.
 function onSlot(e){
-  const s=e.target.closest(".slot"); if(!s||!s.dataset.id) return;
+  const s=e.target.closest(".slot"); if(!s) return;
+  if(!s.dataset.id){
+    if(s.dataset.pos && !planMode()){
+      pos=+s.dataset.pos; setPosSeg(); renderList();
+      $("#posSeg").scrollIntoView({block:"nearest",behavior:"smooth"});
+    }
+    return;
+  }
   const id=+s.dataset.id;
   if(planMode()){ if(subbing) trySub(id); else select(active,id); return; }
   if(e.shiftKey){ if(captain===id) vice=id; else captain=id; if(vice===captain) vice=null; save(); render(); }
@@ -1500,8 +1529,9 @@ addEventListener("keydown",e=>{ if(e.key==="Escape" && sel!==null) clearSel(); }
 // back on the same one afterwards.
 function keyed(e){
   if(e.key!=="Enter" && e.key!==" ") return;
-  const t=e.target.closest(".slot[data-id]"); if(!t) return;
+  const t=e.target.closest(".slot[data-id],.slot[data-pos]"); if(!t) return;
   e.preventDefault();
+  if(!t.dataset.id){ t.click(); return; }
   const q=`.slot[data-id="${t.dataset.id}"]`;
   t.click();
   const again=document.querySelector(q);
@@ -1561,7 +1591,9 @@ function stepFt(d){
 $("#ftDown").addEventListener("click",()=>stepFt(-1));
 $("#ftUp").addEventListener("click",()=>stepFt(1));
 ["#q","#sort"].forEach(s=>$(s).addEventListener("input",renderList));
-$("#autoXI").addEventListener("click",()=>{autoXI();save();render();});
+$("#autoXI").addEventListener("click",()=>{
+  if(squad.length<15){ shapeXI(); captain=null; vice=null; } else autoXI();
+  save(); render();});
 $("#clear").addEventListener("click",()=>{
   squad=[];xi=[];captain=null;vice=null;realBank=null;BUY={};
   wipeDrafts(); draftNote=""; saveDrafts();
@@ -1648,7 +1680,8 @@ function applyPicks(j,note){
   xi=found.filter(x=>x.pk.position<=11).map(x=>x.p.i);
   captain=(found.find(x=>x.pk.is_captain)||{}).pk?.element ?? null;
   vice=(found.find(x=>x.pk.is_vice_captain)||{}).pk?.element ?? null;
-  if(!xi.length) autoXI();
+  if(squad.length<15){ shapeXI(); captain=null; vice=null; }
+  else if(!xi.length) autoXI();
   realBank = j.entry_history && typeof j.entry_history.bank==="number" ? j.entry_history.bank : null;
   BUY={}; PICK_EV = j.entry_history?.event ?? NEXT_GW-1;
   // A newly loaded team is a new starting point: yesterday's plan was built on
@@ -1793,6 +1826,7 @@ Promise.all([
   PLAN_GWS=PLAYERS.some(p=>Array.isArray(p.xp)) ? gws.filter(g=>g>=NEXT_GW) : [];
   if(!hasXP()){
     $("#sort").value="fx";
+    $("#about").hidden=false;
     $("#about").innerHTML="<b>Expected points are not available at the moment.</b> The squad builder "
       + "still works, with fixtures coloured by the same model as the ticker. The planner comes back "
       + "with the next data update.";
@@ -1804,7 +1838,8 @@ Promise.all([
   loadDrafts();
   active=PLAN_GWS[0]??null;
   try{ const savedId=localStorage.getItem("fdb-team-id"); if(savedId) $("#teamId").value=savedId; }catch(e){}
-  if(squad.length && !xi.length) autoXI();
+  if(squad.length && squad.length<15 && !planMode()){ shapeXI(); captain=null; vice=null; }
+  else if(squad.length && !xi.length) autoXI();
   render();
   if(staleNote) msg(staleNote,"err");
 }).catch(err=>{

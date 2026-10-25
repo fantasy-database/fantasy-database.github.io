@@ -78,10 +78,6 @@
   .filters select{font:inherit;font-size:13px;background:var(--surface-2);border:1px solid var(--border);
     color:var(--ink);border-radius:7px;padding:6px 8px}
   .filters input[type=range]{width:118px}
-  .filters .chip{font-size:11px;letter-spacing:.04em;text-transform:uppercase;
-    background:rgba(0,255,135,.10);border:1px solid rgba(0,255,135,.45);color:var(--accent);
-    border-radius:999px;padding:3px 9px;margin-left:-6px;white-space:nowrap}
-  .filters .chip.off{background:rgba(255,255,255,.05);border-color:var(--border);color:var(--muted)}
   .filters .reset{margin-left:-8px}
   .filters .reset button{font:inherit;font-size:11px;letter-spacing:.04em;text-transform:uppercase;
     background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;
@@ -217,7 +213,6 @@
     <label>Search <input type="search" id="q" placeholder="player or team" autocomplete="off"></label>
     <label>Max price <input type="range" id="maxc" min="38" max="160" step="1" value="160"><output id="maxcOut"></output></label>
     <label>Min minutes <input type="range" id="minm" min="0" max="270" step="10" value="60"><output id="minmOut"></output></label>
-    <span class="chip" id="floorChip">60+ min only</span>
     <label class="reset"><button type="button" id="resetm" title="Back to the suggested minutes floor">reset</button></label>
     <label><input type="checkbox" id="avail"> Hide injured &amp; suspended</label>
     <label>Team
@@ -354,8 +349,6 @@ function render(){
   } else {
     cut = ` <b>No minutes filter</b> — short cameos will distort any per-90 number.`;
   }
-  $("#floorChip").textContent = minm>0 ? `${minm}+ min only` : "all players";
-  $("#floorChip").classList.toggle("off", minm===0);
   $("#note").innerHTML = `${dir} Showing ${rows.length} ${POSNAME[POS].toLowerCase()}.${cut}`;
 
   if(!rows.length){ closePop(); $("#rows").innerHTML=`<tr><td colspan="8" class="empty">No players match those filters.</td></tr>`; return; }
