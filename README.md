@@ -16,8 +16,15 @@ An expected-goals fixture ticker and player database for Fantasy Premier League.
 ## How it stays current
 
 `update.py` rebuilds `data.json` and `players.json` from the FPL API and Understat.
-A GitHub Action runs it daily at 06:30 UTC and again on Friday afternoons for
-press-conference team news. Nothing needs to be done by hand.
+A GitHub Action wakes every hour; `cadence.py` decides what each wake-up does.
+The site rebuilds every two hours (hourly in the six before a deadline).
+Bookmaker odds, which cost credits, are fetched about every seven hours, plus
+the day before and twice in the last three hours before each deadline. That is
+about 450 of The Odds API's 500 free credits a month; the balance is checked
+free of charge every hour, and `cadence.json` records each paid request so a
+failed build can never trigger a second one. Nothing needs to be done
+by hand; the Actions tab's "Run workflow" button forces a rebuild, with or
+without odds.
 
 ## Files
 

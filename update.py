@@ -5,7 +5,8 @@ Pulls fixtures and difficulty ratings from the Fantasy Premier League API and
 expected goals from Understat, rates every team on opponent-adjusted
 non-penalty xG, and writes the result.
 
-Runs weekly from GitHub Actions. Nothing is written unless the new data passes
+Runs from GitHub Actions; cadence.py decides how often (every two hours, and
+when to spend odds credits). Nothing is written unless the new data passes
 the checks at the bottom, so a bad run leaves the live site on the last good
 version rather than breaking it.
 """
@@ -17,12 +18,14 @@ import collections
 import minutes as MN
 import points as PT
 import odds as odds_mod
+import cadence
 
 FPL = "https://fantasy.premierleague.com/api"
 UND = "https://understat.com"
 OUT = pathlib.Path(__file__).parent / "data.json"
 OUT_P = pathlib.Path(__file__).parent / "players.json"
 OUT_M = pathlib.Path(__file__).parent / "market.json"
+OUT_S = pathlib.Path(__file__).parent / "cadence.json"   # refresh schedule state, cadence.py
 # Last season's per-fixture minutes, for the minutes model. Built each
 # summer by minutes_prior.py; never edited by hand.
 PRIOR_MIN = pathlib.Path(__file__).parent / "minutes_prior.json"
@@ -293,7 +296,10 @@ def market_step(teams, fixtures, next_gw, hfac, data, prev_m, fetch_priced):
         odds_ok = True
     except Exception as e:
         by_gw = {}
-        log(f"!! odds not fetched ({e}) - keeping the previous market.json")
+        if type(e).__name__ == "OddsSkipped":
+            log(f"   odds not fetched this run ({e}) - keeping the previous market.json")
+        else:
+            log(f"!! odds not fetched ({e}) - keeping the previous market.json")
 
     # The market's own attack and defence for each side, from the last
     # odds.WINDOW rounds the books have priced -- rounds whose deadline has
@@ -892,7 +898,74 @@ def load_fpl(previous):
         }
 
 
+class OddsSkipped(Exception):
+    """Odds deliberately not fetched this run (cadence.py), not a failure."""
+
+
+def _read_json(p):
+    try:
+        v = json.loads(p.read_text()) if p.exists() else {}
+    except (OSError, ValueError):
+        return {}
+    return v if isinstance(v, dict) else {}
+
+
+def _write_state(state):
+    """cadence.json: when the odds API was last asked, the credit balance it
+    reported, and when the site last rebuilt. Written as soon as each happens,
+    so a paid fetch is on record even if the build fails afterwards -- without
+    it, every hourly wake-up would pay for the same fetch again."""
+    try:
+        OUT_S.write_text(json.dumps(state, indent=1) + "\n")
+    except OSError as e:
+        log(f"!! cadence.json not written ({e})")
+
+
+def plan_run(state):
+    """cadence.decide() on the files already in the repo. Never raises: if the
+    decision itself goes wrong, rebuild without spending odds credits."""
+    mode = (os.environ.get("REFRESH_ODDS") or "auto").strip().lower()
+    if mode not in ("auto", "yes", "no"):
+        mode = "auto"
+    # Anything but the hourly schedule -- a hand-started run, or a run from a
+    # laptop -- always rebuilds.
+    manual = os.environ.get("GITHUB_EVENT_NAME", "") != "schedule"
+    now = datetime.datetime.now(datetime.timezone.utc)
+    # Today's balance, read free of charge. Kept in memory only -- written to
+    # cadence.json with the rest of the state if this run goes on to build --
+    # so a wake-up that does nothing still commits nothing.
+    left = odds_mod.credits_left()
+    if left is not None:
+        state["credits"] = left
+        state["creditsAt"] = now.isoformat(timespec="seconds")
+    try:
+        return cadence.decide(now, _read_json(OUT), _read_json(OUT_M), state,
+                              mode=mode, manual=manual)
+    except Exception as e:
+        return True, False, f"schedule check failed ({e}), rebuilding without odds"
+
+
 def main():
+    state = _read_json(OUT_S)
+    build, want_odds, why = plan_run(state)
+    if not build:
+        log(f"nothing to do this hour: {why}")
+        return
+    log(f"rebuilding; odds {'fetched' if want_odds else 'skipped'} ({why})")
+
+    def fetch_priced():
+        if not want_odds:
+            raise OddsSkipped(why)
+        # On record BEFORE the request: from here the API may charge.
+        state["oddsAttempt"] = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+        _write_state(state)
+        priced, remaining = odds_mod.priced_fixtures()
+        if cadence.as_int(remaining) is not None:
+            state["credits"] = cadence.as_int(remaining)
+            state["creditsAt"] = state["oddsAttempt"]
+            _write_state(state)
+        return priced, remaining
+
     previous = json.loads(OUT.read_text()) if OUT.exists() else None
     fpl = load_fpl(previous)
     short2id = fpl["short2id"]
@@ -994,7 +1067,7 @@ def main():
     except ValueError:
         prev_m = {}
     odds_ok, by_gw, remaining, history = market_step(
-        teams, fixtures, next_gw, hfac, data, prev_m, odds_mod.priced_fixtures)
+        teams, fixtures, next_gw, hfac, data, prev_m, fetch_priced)
 
     # --- refuse to publish anything that looks wrong -----------------------
     problems = []
@@ -1033,6 +1106,8 @@ def main():
         sys.exit(1)
 
     OUT.write_text(json.dumps(data, separators=(",", ":")))
+    state["lastBuild"] = data["generated"]
+    _write_state(state)
 
     if odds_ok:
         try:

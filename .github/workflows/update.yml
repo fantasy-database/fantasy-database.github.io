@@ -2,23 +2,28 @@ name: Refresh ratings
 
 on:
   schedule:
-    # Daily. Prices change overnight and injury news lands most days, so the
-    # player data goes stale far faster than the fixture ratings do.
-    - cron: "30 6 * * *"
-    # Again on Friday afternoon, to pick up the press-conference team news
-    # before the usual evening deadline.
-    - cron: "0 16 * * 5"
-    # And late on Friday, for the weeks whose deadline is Friday 18:30 UK time:
-    # the last odds and team news before the cut-off. Actions often starts
-    # 10-20 minutes late, which still lands before 18:30. Cron is UTC: this is
-    # 17:40 UK time in winter (late Oct - late Mar). In summer time it lands at
-    # 18:40, after the deadline, and the 16:00 run above (17:00 UK) is the late
-    # one instead. About 16 odds credits a month.
-    - cron: "40 17 * * 5"
-  workflow_dispatch:        # adds a "Run workflow" button so you can trigger it by hand
+    # Every hour, at 17 past (the top of the hour is when GitHub is busiest and
+    # starts runs latest). Most wake-ups do nothing: cadence.py decides whether
+    # to rebuild (every 2h, hourly in the 6h before a deadline) and whether to
+    # spend odds credits (every ~7h, plus the day before and twice in the last
+    # three hours before each deadline -- about 450 of the 500 a month). A
+    # wake-up that does nothing writes nothing, so nothing is committed.
+    - cron: "17 * * * *"
+  workflow_dispatch:        # the "Run workflow" button: always rebuilds
+    inputs:
+      odds:
+        description: "Fetch bookmaker odds? auto = follow the usual budget"
+        type: choice
+        options: [auto, "yes", "no"]
+        default: auto
 
 permissions:
   contents: write           # lets the job commit the new data.json
+
+# Never two refreshes at once: a slow run and the next hour's would race to push.
+concurrency:
+  group: refresh
+  cancel-in-progress: false
 
 jobs:
   refresh:
@@ -31,21 +36,38 @@ jobs:
           python-version: "3.12"
 
       - name: Rebuild data.json
+        id: rebuild
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          REFRESH_ODDS: ${{ inputs.odds || 'auto' }}
         run: python update.py
 
+      # Runs even when the rebuild failed: cadence.json records any odds credits
+      # that were spent, and losing that would mean paying again next hour.
       - name: Commit if anything changed
+        if: ${{ !cancelled() }}
         run: |
           git config user.name "fpl-ticker bot"
           git config user.email "actions@github.com"
-          git add data.json
-          [ -f players.json ] && git add players.json
-          [ -f market.json ] && git add market.json
+          # A failed rebuild only records its odds spend; its data files are not trusted.
+          if [ "${{ steps.rebuild.outcome }}" = "success" ]; then
+            git add data.json
+            [ -f players.json ] && git add players.json
+            [ -f market.json ] && git add market.json
+          fi
+          [ -f cadence.json ] && git add cadence.json
           if git diff --cached --quiet; then
-            echo "Nothing changed this week."
+            echo "Nothing to commit this run."
           else
-            git commit -m "Weekly data refresh"
+            if git diff --cached --quiet -- data.json players.json market.json; then
+              git commit -m "Refresh schedule state"
+            elif git diff --cached --quiet -- market.json; then
+              git commit -m "Data refresh"
+            else
+              git commit -m "Data refresh (with odds)"
+            fi
+            # If anything was pushed while this ran, put this commit on top.
+            git pull --rebase --quiet
             git push
             echo "Pushed:"
             git show --stat --oneline HEAD | head -8

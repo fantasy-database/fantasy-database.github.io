@@ -56,6 +56,27 @@ def fetch(api_key, regions="uk,eu", markets="h2h,totals"):
     return body, remaining
 
 
+def credits_left(api_key=None, timeout=15):
+    """
+    The credit balance, for free: The Odds API does not charge for its /sports
+    list but still sends the usage headers. cadence.py asks this every hourly
+    wake-up, so the rationing always works off today's balance and sees the
+    monthly reset the hour it happens. None if it cannot be read.
+    """
+    api_key = api_key or os.environ.get("ODDS_API_KEY")
+    if not api_key:
+        return None
+    qs = urllib.parse.urlencode({"apiKey": api_key})
+    req = urllib.request.Request(f"https://api.the-odds-api.com/v4/sports?{qs}",
+                                 headers={"User-Agent": "fantasy-database"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            v = r.headers.get("x-requests-remaining")
+        return int(float(v)) if v is not None else None
+    except Exception:
+        return None
+
+
 def _avg_prices(event):
     """
     Average each outcome's implied probability across books.
