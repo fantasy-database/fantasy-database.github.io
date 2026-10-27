@@ -103,6 +103,8 @@
     border-bottom:1px solid var(--border);background:var(--surface);cursor:pointer;user-select:none}
   thead th.lft{text-align:left}
   thead th[data-active]{color:var(--accent)}
+  thead th.hit{color:var(--ink)}
+  tbody td.hit{font-weight:600}
   tbody td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:right;
     font-family:"Roboto Mono",monospace;font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
   tbody td.lft{text-align:left;font-family:Barlow,Arial,sans-serif;font-size:13.5px}
@@ -329,15 +331,21 @@ function render(){
 
   const label=(MENUS[POS].find(m=>m[0]===STAT)||["","" ])[1];
   const suffix=SCALE==="p90" ? " /90" : "";
+  // DefCon is a per-match threshold, so next to the season total sits how
+  // often he reached it. Totals only: a hit rate per 90 means nothing.
+  const hitCol = STAT==="dc" && SCALE==="tot";
+  const NCOL = hitCol ? 9 : 8;
   $("#thead").innerHTML=
     `<th class="lft">#&nbsp;&nbsp;Player</th>`
     + `<th data-active>${label}${suffix}</th>`
+    + (hitCol ? `<th class="hit" title="Games he hit the DefCon threshold / games he played">DefCon hit rate</th>` : "")
     + `<th>£</th><th>Min</th><th class="opt">Starts</th><th class="opt" title="Minutes divided by matches his team has played">Min/game</th>`
     + `<th class="opt">Pts</th><th class="opt">Own</th>`;
 
   const dir = low
     ? `<b>${label}</b> — lower is better, so this list runs from best to worst with the smallest number on top.`
-    : `<b>${label}</b> — higher is better.`;
+    : `<b>${label}</b> — higher is better.`
+      + (hitCol ? ` <b>Hit rate</b> is games he reached the DefCon threshold out of games he played.` : "");
   const hidden = pool.length - rows.length;
   let cut = "";
   if(minm>0){
@@ -351,7 +359,7 @@ function render(){
   }
   $("#note").innerHTML = `${dir} Showing ${rows.length} ${POSNAME[POS].toLowerCase()}.${cut}`;
 
-  if(!rows.length){ closePop(); $("#rows").innerHTML=`<tr><td colspan="8" class="empty">No players match those filters.</td></tr>`; return; }
+  if(!rows.length){ closePop(); $("#rows").innerHTML=`<tr><td colspan="${NCOL}" class="empty">No players match those filters.</td></tr>`; return; }
 
   closePop();
   $("#rows").innerHTML=rows.map((p,i)=>{
@@ -365,6 +373,7 @@ function render(){
     return `<tr>
       <td class="lft"><span class="rk">${i+1}</span> <span class="pl"><i style="background:${CLUB[t.short]||"#888"}"></i>${p.n}</span><span class="tm">${t.short}</span>${flag}</td>
       <td class="lead">${fmt(STAT,p[k])}</td>
+      ${hitCol ? `<td class="hit">${p.dcg ? `${p.dch}/${p.dcg}` : '<span class="dim">–</span>'}</td>` : ""}
       <td>${(p.c/10).toFixed(1)}</td>
       <td>${p.min}</td>
       <td class="opt">${p.starts}</td>

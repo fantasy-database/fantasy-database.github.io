@@ -765,6 +765,46 @@ def market_for_points(teams):
 MINUTES_KEEP_HOURS = 72
 
 
+def finished_fixtures(raw_fixtures):
+    """{fixture id: (gameweek, kickoff)} for every fixture that has been played."""
+    return {f["id"]: (f["event"], f.get("kickoff_time") or "")
+            for f in raw_fixtures
+            if f.get("event") and (f.get("finished") or f.get("finished_provisional"))}
+
+
+def defcon_record(raw_fixtures, fetch=None):
+    """
+    {player id: (games where he hit the DefCon threshold, games he played)}
+    this season, from event/{gw}/live/.
+
+    DefCon is a threshold per match, not a running total, so the hit rate is
+    counted per fixture -- exact even in a double gameweek, because FPL's
+    `explain` lists each fixture separately. A hit is a fixture where FPL
+    awarded DefCon points: `explain` only lists defensive_contribution when
+    the threshold was reached (10 for a defender, 12 otherwise), so the
+    points FPL gave are the test and the threshold never has to be restated
+    here. A game played is any fixture in which he had minutes.
+    """
+    fetch = fetch or get_json
+    finished = finished_fixtures(raw_fixtures)
+    out = {}
+    for gw in sorted({g for g, _ in finished.values()}):
+        for e in fetch(f"{FPL}/event/{gw}/live/").get("elements", []):
+            hits, games = out.get(e["id"], (0, 0))
+            for x in e.get("explain", []):
+                if x["fixture"] not in finished:
+                    continue
+                st = {s["identifier"]: s for s in x["stats"]}
+                if (st.get("minutes") or {}).get("value", 0) <= 0:
+                    continue
+                games += 1
+                if (st.get("defensive_contribution") or {}).get("points", 0) > 0:
+                    hits += 1
+            if games:
+                out[e["id"]] = (hits, games)
+    return out
+
+
 def keep_minutes(path, players, pdata, next_gw, now=None):
     """
     When the minutes model fails, carry the last published figures over --
@@ -1160,12 +1200,39 @@ def main():
                  "teams": {k: {"name": v["name"], "short": v["short"]}
                            for k, v in data["teams"].items()},
                  "players": players}
+        # One read of each gameweek's live data, shared by the DefCon hit
+        # rate and the minutes model below.
+        live_cache = {}
+        def fetch_live(url):
+            if url not in live_cache:
+                live_cache[url] = get_json(url)
+            return live_cache[url]
+
+        # DefCon hit rate (dch / dcg): in its own try, so a failure costs
+        # only that column.
+        try:
+            rec = defcon_record(fpl["rawFixtures"], fetch_live)
+            for p in players:
+                if p["p"] != 1:
+                    p["dch"], p["dcg"] = rec.get(p["i"], (0, 0))
+            bad = [p["i"] for p in players if p.get("dch", 0) > p.get("dcg", 0)]
+            if bad:
+                raise ValueError(f"more hits than games for {bad[:5]}")
+            log(f"defcon: hit rate for {sum(1 for h, g in rec.values() if g)} players, "
+                f"{sum(h for h, _ in rec.values())} hits in "
+                f"{sum(g for _, g in rec.values())} player-games")
+        except Exception as e:
+            for p in players:
+                p.pop("dch", None); p.pop("dcg", None)
+            log(f"!! DefCon hit rate not built ({e}) -- players published without it")
+
         # The minutes model goes in its own try: if it fails, the players
         # still publish. Yesterday's minutes are kept when they still cover
         # the same gameweeks -- a single failed fetch should not blank them --
         # and dropped once they would describe the wrong ones.
         try:
             mins, summary = build_minutes(fpl["boot"], fpl["rawFixtures"], next_gw, season,
+                                          fetch=fetch_live,
                                           model=data, market=market_for_points(teams))
             for p in players:
                 p.update(mins.get(p["i"], {}))

@@ -440,6 +440,37 @@ if update:
     except ValueError as e:
         check("build: a double still in progress does not trip the exact check", False, e)
 
+    # DefCon hit rate: per fixture, a hit only where FPL awarded the points
+    def _x(fx, mins, dc_pts=None):
+        st = [{"identifier": "minutes", "points": 2 if mins >= 60 else 1, "value": mins}]
+        if dc_pts is not None:
+            st.append({"identifier": "defensive_contribution", "points": dc_pts, "value": 11})
+        return {"fixture": fx, "stats": st}
+    dfx = [{"id": 1, "event": 1, "finished": True}, {"id": 2, "event": 2, "finished": True},
+           {"id": 3, "event": 2, "finished": True},                   # GW2 is a double
+           {"id": 4, "event": 3, "finished_provisional": True},
+           {"id": 5, "event": 3, "finished": False}]                   # still being played
+    dlives = {
+        1: {"elements": [{"id": 10, "explain": [_x(1, 90, 2)]},
+                         {"id": 11, "explain": [_x(1, 0)]},           # unused sub
+                         {"id": 12, "explain": [_x(1, 90)]}]},
+        2: {"elements": [{"id": 10, "explain": [_x(2, 90, 2), _x(3, 90)]},
+                         {"id": 11, "explain": [_x(2, 0), _x(3, 20)]},
+                         {"id": 12, "explain": [_x(2, 90, 2), _x(3, 90, 2)]}]},
+        3: {"elements": [{"id": 10, "explain": [_x(4, 90, 2)]},
+                         {"id": 12, "explain": [_x(5, 45, 2)]}]},     # unfinished: ignored
+    }
+    asked = []
+    def dfetch(url):
+        asked.append(url)
+        return dlives[int(url.rstrip("/").split("/")[-2])]
+    drec = update.defcon_record(dfx, dfetch)
+    check("defcon: hits counted per fixture across a double", drec[10] == (3, 4), drec)
+    check("defcon: a 0-minute entry is not a game played", drec[11] == (0, 1), drec)
+    check("defcon: both games of a double can be hits", drec[12] == (2, 3), drec)
+    check("defcon: one read per gameweek played", sorted(asked) == sorted(set(asked)) and len(asked) == 3, asked)
+    check("defcon: never more hits than games", all(h <= g for h, g in drec.values()), drec)
+
     # keeping yesterday's figures when the model fails
     import json as _json, tempfile
     now = datetime.datetime(2026, 8, 22, 12, tzinfo=datetime.timezone.utc)
