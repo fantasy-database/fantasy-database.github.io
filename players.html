@@ -373,7 +373,7 @@ function render(){
     return `<tr>
       <td class="lft"><span class="rk">${i+1}</span> <span class="pl"><i style="background:${CLUB[t.short]||"#888"}"></i>${p.n}</span><span class="tm">${t.short}</span>${flag}</td>
       <td class="lead">${fmt(STAT,p[k])}</td>
-      ${hitCol ? `<td class="hit">${p.dcg ? `${p.dch}/${p.dcg}` : '<span class="dim">–</span>'}</td>` : ""}
+      ${hitCol ? `<td class="hit">${p.dcg && p.dch!=null ? `${p.dch}/${p.dcg}` : '<span class="dim">–</span>'}</td>` : ""}
       <td>${(p.c/10).toFixed(1)}</td>
       <td>${p.min}</td>
       <td class="opt">${p.starts}</td>

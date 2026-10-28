@@ -357,9 +357,9 @@ const SHORTPOS={1:"GK",2:"DEF",3:"MID",4:"FWD"};
 const STATS={
  1:[["c","Price"],["min","Minutes"],["sv","Saves"],["cs","Clean sheets"],["pts","Points"]],
  2:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
-    ["npxgi","xGI"],["dc","DefCon"],["cs","Clean sheets"],["pts","Points"]],
+    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["cs","Clean sheets"],["pts","Points"]],
  3:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
-    ["npxgi","xGI"],["dc","DefCon"],["sh","Shots"],["pts","Points"]],
+    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["sh","Shots"],["pts","Points"]],
  4:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
     ["npxgi","xGI"],["sh","Shots"],["pts","Points"]]};
 
@@ -370,6 +370,10 @@ const FLAT=new Set(["c","min"]);
 // players.json has no g90/a90, so those are worked out here rather than in update.py.
 const DERIVED=new Set(["g","a"]);
 const DP={npxg:2,xa:2,npxgi:2};
+// DefCon hit rate: games he reached the DefCon threshold out of games he
+// played (dch/dcg in players.json). Shown as x/y, ranked by the rate. A season
+// figure only -- a hit rate per 90 means nothing, so it drops out on Per 90.
+const TOTAL_ONLY=new Set(["dch"]);
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -384,14 +388,16 @@ let rotA=null, rotB=null;
 /* ------------------------------- values ---------------------------------- */
 function val(p,key){
   if(key==="c")   return p.c/10;
+  if(key==="dch") return p.dcg && p.dch!=null ? p.dch/p.dcg : null;
   if(key==="min") return p.min;
   if(scale==="tot") return p[key] ?? null;
   if(DERIVED.has(key)) return p.min ? (p[key]??0)/p.min*90 : null;
   return p[key+"90"] ?? null;
 }
-function fmtStat(key,v){
+function fmtStat(key,v,p){
   if(v===null||v===undefined) return null;
   if(key==="c")   return "£"+v.toFixed(1)+"m";
+  if(key==="dch") return `${p.dch}/${p.dcg}`;
   if(key==="min") return String(v);
   const d = scale==="p90" ? 2 : (DP[key] ?? 0);
   return v.toFixed(d);
@@ -470,14 +476,15 @@ function render(){
         return `<th><b>${esc(p.n)}</b>${esc(t.short.toUpperCase())} · ${SHORTPOS[p.p]}${mins}</th>`;
       }).join("") + `</tr></thead>`;
 
-  const body=rows.filter(([k])=>!(scale==="p90"&&FLAT.has(k)&&k==="min"))
+  const body=rows.filter(([k])=>!(scale==="p90"&&((FLAT.has(k)&&k==="min")||TOTAL_ONLY.has(k))))
     .map(([key,label])=>{
       const vals=players.map(p=>val(p,key));
       const best=winnerOf(key,vals);
       const suffix = scale==="p90" && !FLAT.has(key) ? " /90" : "";
-      return `<tr><th class="lft">${label}${suffix}</th>`
-        + vals.map(v=>{
-            const s=fmtStat(key,v);
+      const tip = key==="dch" ? ` title="Games he hit the DefCon threshold / games he played"` : "";
+      return `<tr><th class="lft"${tip}>${label}${suffix}</th>`
+        + vals.map((v,i)=>{
+            const s=fmtStat(key,v,players[i]);
             if(s===null) return `<td class="dim" title="No data for this player">–</td>`;
             const win = best!==null && v===best;
             return `<td class="${win?"win":""}">${s}</td>`;
@@ -657,7 +664,7 @@ function renderRot(players,gws){
 function foot(players){
   const thin=players.filter(p=>p.min<60);
   let s=`Season totals from the FPL API; non-penalty xG, xA and shots from Understat. `
-   + `<b>xGI</b> is non-penalty xG plus xA. <b>DefCon</b> is the defensive-contribution count FPL scores on. `
+   + `<b>xGI</b> is non-penalty xG plus xA. <b>DefCon</b> is the defensive-contribution count FPL scores on; <b>hit rate</b> is games he reached its threshold out of games he played. `
    + `Fixture ratings come from the same expected-goals model as the ticker, using its fitted constants.`;
   if(scale==="p90")
     s += ` <b>Per 90 divides by minutes played</b>, so a short cameo produces a huge rate off almost no football.`;
