@@ -388,7 +388,7 @@ let rotA=null, rotB=null;
 /* ------------------------------- values ---------------------------------- */
 function val(p,key){
   if(key==="c")   return p.c/10;
-  if(key==="dch") return p.dcg ? p.dch/p.dcg : null;
+  if(key==="dch") return p.dcg && p.dch!=null ? p.dch/p.dcg : null;
   if(key==="min") return p.min;
   if(scale==="tot") return p[key] ?? null;
   if(DERIVED.has(key)) return p.min ? (p[key]??0)/p.min*90 : null;
