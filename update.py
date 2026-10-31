@@ -445,6 +445,9 @@ def build_players(boot, season, short2name, short2id, played):
             und_by_team[tid] = [
                 {"n": strip_name(p["player_name"]),
                  "npxg": float(p["npxG"]), "xa": float(p["xA"]),
+                 # non-penalty goals: the actual output that npxG predicts.
+                 # Optional, so a missing field cannot cost a team its npxG.
+                 "npg": int(p["npg"]) if p.get("npg") is not None else None,
                  "sh": int(p["shots"]), "min": int(p["time"])}
                 for p in d["players"]]
         except Exception as e:
@@ -463,6 +466,7 @@ def build_players(boot, season, short2name, short2id, played):
             unmatched += 1
         npxg = u["npxg"] if u else None
         xa = u["xa"] if u else None
+        npg = u["npg"] if u else None
         shots = u["sh"] if u else None
         npxgi = (npxg + xa) if (npxg is not None and xa is not None) else None
 
@@ -483,6 +487,9 @@ def build_players(boot, season, short2name, short2id, played):
             "gc": e["goals_conceded"],
             "xgc": round(float(e["expected_goals_conceded"]), 2),
             "g": e["goals_scored"], "a": e["assists"],
+            # Understat's goals minus penalties, so it lines up with npxG. FPL's
+            # "g" counts penalties and would flatter whoever takes them.
+            "npg": npg,
             "npxg": round(npxg, 2) if npxg is not None else None,
             "xa": round(xa, 2) if xa is not None else None,
             "npxgi": round(npxgi, 2) if npxgi is not None else None,
@@ -499,6 +506,7 @@ def build_players(boot, season, short2name, short2id, played):
             "xgc90": per90(float(e["expected_goals_conceded"]), mins),
             "npxg90": per90(npxg, mins), "xa90": per90(xa, mins),
             "npxgi90": per90(npxgi, mins), "sh90": per90(shots, mins),
+            "npg90": per90(npg, mins), "a90": per90(e["assists"], mins),
         })
     log(f"players: {len(out)} built, {unmatched} with minutes had no Understat row")
     return out
