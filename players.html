@@ -276,6 +276,16 @@ const MENUS={
  4:[["pts","Points"],["npxg","npxG"],["xa","xA"],["npxgi","npxGI"],["sh","Shots"]]};
 const LOWER_IS_BETTER=new Set(["xgc","gc"]);   // the only two that invert
 const DECIMALS={xgc:2,npxg:2,xa:2,npxgi:2};
+// The actual output shown beside an expected stat (outfield players only).
+// Goals are Understat's non-penalty goals, to match npxG; FPL's goal count
+// includes penalties and would make a penalty taker look like he beats his npxG.
+const OUTPUT={
+ npxg:{id:"npg", label:"NP Goals",
+   tip:"Non-penalty goals he has actually scored (Understat), the outcome npxG estimates",
+   note:"<b>NP Goals</b> is the goals he actually scored, without penalties, so it compares fairly with npxG."},
+ xa:{id:"a", label:"Assists",
+   tip:"Assists FPL has credited him with, the outcome xA estimates. FPL is more generous than xA: it also counts e.g. winning a penalty or a saved shot that is scored on the rebound",
+   note:"<b>Assists</b> is the assists FPL actually credited him with, to set against his xA."}};
 const POSNAME={1:"Goalkeepers",2:"Defenders",3:"Midfielders",4:"Forwards"};
 
 let DATA=null, POS=2, SCALE="tot", STAT="pts";
@@ -334,18 +344,24 @@ function render(){
   // DefCon is a per-match threshold, so next to the season total sits how
   // often he reached it. Totals only: a hit rate per 90 means nothing.
   const hitCol = STAT==="dc" && SCALE==="tot";
-  const NCOL = hitCol ? 9 : 8;
+  // Beside an expected stat, what actually happened. Unlike a hit rate this
+  // means something per 90 too, so it follows the Total / Per 90 switch.
+  const out = POS!==1 ? OUTPUT[STAT] : null;
+  const outKey = out ? (SCALE==="p90" ? out.id+"90" : out.id) : null;
+  const NCOL = hitCol||out ? 9 : 8;
   $("#thead").innerHTML=
     `<th class="lft">#&nbsp;&nbsp;Player</th>`
     + `<th data-active>${label}${suffix}</th>`
     + (hitCol ? `<th class="hit" title="Games he hit the DefCon threshold / games he played">DefCon hit rate</th>` : "")
+    + (out ? `<th class="hit" title="${out.tip}">${out.label}${suffix}</th>` : "")
     + `<th>£</th><th>Min</th><th class="opt">Starts</th><th class="opt" title="Minutes divided by matches his team has played">Min/game</th>`
     + `<th class="opt">Pts</th><th class="opt">Own</th>`;
 
   const dir = low
     ? `<b>${label}</b> — lower is better, so this list runs from best to worst with the smallest number on top.`
     : `<b>${label}</b> — higher is better.`
-      + (hitCol ? ` <b>Hit rate</b> is games he reached the DefCon threshold out of games he played.` : "");
+      + (hitCol ? ` <b>Hit rate</b> is games he reached the DefCon threshold out of games he played.` : "")
+      + (out ? ` ${out.note}` : "");
   const hidden = pool.length - rows.length;
   let cut = "";
   if(minm>0){
@@ -374,6 +390,7 @@ function render(){
       <td class="lft"><span class="rk">${i+1}</span> <span class="pl"><i style="background:${CLUB[t.short]||"#888"}"></i>${p.n}</span><span class="tm">${t.short}</span>${flag}</td>
       <td class="lead">${fmt(STAT,p[k])}</td>
       ${hitCol ? `<td class="hit">${p.dcg && p.dch!=null ? `${p.dch}/${p.dcg}` : '<span class="dim">–</span>'}</td>` : ""}
+      ${out ? `<td class="hit">${fmt(out.id,p[outKey])}</td>` : ""}
       <td>${(p.c/10).toFixed(1)}</td>
       <td>${p.min}</td>
       <td class="opt">${p.starts}</td>
