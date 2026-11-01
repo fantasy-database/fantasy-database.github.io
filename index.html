@@ -34,27 +34,14 @@
 ]}
 </script>
 <link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="stylesheet" href="/ui.css?v=20261101">
 <style>
     :root{
     --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44; --surface-3:#4A1752;
     --border:#4B1A52; --border-strong:#663570;
     --ink:#FFFFFF; --muted:#B9A3BE; --accent:#00FF87; --accent-ink:#1E0021;
-    --bar:#04F5FF;
-    /* The five bands, hardest (0) to easiest (4). Each has a pill colour (the
-       stripe, the micro bar, the key) and a type colour tuned to read on the
-       dark plum ground: deep emerald, desaturated mint, warm slate, clay,
-       crimson. Saturation, not brightness, carries the extremes. */
-    --b0p:#C2264F; --b0t:#FF6B8B;
-    --b1p:#C9846F; --b1t:#F2B5A2;
-    --b2p:#857A8B; --b2t:#E4DCE6;
-    --b3p:#86C7A9; --b3t:#B6E6CF;
-    --b4p:#16A866; --b4t:#4FE3A0;
-    --cellbg:rgba(255,255,255,.035);
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
   }
-  .b0{--bp:var(--b0p);--bt:var(--b0t)} .b1{--bp:var(--b1p);--bt:var(--b1t)}
-  .b2{--bp:var(--b2p);--bt:var(--b2t)} .b3{--bp:var(--b3p);--bt:var(--b3t)}
-  .b4{--bp:var(--b4p);--bt:var(--b4t)}
 
   *{box-sizing:border-box}
   body{margin:0;background:var(--ground);color:var(--ink);
@@ -86,77 +73,20 @@
   .eyebrow{font-family:"Roboto Mono",ui-monospace,monospace;font-weight:600;font-size:10.5px;
     letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:7px}
 
-  /* ---- fused pill controls ---- */
   .views{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;margin-top:20px}
   .ctl{display:flex;align-items:center;gap:9px}
   .seglabel{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;letter-spacing:.14em;
     text-transform:uppercase;color:var(--muted)}
-  .seg{display:inline-flex;background:var(--surface-2);border-radius:99px;padding:3px;gap:2px}
-  .seg button{font:inherit;font-family:Barlow,Arial,Helvetica,sans-serif;font-size:13px;font-weight:600;
-    padding:6px 15px;border:0;border-radius:99px;background:transparent;color:var(--muted);cursor:pointer;
-    transition:background .14s,color .14s}
-  .seg button:hover{color:var(--ink)}
-  .seg button[aria-pressed="true"]{background:var(--ink);color:var(--ground)}
-  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .seg.sm button{font-size:12px;padding:5px 12px}
 
   .viewnote{margin:12px 2px 0;font-size:13px;color:var(--muted);max-width:82ch}
   .viewnote b{color:var(--ink);font-weight:600}
   .panel{background:var(--surface);border-radius:12px;box-shadow:var(--shadow);margin-top:14px}
   .hint{font-size:11.5px;color:var(--muted);margin:8px 0 0;line-height:1.45}
-  h2.kick{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;letter-spacing:.14em;
-    text-transform:uppercase;color:var(--muted);margin:0}
-
-  /* ---- gameweek ribbon ----
-     One timeline, NEXT_GW to 38. The window is a single connected band on it;
-     its two ends are solid. Drag across it, or click one week then a later one. */
-  .win{padding:15px 16px 12px}
-  .winhead{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 18px;margin-bottom:10px}
-  .readout{font-weight:800;font-size:22px;letter-spacing:-.02em;line-height:1.1;margin-top:5px;
-    font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
-  .readout small{font-weight:500;font-size:12.5px;color:var(--muted);letter-spacing:0}
-  .ribwrap{display:flex;align-items:stretch;gap:6px}
-  .nudge{flex:none;width:30px;border:0;border-radius:9px;background:var(--surface-2);color:var(--ink);
-    font:inherit;font-size:17px;line-height:1;cursor:pointer;transition:background .12s}
-  .nudge:hover:not(:disabled){background:var(--surface-3)}
-  .nudge:disabled{opacity:.3;cursor:default}
-  .nudge:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .ribbon{flex:1;min-width:0;display:flex;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;
-    user-select:none;-webkit-user-select:none;scroll-behavior:smooth;border-radius:10px}
-  .ribbon::-webkit-scrollbar{display:none}
-  .gwb{flex:1 0 34px;position:relative;border:0;background:transparent;color:var(--muted);cursor:pointer;
-    font:inherit;font-family:"Roboto Mono",ui-monospace,monospace;padding:4px 0 11px;
-    display:flex;flex-direction:column;align-items:center;gap:2px;transition:background .14s,color .14s}
-  .gwb s{text-decoration:none;font-size:8.5px;font-weight:600;letter-spacing:.12em;height:11px;color:var(--muted);opacity:.85}
-  .gwb b{display:grid;place-items:center;min-width:26px;height:24px;padding:0 3px;border-radius:7px;
-    font-size:12.5px;font-weight:600;transition:background .14s,color .14s,box-shadow .14s}
-  /* the timeline itself: a track along the bottom, lit inside the window */
-  .gwb::after{content:"";position:absolute;left:0;right:0;bottom:4px;height:3px;background:var(--surface-2);
-    transition:background .14s}
-  .gwb:first-child::after{left:4px;border-radius:3px 0 0 3px}
-  .gwb:last-child::after{right:4px;border-radius:0 3px 3px 0}
-  .gwb:hover b{background:var(--surface-2);color:var(--ink)}
-  .gwb:focus-visible{outline:none}
-  .gwb:focus-visible b{outline:2px solid var(--accent);outline-offset:1px}
-  .gwb[data-in="1"]{background:rgba(0,255,135,.07);color:var(--ink)}
-  .gwb[data-in="1"]::after{background:var(--accent)}
-  .gwb[data-start="1"]{border-radius:10px 0 0 10px}
-  .gwb[data-end="1"]{border-radius:0 10px 10px 0}
-  .gwb[data-start="1"][data-end="1"]{border-radius:10px}
-  .gwb[data-edge="1"] b{background:var(--accent);color:var(--accent-ink);font-weight:700}
-  .gwb[data-preview="1"]{background:rgba(0,255,135,.045)}
-  .gwb[data-preview="1"]::after{background:rgba(0,255,135,.4)}
-  .gwb[data-anchor="1"] b{box-shadow:0 0 0 2px var(--surface),0 0 0 4px rgba(0,255,135,.55)}
-  .gwhint{margin:8px 0 0;font-size:11.5px;color:var(--muted);min-height:1.2em}
 
   /* ---- the ticker ---- */
   .tablecard{margin-top:14px;background:var(--surface);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
   .keybar{display:flex;align-items:center;gap:8px 18px;padding:10px 14px;
     border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);flex-wrap:wrap}
-  .legend{display:flex;align-items:center;gap:4px 12px;flex-wrap:wrap;font-family:"Roboto Mono",ui-monospace,monospace;font-size:10.5px}
-  .legend .end{font-family:Barlow,Arial,sans-serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
-  .lg{display:inline-flex;align-items:center;gap:5px;color:var(--bt);font-weight:600}
-  .lg i{width:3px;height:12px;border-radius:2px;background:var(--bp)}
   .kbsrc{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
   .kbsrc .dot{display:inline-block;width:5px;height:5px;border-radius:50%;
     background:var(--bar);vertical-align:middle;margin:0 1px 2px}
@@ -187,26 +117,6 @@
   .team em{font-style:normal;font-size:11.5px;color:var(--muted);font-weight:500}
   .prov{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--accent);margin-left:6px;vertical-align:2px}
 
-  /* A fixture: neutral ground, the band as a stripe on the left, the number in
-     the band's colour, and a hairline bar for where it sits on the scale. */
-  .cell{position:relative;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:64px;
-    padding:5px 6px 8px 10px;border-radius:5px;background:var(--cellbg);overflow:hidden;
-    font-family:"Roboto Mono",ui-monospace,monospace;line-height:1.1}
-  .cell::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bp)}
-  /* a wash of the band that fades out from the stripe: enough to scan a column
-     by colour, never a filled cell */
-  .cell,.pcell{background:linear-gradient(90deg,color-mix(in srgb,var(--bp) 16%,transparent),transparent 72%),var(--cellbg)}
-  .cell.b2,.pcell.b2{background:var(--cellbg)}
-  .cell .o{font-size:10.5px;font-weight:600;color:var(--ink);letter-spacing:.03em;white-space:nowrap}
-  .cell .o small{font-size:8.5px;font-weight:500;color:var(--muted);margin-left:4px;letter-spacing:.06em}
-  .cell .v{font-size:13.5px;font-weight:700;color:var(--bt);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-  .mb{position:absolute;left:10px;right:7px;bottom:3px;height:2px;border-radius:2px;background:rgba(255,255,255,.06)}
-  .mb::after{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--w);border-radius:2px;background:var(--bp)}
-  /* Fixtures view: the opponent in the band's colour, no number */
-  .cell.plain{padding:9px 6px 11px 10px}
-  .cell.plain .o{font-size:12px;font-weight:700;color:var(--bt)}
-  .priced{position:relative}
-  .priced::after{content:"";position:absolute;top:4px;right:4px;width:4px;height:4px;border-radius:50%;background:var(--bar)}
   .score{font-family:"Roboto Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;
     text-align:right;font-size:16px;font-weight:700;white-space:nowrap;line-height:1.2}
   .score .sub{display:block;font-weight:400}
@@ -216,36 +126,8 @@
   .rot{margin-top:14px;background:var(--surface);border-radius:12px;box-shadow:var(--shadow);padding:16px 18px 18px}
   .rothead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px 24px}
   .rothead p{margin:4px 0 0;font-size:12.5px;color:var(--muted);max-width:56ch}
-  .slots{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  .slot{font:inherit;border:0;border-radius:10px;background:var(--surface-2);color:var(--ink);
-    padding:7px 12px 7px 8px;display:flex;align-items:center;gap:9px;min-width:158px;cursor:pointer;text-align:left;
-    box-shadow:inset 0 0 0 1.5px transparent;transition:box-shadow .14s,background .14s}
-  .slot:hover{background:var(--surface-3)}
-  .slot[data-active="1"]{box-shadow:inset 0 0 0 1.5px var(--accent)}
-  .slot:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .slot .k{font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:700;color:var(--muted);
-    border-radius:5px;padding:2px 6px;background:var(--surface)}
-  .slot[data-active="1"] .k{background:var(--accent);color:var(--accent-ink)}
-  .slot b{font-weight:800;font-size:15px;letter-spacing:.03em}
-  .slot em{font-style:normal;font-size:11.5px;color:var(--muted)}
-  .slot.empty b{font-weight:500;font-size:13px;color:var(--muted);letter-spacing:0}
-  .slots .over{color:var(--muted);font-weight:600;margin:0 1px}
-  .txtbtn{font:inherit;font-size:12px;background:none;border:0;color:var(--muted);cursor:pointer;padding:6px 5px;
-    text-decoration:underline;text-decoration-color:var(--border-strong);text-underline-offset:3px}
-  .txtbtn:hover{color:var(--ink)}
-  .txtbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
-  .tgrid{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;margin:14px 0 14px}
-  .tb{position:relative;font:inherit;border:0;border-radius:8px;background:var(--surface-2);color:var(--muted);
-    padding:8px 2px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
-    font-weight:800;font-size:13px;letter-spacing:.04em;transition:background .12s,color .12s,transform .08s}
-  .tb i{width:3px;height:13px;border-radius:2px;flex:none}
-  .tb:hover{color:var(--ink);background:var(--surface-3)}
-  .tb:active{transform:scale(.96)}
-  .tb:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-  .tb[aria-pressed="true"]{background:var(--ink);color:var(--ground)}
-  .tb em{position:absolute;top:-5px;right:-3px;font-style:normal;font-family:"Roboto Mono",monospace;
-    font-size:9px;font-weight:700;line-height:1;padding:3px 5px;border-radius:99px;
-    background:var(--accent);color:var(--accent-ink)}
+  #tgrid{margin:14px 0}
+  .mcard.priced::after{top:8px;right:8px}
   .rothint{margin:0;font-size:12.5px;color:var(--muted);max-width:70ch}
   .pair{background:var(--surface-2);border-radius:10px;padding:11px 12px 12px}
   .pairhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:9px}
@@ -255,14 +137,6 @@
   .pairval{font-family:"Roboto Mono",ui-monospace,monospace;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
   .pairval .sub{font-size:11px}
   .pairstrip{display:flex;gap:3px;overflow-x:auto;scrollbar-width:thin}
-  .pcell{flex:1 0 54px;position:relative;border-radius:5px;padding:5px 4px 6px 9px;background:var(--cellbg);overflow:hidden;
-    font-family:"Roboto Mono",ui-monospace,monospace;line-height:1.2;color:var(--ink)}
-  .pcell::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bp)}
-  .pcell b{display:block;font-size:8.5px;font-weight:600;color:var(--muted);letter-spacing:.06em}
-  .pcell strong{display:block;font-size:12.5px;font-weight:800;letter-spacing:.03em}
-  .pcell u{display:block;text-decoration:none;font-size:9.5px;font-weight:600;color:var(--bt)}
-  .pcell.blank{background:transparent;box-shadow:inset 0 0 0 1px var(--border);color:var(--muted)}
-  .pcell.blank::before{display:none}
   .rotwhen{margin:10px 0 0;font-size:12.5px;color:var(--muted);line-height:1.5}
   .rotwhen strong{color:var(--ink);font-weight:600}
 
@@ -295,7 +169,6 @@
   .mmid .c{font-size:11.5px;font-weight:600;color:var(--bt)}
   .mmid .c.l{text-align:right}
   .mmid .lab{font-size:8.5px;font-weight:600;letter-spacing:.12em;color:var(--muted);text-align:center}
-  .mcard.priced::after{top:8px;right:8px}
 
   .mrank,.mscore{display:none}
   /* ---- phones: pin the team, scroll the fixtures ---- */
@@ -305,12 +178,7 @@
     .mast h1{font-size:30px}
     .mast p{font-size:12.5px}
     .views{gap:8px 14px}
-    .seg button{font-size:12px;padding:6px 12px}
-
-    .win{padding:13px 12px 10px}
-    .readout{font-size:19px}
-    .gwb{flex:0 0 34px}
-
+  
     .tablecard{border-radius:10px}
     table{min-width:0}
     thead th:first-child{display:none}
@@ -329,14 +197,10 @@
     .mscore{display:block;font-family:"Roboto Mono",monospace;font-size:11px;font-weight:700;
       color:var(--ink);margin-top:4px;letter-spacing:-.02em;white-space:nowrap}
     .mscore em{font-style:normal;font-weight:500;color:var(--muted);font-size:10px}
-    .cell{min-width:58px}
 
     .rot{padding:14px 13px 15px}
-    .slots{width:100%}
-    .slot{min-width:0;flex:1 1 0}
-    .slotact{flex-basis:100%;display:flex;justify-content:flex-end;margin-top:-2px}
     .pairname em,.wide{display:none}
-    .tgrid{grid-template-columns:repeat(5,minmax(0,1fr))}
+    #rows .cell{min-width:58px}
     .gwv{padding:14px 13px 13px}
     .mlist{grid-template-columns:1fr}
   }
@@ -398,7 +262,7 @@
 
   <p class="viewnote" id="viewNote"></p>
 
-  <section class="panel win" aria-label="Gameweek window">
+  <section class="panel gwwin" aria-label="Gameweek window">
     <div class="winhead">
       <div><h2 class="kick">Gameweek window</h2><div class="readout" id="gwReadout"></div></div>
       <div class="seg sm" id="presets" role="group" aria-label="Quick windows">
@@ -428,15 +292,15 @@
     <div class="rothead">
       <div><h2 class="kick">Build your own pair</h2>
         <p id="myRotIntro">Two sides you are thinking of rotating. Play whichever has the better week, over the gameweek window and the view you have set.</p></div>
-      <div class="slots">
-        <button type="button" class="slot" id="slotA" data-slot="a"></button>
+      <div class="rslots">
+        <button type="button" class="rslot" id="slotA" data-slot="a"></button>
         <span class="over" aria-hidden="true">/</span>
-        <button type="button" class="slot" id="slotB" data-slot="b"></button>
-        <span class="slotact"><button type="button" class="txtbtn" id="rotSwap">Swap</button>
+        <button type="button" class="rslot" id="slotB" data-slot="b"></button>
+        <span class="act"><button type="button" class="txtbtn" id="rotSwap">Swap</button>
         <button type="button" class="txtbtn" id="rotClear">Clear</button></span>
       </div>
     </div>
-    <div class="tgrid" id="tgrid" role="group" aria-label="Pick two teams"></div>
+    <div class="rgrid" id="tgrid" role="group" aria-label="Pick two teams"></div>
     <div id="rotOut"></div>
   </section>
 
@@ -460,6 +324,7 @@
 import { fromData, marketByTeamId, rotate,
          good as goodness, goodClamped, bandOf, bandLabels,
          formatVal } from "./model.js?v=20261025";
+import { ribbon } from "./ribbon.js?v=20261101";
 
 // Always expected returns: the opponent-only index was removed on 26 Sep 2026
 // as too hard to read. MODE stays a variable only because renderMatches()
@@ -642,11 +507,7 @@ function render(){
   renderMyPair(series,data,gws,from,to,seriesRaw);
   renderMatches();
 
-  paintGwPick();
-  document.querySelectorAll("#presets button").forEach(b=>{
-    const on = from===NEXT_GW && to===Math.min(38, NEXT_GW+(+b.dataset.next)-1);
-    b.setAttribute("aria-pressed",on?"true":"false");
-  });
+  if(RIB) RIB.paint(from,to);
 }
 
 /* ---- build your own pair -------------------------------------------------
@@ -732,7 +593,7 @@ function buildPairPicker(){
   if(!TEAMS[ROT.a]) ROT.a=""; if(!TEAMS[ROT.b] || ROT.b===ROT.a) ROT.b="";
   ROT.active = !ROT.a ? "a" : !ROT.b ? "b" : "b";
   const ids=Object.keys(TEAMS).sort((x,y)=>code(x).localeCompare(code(y)));
-  $("#tgrid").innerHTML=ids.map(id=>`<button type="button" class="tb" data-id="${id}" title="${TEAMS[id][0]}"`
+  $("#tgrid").innerHTML=ids.map(id=>`<button type="button" class="rtb" data-id="${id}" title="${TEAMS[id][0]}"`
     + ` aria-label="${TEAMS[id][0]}"><i style="background:${club(id)}"></i>${code(id)}</button>`).join("");
 }
 
@@ -758,7 +619,7 @@ function saveRot(){
 }
 
 $("#tgrid").addEventListener("click",e=>{
-  const b=e.target.closest(".tb"); if(!b) return;
+  const b=e.target.closest(".rtb"); if(!b) return;
   const id=b.dataset.id;
   if(id===ROT.a){ ROT.a=""; ROT.active="a"; }
   else if(id===ROT.b){ ROT.b=""; ROT.active="b"; }
@@ -771,7 +632,7 @@ $("#tgrid").addEventListener("click",e=>{
 });
 ["#slotA","#slotB"].forEach(s=>$(s).addEventListener("click",e=>{
   ROT.active=e.currentTarget.dataset.slot; paintPairPicker();
-  const first=$("#tgrid .tb"); if(first && e.detail===0) first.focus();
+  const first=$("#tgrid .rtb"); if(first && e.detail===0) first.focus();
 }));
 $("#rotSwap").addEventListener("click",()=>{ [ROT.a,ROT.b]=[ROT.b,ROT.a]; saveRot(); });
 $("#rotClear").addEventListener("click",()=>{ ROT.a=ROT.b=""; ROT.active="a"; saveRot(); });
@@ -812,109 +673,15 @@ function renderMyPair(series,data,gws,from,to,seriesRaw){
     <p class="rotwhen">${when}</p></div>`;
 }
 
-/* ---- the gameweek ribbon -------------------------------------------------
- * Dragging two sliders to reach GW9 was the wrong tool for "show me GW9". The
- * ribbon is the whole control now:
- *   - click a week: that week alone; click a later one: the run between them
- *     (while one end is set, hovering a later week previews the run)
- *   - press and drag across it: the run you swept
- *   - the arrows slide the window a week either way, keeping its length
- *   - the presets above start it at the next gameweek */
-let gwAnchor=null;              // set after a single-gameweek click, cleared once a range closes
-
+/* ---- the gameweek ribbon ------------------------------------------------
+ * ribbon.js, shared with the comparison page. The page owns the window; the
+ * ribbon reports a new one through change() and is repainted by render(). */
+let RIB=null;
 function setWin(from,to){
   from=Math.max(NEXT_GW,Math.min(38,from)); to=Math.max(NEXT_GW,Math.min(38,to));
   if(from>to) [from,to]=[to,from];
   WIN.from=from; WIN.to=to;
 }
-
-function buildGwPick(){
-  const el=$("#gwPick"); if(!el) return;
-  let h="", lastMon=-1;
-  for(let g=NEXT_GW; g<=38; g++){
-    const iso=DEADLINES[g-1], m=iso ? +iso.slice(5,7)-1 : -1;
-    // a month label on the first gameweek of each month, so it reads as a timeline
-    const mon = m!==lastMon && m>=0 ? MON[m].toUpperCase() : ""; lastMon=m;
-    h+=`<button type="button" class="gwb" data-gw="${g}" aria-label="Gameweek ${g}${iso?", "+fmtDate(iso):""}"`
-      +`><s aria-hidden="true">${mon}</s><b>${g}</b></button>`;
-  }
-  el.innerHTML=h;
-}
-
-function paintGwPick(preview){
-  const el=$("#gwPick"); if(!el) return;
-  const {from,to}=WIN;
-  for(const b of el.children){
-    const g=+b.dataset.gw, inR=g>=from && g<=to;
-    b.dataset.in    = inR ? "1" : "0";
-    b.dataset.start = g===from ? "1" : "0";
-    b.dataset.end   = g===to ? "1" : "0";
-    b.dataset.edge  = (g===from || g===to) ? "1" : "0";
-    b.dataset.anchor = (gwAnchor!==null && g===gwAnchor) ? "1" : "0";
-    b.dataset.preview = (preview && !inR && g>=preview[0] && g<=preview[1]) ? "1" : "0";
-    b.setAttribute("aria-pressed", inR ? "true" : "false");
-  }
-  $("#gwHint").textContent = gwAnchor!==null
-    ? `GW${gwAnchor} picked — click a later gameweek to take the window up to it.`
-    : "Click a gameweek, or drag across the ribbon to pick a run. The arrows slide the window a week at a time.";
-  $("#gwPrev").disabled = from<=NEXT_GW;
-  $("#gwNext").disabled = to>=38;
-}
-
-function scrollGwIntoView(){
-  const el=$("#gwPick"); if(!el) return;
-  const a=el.querySelector(`[data-gw="${WIN.from}"]`), z=el.querySelector(`[data-gw="${WIN.to}"]`); if(!a||!z) return;
-  const l=a.offsetLeft-el.offsetLeft, r=z.offsetLeft-el.offsetLeft+z.offsetWidth, s=el.scrollLeft, cw=el.clientWidth;
-  if(l < s+4) el.scrollLeft = Math.max(0, l-34);
-  else if(r > s+cw-4) el.scrollLeft = Math.min(l-34, r-cw+34);
-}
-
-const gwAt=(x,y)=>{const b=document.elementFromPoint(x,y); const c=b&&b.closest&&b.closest("#gwPick .gwb"); return c?+c.dataset.gw:null;};
-let drag=null, justDragged=false;
-
-$("#gwPick").addEventListener("pointerdown",e=>{
-  if(e.button!==0) return;
-  const g=gwAt(e.clientX,e.clientY); if(g==null) return;
-  drag={start:g, moved:false};
-});
-$("#gwPick").addEventListener("pointermove",e=>{
-  const g=gwAt(e.clientX,e.clientY);
-  if(drag && (e.buttons&1)){
-    if(g==null || (g===drag.start && !drag.moved)) return;
-    drag.moved=true; gwAnchor=null;
-    setWin(Math.min(drag.start,g), Math.max(drag.start,g)); render();
-    return;
-  }
-  // with one end picked, show where the run would go
-  if(gwAnchor!==null && g!=null && g>gwAnchor) paintGwPick([gwAnchor,g]);
-  else if(gwAnchor!==null) paintGwPick();
-});
-const endDrag=()=>{ if(drag&&drag.moved){ justDragged=true; setTimeout(()=>{justDragged=false;},0); } drag=null; };
-addEventListener("pointerup",endDrag);
-$("#gwPick").addEventListener("pointercancel",()=>{drag=null;});
-$("#gwPick").addEventListener("pointerleave",()=>{ if(gwAnchor!==null && !drag) paintGwPick(); });
-
-$("#gwPick").addEventListener("click",e=>{
-  if(justDragged) return;
-  const b=e.target.closest(".gwb"); if(!b) return;
-  const g=+b.dataset.gw;
-  if(gwAnchor===null || g<=gwAnchor){ gwAnchor=g; setWin(g,g); }   // start fresh on a single week
-  else { setWin(gwAnchor,g); gwAnchor=null; }                       // close the range
-  render(); scrollGwIntoView();
-});
-const nudge=d=>{ const n=WIN.to-WIN.from;
-  let from=WIN.from+d; from=Math.max(NEXT_GW,Math.min(38-n,from));
-  gwAnchor=null; setWin(from,from+n); render(); scrollGwIntoView(); };
-$("#gwPrev").addEventListener("click",()=>nudge(-1));
-$("#gwNext").addEventListener("click",()=>nudge(1));
-$("#gwPick").addEventListener("keydown",e=>{
-  // arrow keys walk the ribbon, so it can be driven without a pointer
-  const b=e.target.closest(".gwb"); if(!b) return;
-  const to = e.key==="ArrowRight" ? b.nextElementSibling : e.key==="ArrowLeft" ? b.previousElementSibling : null;
-  if(to){ e.preventDefault(); to.focus(); }
-});
-document.querySelectorAll("#presets button").forEach(b=>b.addEventListener("click",()=>{
-  gwAnchor=null; setWin(NEXT_GW, NEXT_GW+(+b.dataset.next)-1); render(); scrollGwIntoView(); }));
 $("#sideSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   SIDE=b.dataset.side;[...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
 $("#sortSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
@@ -931,7 +698,9 @@ function applyData(d){
   // whichever is further ahead, the file or the deadline calendar.
   NEXT_GW=M.nextGw;
   setWin(NEXT_GW, NEXT_GW+5);
-  buildGwPick();
+  RIB=ribbon({pick:$("#gwPick"), prev:$("#gwPrev"), next:$("#gwNext"), hint:$("#gwHint"),
+    presets:[...document.querySelectorAll("#presets button")], deadlines:DEADLINES, first:NEXT_GW,
+    change:(a,b)=>{ WIN.from=a; WIN.to=b; render(); }});
   buildPairPicker();
   const when=new Date(d.generated);
   $("#stamp").textContent=`${d.season} · ${d.matchesPlayed} match${d.matchesPlayed===1?"":"es"} played · data updated ${when.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`;

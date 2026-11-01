@@ -23,13 +23,13 @@
 <meta property="og:image:alt" content="Fantasy DataBase">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="stylesheet" href="/ui.css?v=20261101">
 <style>
   :root{
     --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44;
     --border:#4B1A52; --border-strong:#663570;
     --ink:#FFFFFF; --muted:#B9A3BE; --accent:#00FF87; --accent-ink:#1E0021;
     --good:#05E585; --bad:#FF1751; --warn:#FFC845;
-    --easy:#116B33; --easy2:#05E585; --midc:#E7E7E7; --hard2:#FF1751; --hard:#80072D;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
   }
   *{box-sizing:border-box}
@@ -60,12 +60,6 @@
   .nav a[aria-current]:hover{color:var(--accent-ink)}
 
   .bar{display:flex;flex-wrap:wrap;gap:9px 18px;align-items:center;margin-top:18px}
-  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);
-    border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap}
-  .seg button{font:inherit;font-size:13px;font-weight:600;padding:6px 13px;border:0;
-    border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
-  .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.3)}
-  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .seglabel{font-family:"Roboto Mono",monospace;font-size:10px;letter-spacing:.14em;
     text-transform:uppercase;color:var(--muted);margin-right:-10px}
   select{font:inherit;font-size:13px;background:var(--surface-2);border:1px solid var(--border);
@@ -73,7 +67,7 @@
   select:focus{outline:2px solid var(--accent);outline-offset:1px}
 
   /* ---- picking ---- */
-  .pick{margin-top:14px;background:var(--surface);border:1px solid var(--border);
+  .pick{margin-top:14px;background:var(--surface);border:0;
     border-radius:10px;padding:12px 14px;box-shadow:var(--shadow)}
   .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:9px}
   .chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);
@@ -102,7 +96,7 @@
   .results .num{font-family:"Roboto Mono",monospace;font-size:11.5px;color:var(--muted)}
 
   /* ---- tables ---- */
-  .card{margin-top:14px;background:var(--surface);border:1px solid var(--border);
+  .card{margin-top:14px;background:var(--surface);border:0;
     border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
   .card h2{margin:0;padding:12px 14px;font-size:12px;font-weight:700;
     font-family:"Roboto Mono",monospace;letter-spacing:.12em;text-transform:uppercase;
@@ -124,10 +118,11 @@
   td.dim{color:var(--muted)}
   th.lft,td.lft{position:sticky;left:0;z-index:2;background:var(--surface)}
   tbody tr:hover th.lft{background:var(--surface-2)}
-  .fxcell{text-align:center;font-family:"Roboto Mono",monospace;font-size:11.5px;
-    border-radius:5px;padding:5px 4px;min-width:66px;display:block}
-  .fxcell b{display:block;font-size:10px;font-weight:700;opacity:.85}
-  td.fx{padding:4px}
+  td.fx{padding:3px;vertical-align:middle}
+  #fxTable thead th:not(.lft){text-align:left;padding-left:6px}
+  .pcell strong{font-family:Barlow,Arial,sans-serif;letter-spacing:0;font-size:13px}
+  #rotOut .pcell{flex:1 0 84px}
+  td.fx .cell{min-width:66px}
 
   .caution{margin:0;padding:10px 14px 13px;font-size:12.5px;color:var(--warn);
     border-top:1px solid var(--border);background:rgba(255,200,69,.06)}
@@ -138,9 +133,9 @@
   .note{margin:12px 2px 0;font-size:12.5px;color:var(--muted)}
   .note b{color:var(--ink)}
   .empty{padding:34px 16px;text-align:center;color:var(--muted)}
-  .key{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:10px 14px 13px;
+  .key{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:10px 14px 13px;
     font-size:12px;color:var(--muted)}
-  .rampbar{display:inline-block;width:96px;height:9px;border-radius:99px;vertical-align:-1px}
+  .key #fxKey{flex-basis:100%}
   .keybands{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10.5px;white-space:nowrap}
   /* Where each column's number came from. Spelled out rather than left to a
      marker alone, since there is no hover on a phone. */
@@ -148,55 +143,26 @@
   .srcnote b{color:var(--ink)}
   .srcnote .dot{display:inline-block;width:5px;height:5px;border-radius:50%;
     background:var(--bar,#04F5FF);vertical-align:middle;margin:0 1px 2px}
-  td.priced{position:relative}
-  td.priced::after{content:"";position:absolute;top:3px;right:3px;width:4px;height:4px;
-    border-radius:50%;background:currentColor;opacity:.55}
 
   /* ---- fixture window: the same strip the fixtures page uses ---- */
-  .gwctrl{margin-top:14px;background:var(--surface);border:1px solid var(--border);
+  .gwctrl{margin-top:14px;background:var(--surface);border:0;
     border-radius:10px;box-shadow:var(--shadow);padding:14px 16px;min-width:0}
-  .gwctrl h2{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;
-    letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
-  .gwread{font-weight:700;font-size:17px;letter-spacing:-.01em;font-variant-numeric:tabular-nums;
-    display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:9px}
-  .gwread small{font-weight:400;font-size:12px;color:var(--muted);letter-spacing:0}
-  .gwpick{display:flex;gap:4px;overflow-x:auto;max-width:100%;padding:2px 0 8px;scrollbar-width:thin;
-    scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
-  .gwpick::-webkit-scrollbar{height:5px}
-  .gwpick::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:99px}
-  .gwb{flex:none;font:inherit;font-family:"Roboto Mono",ui-monospace,monospace;font-size:11.5px;
-    min-width:30px;padding:5px 0;border-radius:7px;cursor:pointer;text-align:center;
-    background:var(--surface-2);border:1px solid var(--border);color:var(--muted)}
-  .gwb:hover{border-color:var(--border-strong);color:var(--ink)}
-  .gwb:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .gwb[data-in="1"]{background:rgba(0,255,135,.13);border-color:rgba(0,255,135,.45);color:var(--ink)}
-  .gwb[data-edge="1"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
-  .gwb[data-anchor="1"]{box-shadow:0 0 0 2px var(--accent) inset}
-  .gwhint{margin:0 0 8px;font-size:11.5px;color:var(--muted);min-height:1.2em}
-  .presets{display:flex;flex-wrap:wrap;gap:5px}
-  .chipbtn{font:inherit;font-size:12px;font-weight:500;padding:4px 10px;border-radius:99px;cursor:pointer;
-    background:var(--surface-2);color:var(--ink);border:1px solid var(--border)}
-  .chipbtn:hover{border-color:var(--border-strong)}
-  .chipbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-  .chipbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-
   /* ---- rotation ---- */
-  .rot{margin-top:14px;background:var(--surface);border:1px solid var(--border);
+  .rot{margin-top:14px;background:var(--surface);border:0;
     border-radius:10px;box-shadow:var(--shadow);padding:16px 18px;min-width:0}
   .rot h2{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-weight:600;
     letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
   .rot > p{margin:0 0 13px;font-size:12.5px;color:var(--muted);max-width:70ch}
-  .rotpick{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:13px}
-  .rotpick select{font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:var(--surface-2);
-    border:1px solid var(--border);border-radius:8px;padding:7px 10px;cursor:pointer;
-    flex:0 1 190px;min-width:0;max-width:100%}
-  .rotpick select:hover{border-color:var(--border-strong)}
-  .rotpick select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .rotpick option{background:var(--surface);color:var(--ink)}
-  .rotpick .vs{font-family:"Roboto Mono",monospace;font-size:10px;letter-spacing:.14em;
-    text-transform:uppercase;color:var(--muted)}
+  .rothead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px 24px}
+  .rothead > div:first-child{max-width:70ch}
+  .rothead p{margin:4px 0 0;font-size:12.5px;color:var(--muted)}
+  .rothead p b{color:var(--ink)}
+  .rotpick{margin:14px 0}
+  #rotGrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  #rotGrid .rtb{justify-content:flex-start;padding:8px 10px;letter-spacing:.01em;font-size:13px;font-weight:700}
+  #rotGrid .rtb small{font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:600;color:inherit;opacity:.6;margin-left:auto}
   .pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:9px}
-  .pair{border:1px solid var(--border);border-radius:8px;padding:10px 11px;background:var(--surface-2)}
+  .pair{border-radius:10px;padding:11px 12px 12px;background:var(--surface-2)}
   .pairhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
   .pairname{font-weight:700;font-size:13.5px;letter-spacing:-.01em}
   .pairname s{text-decoration:none;color:var(--muted);font-weight:600;margin:0 3px}
@@ -208,17 +174,10 @@
   /* Player names are long where team codes were three letters, so the cells get a
      floor and the strip scrolls inside itself rather than letting a name spill
      out of its cell — which is exactly what nine gameweeks did at phone width. */
-  .pairstrip{display:flex;gap:2px;overflow-x:auto;scrollbar-width:thin;
+  .pairstrip{display:flex;gap:3px;overflow-x:auto;scrollbar-width:thin;
     -webkit-overflow-scrolling:touch}
   .pairstrip::-webkit-scrollbar{height:5px}
   .pairstrip::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:99px}
-  .pcell{flex:1 0 56px;min-width:0;overflow:hidden;border-radius:3px;padding:4px 2px;text-align:center;
-    font-family:"Roboto Mono",ui-monospace,monospace;font-size:9.5px;font-weight:600;line-height:1.2}
-  .pcell i{display:block;font-style:normal;overflow-wrap:anywhere;line-height:1.15}
-  .pcell u{display:block;text-decoration:none;font-size:8px;opacity:.8;font-weight:500;
-    overflow-wrap:anywhere}
-  .pcell b{display:block;font-size:8px;font-weight:600;opacity:.7;letter-spacing:.03em;margin-bottom:1px}
-  .pcell.blank{background:var(--surface-2);color:var(--muted);border:1px dashed var(--border)}
   .rothint{margin:0;font-size:12.5px;color:var(--muted);max-width:70ch}
   .rotwhen{margin:10px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
   .rotwhen strong{color:var(--ink);font-weight:600}
@@ -227,7 +186,6 @@
   @media (max-width:700px){
     .wrap{padding:16px 0 44px}
     .mast,.bar,.pick,.card,.note,.gwctrl,.rot{margin-left:12px;margin-right:12px}
-    .rotpick select{flex:1 1 150px}
     .nav{margin-left:0;width:100%}
     th,td{padding:7px 8px}
     th.lft,td.lft{min-width:104px;max-width:104px;box-shadow:6px 0 8px -6px rgba(0,0,0,.55)}
@@ -301,37 +259,46 @@
     <p class="caution" id="sampleWarn" hidden></p>
   </div>
 
-  <section class="gwctrl">
-    <h2>Fixture window</h2>
-    <div class="gwread" id="gwRead"></div>
-    <div class="gwpick" id="gwPick" role="group" aria-label="Pick a gameweek"></div>
-    <p class="gwhint" id="gwHint"></p>
-    <div class="presets" id="presets">
-      <button class="chipbtn" type="button" data-next="1">Next gameweek</button>
-      <button class="chipbtn" type="button" data-next="3">Next 3</button>
-      <button class="chipbtn" type="button" data-next="6">Next 6</button>
-      <button class="chipbtn" type="button" data-next="9">Next 9</button>
+  <section class="gwctrl gwwin" aria-label="Fixture window">
+    <div class="winhead">
+      <div><h2 class="kick">Fixture window</h2><div class="readout" id="gwRead"></div></div>
+      <div class="seg sm" id="presets" role="group" aria-label="Quick windows">
+        <button type="button" data-next="1">Next GW</button>
+        <button type="button" data-next="3">Next 3</button>
+        <button type="button" data-next="6">Next 6</button>
+        <button type="button" data-next="9">Next 9</button>
+      </div>
     </div>
+    <div class="ribwrap">
+      <button type="button" class="nudge" id="gwPrev" aria-label="Move the window one gameweek earlier">&lsaquo;</button>
+      <div class="ribbon" id="gwPick" role="group" aria-label="Gameweeks"></div>
+      <button type="button" class="nudge" id="gwNext" aria-label="Move the window one gameweek later">&rsaquo;</button>
+    </div>
+    <p class="gwhint" id="gwHint"></p>
   </section>
 
   <div class="card" id="fxCard">
     <h2 id="fxTitle">Upcoming fixtures</h2>
     <div class="scroll"><table id="fxTable"></table></div>
     <p class="key">
-      <span>Hardest</span><span class="rampbar" id="rampbar"></span><span>Easiest</span>
+      <span class="legend" id="fxLegend"></span>
       <span id="fxKey"></span>
     </p>
     <p class="srcnote" id="fxSrc"></p>
   </div>
 
   <section class="rot" id="rotSec">
-    <h2>Rotate two of them</h2>
-    <p id="rotIntro"></p>
+    <div class="rothead">
+      <div><h2 class="kick">Rotate two of them</h2><p id="rotIntro"></p></div>
+      <div class="rslots" id="rotSlots" hidden>
+        <button type="button" class="rslot" id="slotA" data-slot="a"></button>
+        <span class="over" aria-hidden="true">/</span>
+        <button type="button" class="rslot" id="slotB" data-slot="b"></button>
+        <span class="act"><button type="button" class="txtbtn" id="rotSwap">Swap</button></span>
+      </div>
+    </div>
     <div class="rotpick" id="rotPickRow" hidden>
-      <select id="rotA" aria-label="First player of the rotation"></select>
-      <span class="vs">with</span>
-      <select id="rotB" aria-label="Second player of the rotation"></select>
-      <button class="chipbtn" id="rotSwap" type="button">Swap</button>
+      <div class="rgrid" id="rotGrid" role="group" aria-label="Pick two of the players above"></div>
     </div>
     <div id="rotOut"></div>
   </section>
@@ -341,7 +308,8 @@
 
 <script type="module" id="app">
 import { fromData, marketByTeamId, rotate,
-         goodClamped, colourT, shade, rampFromCss } from "./model.js?v=20261025";
+         goodClamped, bandOf, bandLabels, formatVal } from "./model.js?v=20261025";
+import { ribbon } from "./ribbon.js?v=20261101";
 
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
@@ -378,12 +346,16 @@ const TOTAL_ONLY=new Set(["dch"]);
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-let D=null, P=null, M=null, RAMP=null, MARKET=null;
+let D=null, P=null, M=null, MARKET=null, RIB=null;
 let pos=2, scale="tot", picked=[], hi=-1;
 // The fixture window is a from/to pair now, not a fixed horizon, so the strip can
 // name a single gameweek or any run of them — same control as the fixtures page.
-let gwFrom=1, gwTo=6, gwAnchor=null;
-let rotA=null, rotB=null;
+let gwFrom=1, gwTo=6;
+let rotA=null, rotB=null, rotActive="b";
+// The five bands, as on the fixtures page: 0 hardest … 4 easiest, and where the
+// value sits on the whole scale for the hairline bar under it.
+const band=(side,v)=>bandOf(side,v,"proj")??2;
+const barW=(side,v)=>Math.round(goodClamped(side,v,"proj")*100)+"%";
 
 /* ------------------------------- values ---------------------------------- */
 function val(p,key){
@@ -457,7 +429,7 @@ function render(){
     $("#fxSrc").innerHTML="";
     $("#fxTitle").textContent="Upcoming fixtures";
     foot(players);
-    paintGwPick();
+    paintWin();
     renderRot(players,[]);
     return;
   }
@@ -527,30 +499,35 @@ function render(){
     let n=0,rawSum=0;
     const cells=gws.map(g=>{
       const list=byGw[g];
-      if(!list) return `<td class="fx"><span class="fxcell" style="background:var(--surface-2);color:var(--muted)" title="GW${g}: no game">no game</span></td>`;
-      const anyPriced=list.some(f=>M.priced(p.t,f));
-      return `<td class="fx${anyPriced?" priced":""}">`+list.map(f=>{
+      if(!list) return `<td class="fx"><span class="cell plain blank" title="GW${g}: no game"><span class="o">&mdash;<small>no game</small></span></span></td>`;
+      return `<td class="fx">`+list.map(f=>{
         const v=M.rate(side,p.t,f,"proj");
         n++; rawSum+=v;
-        const c=shade(colourT(side,v,"proj"),RAMP), opp=D.teams[f.opp];
-        return `<span class="fxcell" style="background:${c.bg};color:${c.fg}"`
-             + ` title="GW${f.gw}: ${esc(opp?opp.name:"?")} ${f.home?"(home)":"(away)"}${M.priced(p.t,f)?" · bookmakers' odds":""}">`
-             + `${esc(opp?opp.short.toUpperCase():"?")} (${f.home?"H":"A"})</span>`;
+        const opp=D.teams[f.opp], pr=M.priced(p.t,f);
+        return `<span class="cell plain b${band(side,v)}${pr?" priced":""}"`
+             + ` title="GW${f.gw}: ${esc(opp?opp.name:"?")} ${f.home?"(home)":"(away)"} · ${formatVal(side,v,"proj",true)}${pr?" · bookmakers' odds":""}">`
+             + `<span class="o">${esc(opp?opp.short.toUpperCase():"?")}<small>${f.home?"H":"A"}</small></span>`
+             + `<i class="mb" style="--w:${barW(side,v)}"></i></span>`;
       }).join("")+`</td>`;
     }).join("");
     // Colour only, like every other tile: the band the club's average goal
     // difference across the window falls in.
-    const ac=shade(colourT(side,n?rawSum/n:0,"proj"),RAMP);
+    const avg=n?rawSum/n:0;
     const t=D.teams[p.t]||{short:"?"};
     return `<tr><th class="lft">${esc(p.n)} <span style="color:var(--muted);font-family:'Roboto Mono',monospace;font-size:10px">${esc(t.short.toUpperCase())}</span></th>`
       + cells
-      + `<td class="fx"><span class="fxcell" style="background:${ac.bg};color:${ac.fg}" title="Average across the window">avg</span></td></tr>`;
+      + `<td class="fx"><span class="cell plain b${band(side,avg)}" title="Average across the window · ${formatVal(side,avg,"proj",true)}">`
+      + `<span class="o">AVG</span><i class="mb" style="--w:${barW(side,avg)}"></i></span></td></tr>`;
   }).join("");
 
   $("#fxTable").innerHTML=fhead+`<tbody>${fbody}</tbody>`;
 
+  const labs=bandLabels(FDR,"proj")||[];
+  $("#fxLegend").innerHTML=`<span class="end">Hardest</span>`
+    + labs.map((l,i)=>`<span class="lg b${i}"><i></i>${l}</span>`).join("") + `<span class="end">Easiest</span>`;
   $("#fxKey").innerHTML = `Coloured by <b>the club's fixture</b>, as on the ticker's Fixtures view: `
-    + `<b>green means they should outscore the opponent</b>, red that they should be outscored, and grey is close to an even game. `
+    + `<b>green means they should outscore the opponent</b>, red that they should be outscored, and grey is close to an even game; `
+    + `the key above is the expected goal difference each colour stands for. `
     + `Teammates always share a colour.`;
 
   // Which of the columns on screen came from the odds, in words.
@@ -568,7 +545,7 @@ function render(){
             : "Everything further out comes from our expected-goals model, leaned toward the bookmakers\u2019 recent view of each side.");
 
   foot(players);
-  paintGwPick();
+  paintWin();
   renderRot(players,gws);
 }
 
@@ -579,15 +556,24 @@ function render(){
  * window, and the gain is what that adds over simply starting the better player
  * every single week. Everything follows the window and the position above it.
  */
-function fillRotPicks(players){
-  [["#rotA",rotA],["#rotB",rotB]].forEach(([sel,cur])=>{
-    const el=$(sel);
-    el.innerHTML=players.map(p=>{
-      const t=D.teams[p.t]||{short:"?"};
-      return `<option value="${p.i}">${esc(p.n)} \u2014 ${esc(t.short.toUpperCase())}</option>`;
-    }).join("");
-    el.value=String(cur);
-  });
+// Two slots and the players on screen as a grid. A click on a player puts him
+// in the active slot (and swaps if he was in the other one); the active slot
+// then moves to the other, so two clicks pick a pair.
+function paintRotPick(players){
+  const code=p=>esc((D.teams[p.t]||{short:"?"}).short.toUpperCase());
+  const club=p=>CLUB[(D.teams[p.t]||{}).short]||"#888";
+  $("#rotGrid").innerHTML=players.map(p=>{
+    const s = p.i===rotA ? "A" : p.i===rotB ? "B" : "";
+    return `<button type="button" class="rtb" data-id="${p.i}" aria-pressed="${s?"true":"false"}" title="${esc(p.n)}">`
+      + `<i style="background:${club(p)}"></i><span>${esc(p.n)}</span><small>${code(p)}</small>${s?`<em>${s}</em>`:""}</button>`;
+  }).join("");
+  for(const k of ["a","b"]){
+    const el=$(k==="a"?"#slotA":"#slotB"), p=players.find(x=>x.i===(k==="a"?rotA:rotB));
+    el.dataset.active = rotActive===k ? "1" : "0";
+    el.setAttribute("aria-label", (k==="a"?"First":"Second")+" player: "+(p?p.n:"none")+". Click, then pick a player to fill it.");
+    el.innerHTML=`<span class="k">${k.toUpperCase()}</span>`
+      + (p ? `<span><b>${esc(p.n)}</b> <em>${code(p)}</em></span>` : `<b>Pick a player</b>`);
+  }
 }
 
 function renderRot(players,gws){
@@ -595,7 +581,7 @@ function renderRot(players,gws){
   const noun = "fixture rating";
 
   if(players.length<2){
-    row.hidden=true;
+    row.hidden=true; $("#rotSlots").hidden=true;
     intro.textContent="Start whichever of two players has the better week, every week.";
     out.innerHTML=`<p class="rothint">Pick at least two ${POSNAME[pos].toLowerCase()} above,`
       + ` then choose two of them here to see who to start each gameweek.</p>`;
@@ -606,8 +592,8 @@ function renderRot(players,gws){
   const ids=players.map(p=>p.i);
   if(!ids.includes(rotA)) rotA=ids[0];
   if(!ids.includes(rotB)||rotB===rotA) rotB=ids.find(i=>i!==rotA);
-  row.hidden=false;
-  fillRotPicks(players);
+  row.hidden=false; $("#rotSlots").hidden=false;
+  paintRotPick(players);
 
   const A=players.find(p=>p.i===rotA), B=players.find(p=>p.i===rotB);
   if(!A||!B||!gws.length){ out.innerHTML=""; return; }
@@ -629,13 +615,12 @@ function renderRot(players,gws){
   const side=FDR;
   const strip=pick.map(x=>{
     if(x.blank) return `<div class="pcell blank" title="GW${x.gw}: neither one plays">`
-      + `<b>GW${x.gw}</b>\u2014<u>blank</u></div>`;
-    const sh=shade(colourT(side,x.raw,"proj"),RAMP);
+      + `<b>GW${x.gw}</b><strong>\u2014</strong><u>blank</u></div>`;
     const opps=x.fx.map(f=>{const o=D.teams[f.opp];
-      return `${esc(o?o.short.toUpperCase():"?")} (${f.home?"H":"A"})`;}).join(" + ");
-    return `<div class="pcell" style="background:${sh.bg};color:${sh.fg}"`
+      return `${esc(o?o.short.toUpperCase():"?")} ${f.home?"H":"A"}`;}).join(" + ");
+    return `<div class="pcell b${band(side,x.raw)}"`
       + ` title="GW${x.gw}: start ${esc(x.who.n)} \u2014 ${opps}">`
-      + `<b>GW${x.gw}</b><i>${esc(x.who.n)}</i><u>${opps}</u></div>`;
+      + `<b>GW${x.gw}</b><strong>${esc(x.who.n)}</strong><u>${opps}</u></div>`;
   }).join("");
 
   const played=pick.filter(x=>!x.blank);
@@ -732,65 +717,30 @@ $("#scaleSeg").addEventListener("click",e=>{const b=e.target.closest("button");i
  * starts again. The presets underneath are the old dropdown's three choices plus
  * "next gameweek", and any of them abandons a half-made range.
  */
-function buildGwPick(){
-  const el=$("#gwPick"); if(!el) return;
-  let h="";
-  for(let g=M.nextGw; g<=38; g++)
-    h+=`<button type="button" class="gwb" data-gw="${g}" aria-label="Gameweek ${g}">${g}</button>`;
-  el.innerHTML=h;
-}
-
-function paintGwPick(){
-  const el=$("#gwPick"); if(!el||!el.children.length) return;
-  for(const b of el.children){
-    const g=+b.dataset.gw;
-    b.dataset.in     = (g>=gwFrom && g<=gwTo) ? "1" : "0";
-    b.dataset.edge   = (g===gwFrom || g===gwTo) ? "1" : "0";
-    b.dataset.anchor = (gwAnchor!==null && g===gwAnchor) ? "1" : "0";
-    b.setAttribute("aria-pressed", g>=gwFrom&&g<=gwTo ? "true" : "false");
-  }
-  const n=gwTo-gwFrom+1;
+// The readout above the ribbon; the ribbon itself is ribbon.js, shared with
+// the fixtures page.
+function paintWin(){
+  const n=gwTo-gwFrom+1, dl=D.deadlines||[];
+  const day=g=>{const iso=dl[g-1]; if(!iso) return "";
+    const [y,m,d]=iso.slice(0,10).split("-").map(Number);
+    return d+" "+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1];};
   $("#gwRead").innerHTML = gwFrom===gwTo
-    ? `GW${gwFrom} <small>one gameweek</small>`
-    : `GW${gwFrom}\u2013GW${gwTo} <small>${n} gameweeks</small>`;
-  $("#gwHint").textContent = gwAnchor!==null
-    ? `GW${gwAnchor} selected \u2014 click a later gameweek to see the run, or a preset below.`
-    : "Click a gameweek to jump to it. Click a second, later one to span a range.";
-  document.querySelectorAll("#presets .chipbtn").forEach(b=>{
-    const on = gwFrom===M.nextGw && gwTo===Math.min(38, M.nextGw+(+b.dataset.next)-1);
-    b.setAttribute("aria-pressed", on?"true":"false");
-  });
+    ? `GW${gwFrom} <small>${gwFrom===M.nextGw?"next gameweek":"one gameweek"}${day(gwFrom)?" · "+day(gwFrom):""}</small>`
+    : `GW${gwFrom}&thinsp;–&thinsp;GW${gwTo} <small>${n} gameweeks${day(gwFrom)?` · ${day(gwFrom)} – ${day(gwTo)}`:""}</small>`;
+  if(RIB) RIB.paint(gwFrom,gwTo);
 }
 
-function scrollGwIntoView(g){
-  const el=$("#gwPick"); if(!el) return;
-  const b=el.querySelector(`[data-gw="${g}"]`); if(!b) return;
-  const l=b.offsetLeft, w=b.offsetWidth, sl=el.scrollLeft, cw=el.clientWidth;
-  if(l < sl+8) el.scrollLeft=Math.max(0,l-8);
-  else if(l+w > sl+cw-8) el.scrollLeft=l+w-cw+8;
-}
-
-$("#gwPick").addEventListener("click",e=>{
-  const b=e.target.closest(".gwb"); if(!b) return;
-  const g=+b.dataset.gw;
-  if(gwAnchor===null || g<=gwAnchor){ gwAnchor=g; gwFrom=g; gwTo=g; }
-  else { gwFrom=gwAnchor; gwTo=g; gwAnchor=null; }
-  render(); scrollGwIntoView(gwFrom);
-});
-document.querySelectorAll("#presets .chipbtn").forEach(b=>b.addEventListener("click",()=>{
-  gwAnchor=null;
-  gwFrom=M.nextGw; gwTo=Math.min(38, M.nextGw+(+b.dataset.next)-1);
-  render(); scrollGwIntoView(gwFrom);
-}));
-
-$("#rotA").addEventListener("change",e=>{
-  rotA=+e.target.value;
-  if(rotB===rotA){ const o=picked.find(i=>i!==rotA); if(o!==undefined) rotB=o; }
+$("#rotGrid").addEventListener("click",e=>{
+  const b=e.target.closest(".rtb"); if(!b) return;
+  const id=+b.dataset.id;
+  if(rotActive==="a"){ if(id===rotB) rotB=rotA; rotA=id; rotActive="b"; }
+  else               { if(id===rotA) rotA=rotB; rotB=id; rotActive="a"; }
   render();});
-$("#rotB").addEventListener("change",e=>{
-  rotB=+e.target.value;
-  if(rotA===rotB){ const o=picked.find(i=>i!==rotB); if(o!==undefined) rotA=o; }
-  render();});
+["#slotA","#slotB"].forEach(s=>$(s).addEventListener("click",e=>{
+  rotActive=e.currentTarget.dataset.slot;
+  const players=picked.map(id=>P.players.find(x=>x.i===id)).filter(Boolean);
+  paintRotPick(players);
+  const first=$("#rotGrid .rtb"); if(first && e.detail===0) first.focus();}));
 $("#rotSwap").addEventListener("click",()=>{const a=rotA; rotA=rotB; rotB=a; render();});
 $("#q").addEventListener("input",searchResults);
 $("#results").addEventListener("click",e=>{
@@ -820,15 +770,14 @@ Promise.all([
   // which is the normal state beyond the next round or two.
   fetch("market.json?t="+Date.now()).then(r=>r.ok?r.json():null).catch(()=>null)
 ]).then(([d,pl,mk])=>{
-  D=d; P=pl; RAMP=rampFromCss();
+  D=d; P=pl;
   // market.json is keyed by short code; the model works in FPL team ids.
   MARKET=marketByTeamId(mk&&mk.gw, d.teams);
   M=fromData(d,{market:MARKET});
   gwFrom=M.nextGw; gwTo=Math.min(38, M.nextGw+5);   // the old default: the next six
-  buildGwPick();
-  // Flat blocks, not a ramp: the cells are banded, so the key is too.
-  $("#rampbar").style.background="linear-gradient(90deg,"
-    +[0,.25,.5,.75,1].map((v,i)=>`${shade(v,RAMP).bg} ${i*20}% ${(i+1)*20}%`).join(",")+")";
+  RIB=ribbon({pick:$("#gwPick"), prev:$("#gwPrev"), next:$("#gwNext"), hint:$("#gwHint"),
+    presets:[...document.querySelectorAll("#presets button")], deadlines:d.deadlines||[], first:M.nextGw,
+    change:(a,b)=>{ gwFrom=a; gwTo=b; render(); }});
   $("#stamp").textContent=`${d.season} · next GW${M.nextGw} · updated `
     + new Date(d.generated).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
 

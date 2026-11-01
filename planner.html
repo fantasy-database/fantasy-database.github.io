@@ -23,13 +23,13 @@
 <meta property="og:image:alt" content="Fantasy DataBase">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="stylesheet" href="/ui.css?v=20261101">
 <style>
   :root{
     --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44;
     --border:#4B1A52; --border-strong:#663570;
     --ink:#FFFFFF; --muted:#B9A3BE; --accent:#00FF87; --accent-ink:#1E0021;
     --good:#05E585; --bad:#FF1751; --warn:#FFC845;
-    --easy:#116B33; --easy2:#05E585; --midc:#E7E7E7; --hard2:#FF1751; --hard:#80072D;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
   }
   *{box-sizing:border-box}
@@ -61,7 +61,7 @@
   .nav a[aria-current]:hover{color:var(--accent-ink)}
 
   .cols{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;margin-top:18px;align-items:start}
-  .card{background:var(--surface);border:1px solid var(--border);
+  .card{background:var(--surface);border:0;
     border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
   .card h2{margin:0;padding:12px 14px;font-size:12px;font-weight:700;
     font-family:"Roboto Mono",monospace;letter-spacing:.12em;text-transform:uppercase;
@@ -116,13 +116,15 @@
   /* the next three fixtures: opponent, home or away, coloured by difficulty */
   .fxs{display:flex;gap:2px;margin-top:4px}
   .slot .fxs{margin:0;padding:3px;background:#ECEAF0;border-radius:0 0 6px 6px}
-  .fxc{flex:1 1 0;min-width:0;border-radius:3px;padding:2px 0 2px;text-align:center;
-    font-family:"Roboto Mono",monospace;line-height:1.1;overflow:hidden}
-  .fxc b{display:block;font-size:9.5px;font-weight:700;letter-spacing:.02em}
-  .fxc i{display:block;font-style:normal;font-size:8.5px;font-weight:600;opacity:.8}
-  .fxc.none{background:rgba(255,255,255,.08);color:var(--muted)}
-  .slot .fxc.none{background:#D6D6CE;color:#6B6B66}
-  .slot .fxc{box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+  /* each chip is a mini rating tile from ui.css; under a shirt it sits on the
+     light name bar, so it takes the darker-inked .light variant */
+  .fxs .cell.mini .o{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* under a shirt there is room for about twenty pixels a tile: thin stripe,
+     no side padding, centred, and never an ellipsis on a three-letter code */
+  .slot .fxs{gap:2px}
+  .slot .fxs .cell.mini{padding:3px 0 3px 3px;text-align:center}
+  .slot .fxs .cell.mini::before{width:2px}
+  .slot .fxs .cell.mini .o{text-overflow:clip;letter-spacing:0}
   .benchwrap{position:relative;z-index:1;margin:26px 4% 0;padding:8px 6px 12px;border-radius:14px;
     background:rgba(255,255,255,.2);box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
   .bslot{display:flex;flex-direction:column;align-items:center;gap:4px}
@@ -147,7 +149,7 @@
   .selbar .news{color:var(--warn)}
 
   /* ---- import ---- */
-  .import{margin-top:18px;background:var(--surface);border:1px solid var(--border);
+  .import{margin-top:18px;background:var(--surface);border:0;
     border-radius:10px;box-shadow:var(--shadow);padding:13px 15px}
   .import .hd{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
   .import h3{margin:0;font-size:12px;font-weight:700;font-family:"Roboto Mono",monospace;
@@ -182,11 +184,7 @@
 
   /* ---- picker ---- */
   .ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
-  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);
-    border-radius:9px;padding:3px;gap:3px}
-  .seg button{font:inherit;font-size:12.5px;font-weight:600;padding:5px 11px;border:0;
-    border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
-  .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink)}
+  .ctl .seg button{font-size:12.5px;padding:5px 13px}
   input[type=search],select{font:inherit;font-size:13px;background:var(--surface-2);
     border:1px solid var(--border);color:var(--ink);border-radius:7px;padding:6px 10px}
   input[type=search]{flex:1 1 130px;min-width:0}
@@ -202,7 +200,6 @@
   .p .tm{font-family:"Roboto Mono",monospace;font-size:10px;color:var(--muted);text-transform:uppercase}
   .p .num{font-family:"Roboto Mono",monospace;font-size:12px;font-variant-numeric:tabular-nums}
   .p .fxs{margin:0;flex:0 0 96px}
-  .p .fxc b{font-size:9px}
   .p.in{background:rgba(0,255,135,.09)}
   .empty{padding:28px 14px;text-align:center;color:var(--muted);font-size:13px}
 
@@ -219,7 +216,6 @@
   .act button:hover{color:var(--ink);border-color:var(--accent)}
   .act button.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
   .act button.pri:hover{color:var(--accent-ink);filter:brightness(1.08)}
-  .seg button:disabled{opacity:.35;cursor:not-allowed}
   .grid td.c:focus-visible,.slot:focus-visible,.grid thead th:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 
 
@@ -379,8 +375,11 @@
     .benchwrap{margin:20px 2% 0}
     .blbl{font-size:10.5px}
     .slot .fxs{padding:2px;gap:1px}
-    .fxc b{font-size:8.5px;letter-spacing:0}
-    .fxc i{font-size:7.5px}
+    .fxs .cell.mini .o{font-size:8.5px}
+    .slot .fxs{gap:1px;padding:2px}
+    .slot .fxs .cell.mini{padding:2px 0 2px 2px}
+    .slot .fxs .cell.mini .o{font-size:8px}
+    .slot .fxs .cell.mini .o small{font-size:7px}
     .grass{padding:42px 2px 12px}
     .adboard{height:24px;font-size:12px;padding:0 8px;top:8px}
     .adboard svg{height:14px}
@@ -555,8 +554,7 @@
 <script type="module" id="app">
 import { DEFAULT_RULES, sellPrice, validateSquad, validateXI, chipAvailable,
          simulate, ftFromHistory, chipsFromHistory, purchasePrices, priceInWeek } from "./planner.js?v=20261025";
-import { fromData, marketByTeamId, goodClamped, colourT,
-         shade as shadeOn, rampFromCss } from "./model.js?v=20261025";
+import { fromData, marketByTeamId, goodClamped, bandOf } from "./model.js?v=20261025";
 
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
@@ -648,7 +646,6 @@ let importSeq=0;         // the latest import; an older one's late reply is igno
  * kinder to one of them than another.
  * ------------------------------------------------------------------------- */
 const FDR="fix";
-const shade=t=>shadeOn(t,rampFromCss());
 const ease=(team,f)=>goodClamped(FDR, M.rate(FDR,team,f,"proj"), "proj");
 
 function fixturesFor(teamId){
@@ -1102,19 +1099,19 @@ const flagHtml=f=>f?`<span class="flag ${f.lvl}" title="${esc(f.news)}">${f.txt}
  * club's fixture rating. A double shows both games;
  * a blank shows a grey dash, so three weeks are always three weeks.
  */
-function fxChips(p,from){
+function fxChips(p,from,light){
   const side=FDR, out=[];
   for(let g=from; g<from+3 && g<=38; g++){
     const fx=M.fixtures(g,g)[p.t]||[];
-    if(!fx.length){ out.push(`<span class="fxc none" title="GW${g}: no game"><b>–</b><i>GW${g}</i></span>`); continue; }
+    if(!fx.length){ out.push(`<span class="cell mini blank" title="GW${g}: no game"><span class="o">–<small>GW${g}</small></span></span>`); continue; }
     for(const f of fx){
-      const v=M.rate(side,p.t,f,"proj"), c=shade(colourT(side,v,"proj")), t=TEAMS[f.opp]||["?","?"];
-      out.push(`<span class="fxc" style="background:${c.bg};color:${c.fg}" `
+      const v=M.rate(side,p.t,f,"proj"), b=bandOf(side,v,"proj")??2, t=TEAMS[f.opp]||["?","?"];
+      out.push(`<span class="cell mini b${b}" `
         + `title="GW${g}: ${esc(t[0])} (${f.home?"home":"away"})${M.priced(p.t,f)?" · bookmakers' odds":""}">`
-        + `<b>${esc(t[1].toUpperCase())}</b><i>${f.home?"H":"A"}</i></span>`);
+        + `<span class="o">${esc(t[1].toUpperCase())}<small>${f.home?"H":"A"}</small></span></span>`);
     }
   }
-  return `<div class="fxs">${out.join("")}</div>`;
+  return `<div class="fxs${light?" light":""}">${out.join("")}</div>`;
 }
 const fxFrom=()=>planMode()&&active ? active : NEXT_GW;
 
@@ -1130,12 +1127,12 @@ function slot(p,role,wk,pos){
     const badge = badgeFor(wk,p.i,"cap");
     const sc = sel===p.i ? " sel" : subbing ? (SUBOK.has(p.i) ? " subok" : " subno") : "";
     return `<div class="slot${sc}${f?" f"+f.lvl:""}" data-id="${p.i}" tabindex="0" title="${esc(p.n)} — ${t[0]} · £${(p.c/10).toFixed(1)}m${f?" — "+esc(f.news):""} — ${subbing&&SUBOK.has(p.i)?"click to swap":"click to transfer, captain or substitute"}">
-      ${badge}${warnHtml(f)}${shirt(t[1],p.p===1)}<div class="nm">${esc(p.n)}</div>${fxChips(p,wk.gw)}</div>`;
+      ${badge}${warnHtml(f)}${shirt(t[1],p.p===1)}<div class="nm">${esc(p.n)}</div>${fxChips(p,wk.gw,true)}</div>`;
   }
   const badge = captain===p.i ? `<span class="cap">C</span>`
               : vice===p.i    ? `<span class="cap v">V</span>` : "";
   return `<div class="slot${f?" f"+f.lvl:""}" data-id="${p.i}" title="${esc(p.n)} — ${t[0]} · £${(p.c/10).toFixed(1)}m${f?" — "+esc(f.news):""} — click to remove, shift-click to captain">
-    ${badge}${warnHtml(f)}${shirt(t[1],p.p===1)}<div class="nm">${esc(p.n)}</div>${fxChips(p,NEXT_GW)}</div>`;
+    ${badge}${warnHtml(f)}${shirt(t[1],p.p===1)}<div class="nm">${esc(p.n)}</div>${fxChips(p,NEXT_GW,true)}</div>`;
 }
 
 // "GKP", then "1. DEF", "2. MID", "3. FWD": the order FPL brings them on.
