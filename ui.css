@@ -30,7 +30,8 @@ h2.kick{font-family:"Roboto Mono",ui-monospace,monospace;font-size:10px;font-wei
 .seg button{font:inherit;font-family:Barlow,Arial,Helvetica,sans-serif;font-size:13px;font-weight:600;
   padding:6px 15px;border:0;border-radius:99px;background:transparent;color:var(--muted);cursor:pointer;
   box-shadow:none;transition:background .14s,color .14s}
-.seg button:hover:not(:disabled){color:var(--ink)}
+/* hover lightens an unselected option only; on the selected one it would put white text on white */
+.seg button:not([aria-pressed="true"]):hover:not(:disabled){color:var(--ink)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--ground);box-shadow:none}
 .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .seg button:disabled{opacity:.35;cursor:not-allowed}
