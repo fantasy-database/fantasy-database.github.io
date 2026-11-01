@@ -153,14 +153,17 @@
   .gwv > p{margin:5px 0 14px;font-size:12.5px;color:var(--muted);max-width:74ch}
   .gwv > p b{color:var(--ink);font-weight:600}
   .gwv .kbsrc{margin-top:12px}
-  .mlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(296px,1fr));gap:8px}
+  .mlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:8px}
   .mcard{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px;
     background:var(--surface-2);border-radius:10px;padding:12px 14px}
   .mside{display:flex;align-items:center;gap:9px;min-width:0}
+  /* the name block must be allowed to shrink, or a long club name pushes past
+     its column and runs into the numbers instead of ending in "…" */
+  .mside > span:last-child{min-width:0;flex:1 1 auto}
   .mside.r{flex-direction:row-reverse;text-align:right}
   .mside i{flex:none;width:3px;height:30px;border-radius:2px}
   .mside b{display:block;font-weight:800;font-size:18px;letter-spacing:.03em;line-height:1}
-  .mside small{display:block;margin-top:4px;font-family:"Roboto Mono",monospace;font-size:9px;letter-spacing:.1em;
+  .mside small{display:block;margin-top:4px;font-family:"Roboto Mono",monospace;font-size:9px;letter-spacing:.05em;
     text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mmid{display:grid;grid-template-columns:auto auto auto;align-items:baseline;column-gap:8px;row-gap:3px;
     font-family:"Roboto Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
@@ -203,6 +206,17 @@
     #rows .cell{min-width:58px}
     .gwv{padding:14px 13px 13px}
     .mlist{grid-template-columns:1fr}
+    .mcard{gap:6px;padding:11px 12px}
+    .mside{gap:7px}
+    .mside .crest{--cs:26px !important}
+    .mside b{font-size:17px}
+    .mside small{font-size:8.5px}
+    .mmid{column-gap:6px}
+  }
+  /* small phones: crest and code say who it is; the full name (still in the
+     tooltip) would only be squeezed into "…" next to four numbers */
+  @media (max-width:440px){
+    .mside small{display:none}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
