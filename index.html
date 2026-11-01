@@ -34,7 +34,7 @@
 ]}
 </script>
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/ui.css?v=20261101c">
+<link rel="stylesheet" href="/ui.css?v=20261101d">
 <style>
     :root{
     --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44; --surface-3:#4A1752;
@@ -343,6 +343,9 @@ const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
 ips:"#3A64A3",lee:"#FFCD00",liv:"#C8102E",mci:"#6CABDD",mun:"#DA291C",new:"#41B6E6",
 nfo:"#DD0000",tot:"#132257",sun:"#EB172B"};
+// A club crest from /crests, falling back to the club-colour bar if it fails.
+const crest=(short,size)=>`<span class="crest" style="--c:${CLUB[short]||"#888"};--cs:${size}px">`
+  + `<img src="/crests/${short}.png" alt="" width="${size}" height="${size}" decoding="async" onerror="this.remove()"></span>`;
 // D is the file as it arrived; M is the model built from it. Everything the
 // page draws goes through M, so the ticker, the planner and the comparison page
 // cannot disagree about a fixture -- they run the same code, not copies of it.
@@ -355,7 +358,6 @@ const $=s=>document.querySelector(s);
 const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const fmtDate=iso=>{const[y,m,d]=iso.slice(0,10).split("-").map(Number); return d+" "+MON[m-1];};
 const code=id=>TEAMS[id][1].toUpperCase();
-const club=id=>CLUB[TEAMS[id][1]]||"#888";
 
 /* ---------------------------------------------------------------------------
  * The model lives in model.js. These are the only glue the page needs:
@@ -490,7 +492,7 @@ function render(){
     const shown = fmt(SIDE,r.shownVal);
     return `<tr class="${(SORT!=="az"&&rank<=6)?"top6":""}">
       <td class="rank">${rank}</td>
-      <td class="pad"><span class="mrank">${rank}</span><span class="team" title="${r.name}"><i style="background:${club(r.id)}"></i><b>${r.code}</b><em>${r.name}</em></span>${r.promoted?'<span class="prov" title="Promoted — started from the relegated-three average"></span>':""}${SIDE==="fix" ? "" : `<span class="mscore">${shown}${SIDE==="atk"?` <em>· avg ${per.toFixed(2)}</em>`:" <em>avg</em>"}</span>`}</td>
+      <td class="pad"><span class="mrank">${rank}</span><span class="team" title="${r.name}">${crest(TEAMS[r.id][1],22)}<b>${r.code}</b><em>${r.name}</em></span>${r.promoted?'<span class="prov" title="Promoted — started from the relegated-three average"></span>':""}${SIDE==="fix" ? "" : `<span class="mscore">${shown}${SIDE==="atk"?` <em>· avg ${per.toFixed(2)}</em>`:" <em>avg</em>"}</span>`}</td>
       ${tds}
       ${SIDE==="fix" ? "" : `<td class="pad score">${shown} ${sub}</td>`}</tr>`;
   }).join("");
@@ -569,7 +571,7 @@ function renderMatches(){
         + ` title="${TEAMS[team][0]}: ${what}${isPriced?" · bookmakers' odds":""}">${fmt(side,v)}</span>`;
     };
     const side=(id,right)=>`<span class="mside${right?" r":""}" title="${TEAMS[id][0]} ${right?"away":"at home"}">`
-      + `<i style="background:${club(id)}"></i><span><b>${code(id)}</b><small>${TEAMS[id][0]}</small></span></span>`;
+      + `${crest(TEAMS[id][1],30)}<span><b>${code(id)}</b><small>${TEAMS[id][0]}</small></span></span>`;
     box.innerHTML=fx.map(([g,H,A])=>{
       const hf={gw:g,opp:A,home:true}, af={gw:g,opp:H,home:false};
       // the bookmakers price a fixture, not a side: one dot for the card
@@ -599,14 +601,14 @@ function buildPairPicker(){
   ROT.active = !ROT.a ? "a" : !ROT.b ? "b" : "b";
   const ids=Object.keys(TEAMS).sort((x,y)=>code(x).localeCompare(code(y)));
   $("#tgrid").innerHTML=ids.map(id=>`<button type="button" class="rtb" data-id="${id}" title="${TEAMS[id][0]}"`
-    + ` aria-label="${TEAMS[id][0]}"><i style="background:${club(id)}"></i>${code(id)}</button>`).join("");
+    + ` aria-label="${TEAMS[id][0]}">${crest(TEAMS[id][1],18)}${code(id)}</button>`).join("");
 }
 
 function paintPairPicker(){
   for(const b of $("#tgrid").children){
     const id=b.dataset.id, s = id===ROT.a ? "A" : id===ROT.b ? "B" : "";
     b.setAttribute("aria-pressed", s ? "true" : "false");
-    b.innerHTML=`<i style="background:${club(id)}"></i>${code(id)}${s?`<em>${s}</em>`:""}`;
+    b.innerHTML=`${crest(TEAMS[id][1],18)}${code(id)}${s?`<em>${s}</em>`:""}`;
   }
   for(const k of ["a","b"]){
     const el=$(k==="a"?"#slotA":"#slotB"), id=ROT[k];
