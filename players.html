@@ -23,6 +23,7 @@
 <meta property="og:image:alt" content="Fantasy DataBase">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="stylesheet" href="/ui.css?v=20261101">
 <style>
   :root{
     --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44;
@@ -60,23 +61,30 @@
   .nav a[aria-current]:hover{color:var(--accent-ink)}
 
   .bar{display:flex;flex-wrap:wrap;gap:9px 18px;align-items:center;margin-top:18px}
-  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);
-    border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap}
-  .seg button{font:inherit;font-family:Barlow,Arial,sans-serif;font-size:13px;font-weight:600;
-    padding:6px 13px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
-  .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.3)}
-  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .seglabel{font-family:"Roboto Mono",monospace;font-size:10px;letter-spacing:.14em;
     text-transform:uppercase;color:var(--muted);margin-right:-10px}
 
   .filters{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:12px;
-    background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+    background:var(--surface);border:0;border-radius:12px;padding:12px 14px}
   .filters label{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
   .filters input[type=search]{font:inherit;font-size:13px;background:var(--surface-2);
     border:1px solid var(--border);color:var(--ink);border-radius:7px;padding:6px 10px;min-width:150px}
   .filters input[type=search]:focus{outline:2px solid var(--accent);outline-offset:1px}
-  .filters select{font:inherit;font-size:13px;background:var(--surface-2);border:1px solid var(--border);
-    color:var(--ink);border-radius:7px;padding:6px 8px}
+  /* team: a button that opens the twenty codes as a grid, not a long dropdown */
+  .filters{position:relative}
+  .tpick{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+  .tbtn{font:inherit;font-size:13px;font-weight:700;letter-spacing:.02em;background:var(--surface-2);border:0;
+    color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+  .tbtn i{width:3px;height:13px;border-radius:2px;background:var(--muted)}
+  .tbtn::after{content:"";width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
+    transform:rotate(45deg) translate(-2px,-2px);margin-left:2px}
+  .tbtn:hover{background:var(--surface-3)}
+  .tbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* hangs under the filter card, right-aligned, so it never runs off the page */
+  .tpop{position:absolute;z-index:50;top:calc(100% + 6px);right:0;width:min(440px,100%);
+    background:var(--surface);border-radius:12px;box-shadow:var(--shadow),0 0 0 1px var(--border);padding:8px}
+  .tpop .rgrid{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .tpop .rtb.all{grid-column:1/-1;font-weight:700;letter-spacing:0}
   .filters input[type=range]{width:118px}
   .filters .reset{margin-left:-8px}
   .filters .reset button{font:inherit;font-size:11px;letter-spacing:.04em;text-transform:uppercase;
@@ -94,7 +102,7 @@
   .note{margin:12px 2px 0;font-size:12.5px;color:var(--muted)}
   .note b{color:var(--ink)}
 
-  .card{margin-top:12px;background:var(--surface);border:1px solid var(--border);
+  .card{margin-top:12px;background:var(--surface);border:0;
     border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
   .scroll{overflow-x:auto}
   table{border-collapse:separate;border-spacing:0;width:100%;min-width:780px}
@@ -218,9 +226,11 @@
     <label>Min minutes <input type="range" id="minm" min="0" max="270" step="10" value="60"><output id="minmOut"></output></label>
     <label class="reset"><button type="button" id="resetm" title="Back to the suggested minutes floor">reset</button></label>
     <label><input type="checkbox" id="avail"> Hide injured &amp; suspended</label>
-    <label>Team
-      <select id="team"><option value="">All</option></select>
-    </label>
+    <div class="tpick"><span id="teamLab">Team</span>
+      <input type="hidden" id="team" value="">
+      <button type="button" class="tbtn" id="teamBtn" aria-haspopup="true" aria-expanded="false" aria-labelledby="teamLab teamBtn"><i></i><span>All teams</span></button>
+      <div class="tpop" id="teamPop" hidden><div class="rgrid" role="group" aria-label="Filter by team"></div></div>
+    </div>
   </div>
 
   <p class="key" id="fitKey">
@@ -444,7 +454,28 @@ $("#scaleSeg").addEventListener("click",e=>{const b=e.target.closest("button");i
   SCALE=b.dataset.scale;
   [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));
   keepSort(); syncFloor(); render();});
-["#q","#maxc","#minm","#avail","#team"].forEach(s=>$(s).addEventListener("input",render));
+["#q","#maxc","#minm","#avail"].forEach(s=>$(s).addEventListener("input",render));
+
+// Team filter: a button and a grid of codes. Picking closes it and filters.
+const teamPop=$("#teamPop");
+function openTeams(open){
+  teamPop.hidden=!open; $("#teamBtn").setAttribute("aria-expanded",open?"true":"false");
+  if(open){ const on=teamPop.querySelector('[aria-pressed="true"]')||teamPop.querySelector(".rtb"); if(on) on.focus(); }
+}
+function setTeam(id){
+  $("#team").value=id;
+  const t=id&&DATA.teams[id];
+  $("#teamBtn").innerHTML = t ? `<i style="background:${CLUB[t.short]||"#888"}"></i><span>${t.short.toUpperCase()}</span>`
+                              : `<i></i><span>All teams</span>`;
+  $("#teamBtn").title = t ? t.name : "";
+  for(const b of teamPop.querySelectorAll(".rtb")) b.setAttribute("aria-pressed", b.dataset.id===id ? "true":"false");
+  render();
+}
+$("#teamBtn").addEventListener("click",()=>openTeams(teamPop.hidden));
+teamPop.addEventListener("click",e=>{const b=e.target.closest(".rtb"); if(!b) return;
+  setTeam(b.dataset.id); openTeams(false); $("#teamBtn").focus();});
+document.addEventListener("click",e=>{ if(!teamPop.hidden && !e.target.closest(".tpick")) openTeams(false); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && !teamPop.hidden){ openTeams(false); $("#teamBtn").focus(); } });
 $("#minm").addEventListener("input",()=>{minmTouched=true;});
 
 // A bare "75%" badge means nothing on its own, and a title tooltip is invisible
@@ -480,9 +511,10 @@ fetch("players.json?t="+Date.now())
     DATA=d;
     const when=new Date(d.generated);
     $("#stamp").textContent=`${d.season} · ${d.players.length} players · updated ${when.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`;
-    $("#team").innerHTML='<option value="">All teams</option>'
-      + Object.entries(d.teams).sort((a,b)=>a[1].name.localeCompare(b[1].name))
-          .map(([id,t])=>`<option value="${id}">${t.name}</option>`).join("");
+    teamPop.firstElementChild.innerHTML='<button type="button" class="rtb all" data-id="" aria-pressed="true">All teams</button>'
+      + Object.entries(d.teams).sort((a,b)=>a[1].short.localeCompare(b[1].short))
+          .map(([id,t])=>`<button type="button" class="rtb" data-id="${id}" aria-pressed="false" title="${t.name}">`
+            + `<i style="background:${CLUB[t.short]||"#888"}"></i>${t.short.toUpperCase()}</button>`).join("");
     const maxCost=Math.max(...d.players.map(p=>p.c));
     $("#maxc").max=maxCost; $("#maxc").value=maxCost;
     AVAIL=(d.matchesPlayed||0)*90;
