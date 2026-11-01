@@ -23,7 +23,7 @@
 <meta property="og:image:alt" content="Fantasy DataBase">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/ui.css?v=20261101">
+<link rel="stylesheet" href="/ui.css?v=20261101b">
 <style>
   :root{
     --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44;
@@ -122,6 +122,12 @@
     box-shadow:6px 0 8px -6px rgba(0,0,0,.55)}
   tbody tr:hover td.lft{background:var(--surface-2)}
   tbody td.hit{font-weight:600}
+  td .opp{display:block;font-size:9.5px;font-weight:500;color:var(--muted);letter-spacing:.04em;margin-top:1px}
+  td .opp.dgw{color:var(--accent)}
+  .seg button:disabled{opacity:.35}
+  .seg .sht{display:none}
+  .bar .ctl{display:inline-flex;align-items:center;gap:9px}
+  .bar .ctl .seglabel{margin-right:0}
   tbody td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:right;
     font-family:"Roboto Mono",monospace;font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
   tbody td.lft{text-align:left;font-family:Barlow,Arial,sans-serif;font-size:13.5px}
@@ -159,7 +165,9 @@
 
   @media (max-width:700px){
     .wrap{padding:16px 0 44px}
-    .mast,.bar,.filters,.card,.note{margin-left:12px;margin-right:12px}
+    .mast,.bar,.filters,.card,.note,.key{margin-left:12px;margin-right:12px}
+    .seg .lng{display:none} .seg .sht{display:inline}
+    .bar{gap:8px 12px}
     .nav{margin-left:0;width:100%}
     thead th.lft, tbody td.lft{min-width:126px;max-width:126px}
     .pl{font-size:12.5px}
@@ -205,19 +213,24 @@
   </header>
 
   <div class="bar">
-    <span class="seglabel">Position</span>
-    <div class="seg" id="posSeg">
-      <button data-pos="0" aria-pressed="true">All</button>
-      <button data-pos="1">Goalkeepers</button>
-      <button data-pos="2">Defenders</button>
-      <button data-pos="3">Midfielders</button>
-      <button data-pos="4">Forwards</button>
-    </div>
-    <span class="seglabel">Scale</span>
-    <div class="seg" id="scaleSeg">
-      <button data-scale="tot" aria-pressed="true">Total</button>
-      <button data-scale="p90">Per 90</button>
-    </div>
+    <span class="ctl"><span class="seglabel">View</span>
+      <span class="seg" id="viewSeg" role="group" aria-label="What the table shows">
+        <button data-view="stats" aria-pressed="true"><span class="lng">Season stats</span><span class="sht">Stats</span></button>
+        <button data-view="xp" aria-pressed="false"><span class="lng">Expected points</span><span class="sht">xP · next 5</span></button>
+      </span></span>
+    <span class="ctl"><span class="seglabel">Position</span>
+      <span class="seg" id="posSeg" role="group" aria-label="Position">
+        <button data-pos="0" aria-pressed="true">All</button>
+        <button data-pos="1"><span class="lng">Goalkeepers</span><span class="sht">GK</span></button>
+        <button data-pos="2"><span class="lng">Defenders</span><span class="sht">DEF</span></button>
+        <button data-pos="3"><span class="lng">Midfielders</span><span class="sht">MID</span></button>
+        <button data-pos="4"><span class="lng">Forwards</span><span class="sht">FWD</span></button>
+      </span></span>
+    <span class="ctl"><span class="seglabel">Scale</span>
+      <span class="seg" id="scaleSeg" role="group" aria-label="Scale">
+        <button data-scale="tot" aria-pressed="true">Total</button>
+        <button data-scale="p90">Per 90</button>
+      </span></span>
   </div>
 
   <div class="filters">
@@ -324,15 +337,59 @@ const COLS=[
 const NAMECOL={id:"n", label:"Player", alpha:true};
 const POSNAME={0:"players",1:"goalkeepers",2:"defenders",3:"midfielders",4:"forwards"};
 
-let DATA=null, POS=0, SCALE="tot";
-let SORT={id:"pts", desc:true};
+let DATA=null, POS=0, SCALE="tot", VIEW=location.hash==="#xp" ? "xp" : "stats";
+// Each view opens on its own headline column.
+const DEFAULT_SORT={stats:{id:"pts",desc:true}, xp:{id:"xp5",desc:true}};
+let SORT={...DEFAULT_SORT[VIEW]};
+
+/* ---- Expected points ----------------------------------------------------
+ * players.json carries, per player, `xp` (expected FPL points) and `xm`
+ * (expected minutes) for each gameweek in minutes.gws -- the same projections
+ * the Planner uses, from minutes.py and points.py. They already allow for his
+ * chance of playing, so a doubt shows as fewer points, not as a footnote.
+ * A gameweek he has no fixture in is 0; a double adds both games.
+ * The view shows the next five of them. XCOLS is built once the file is in. */
+const XN=5;
+let XGW=[], XOFF=0, XCOLS=[], FXM=null;    // FXM: team id -> gw -> [{opp,home}] from data.json
+const xpAt=(p,i)=>Array.isArray(p.xp) && p.xp[XOFF+i]!=null ? p.xp[XOFF+i] : null;
+const xmAt=(p,i)=>Array.isArray(p.xm) && p.xm[XOFF+i]!=null ? p.xm[XOFF+i] : null;
+function oppHtml(team,gw){
+  if(!FXM) return "";
+  const fx=(FXM[team]||{})[gw]||[], T=DATA.teams;
+  if(!fx.length) return `<span class="opp">blank</span>`;
+  return `<span class="opp${fx.length>1?" dgw":""}">`
+    + fx.map(f=>`${(T[f.opp]||{short:"?"}).short.toUpperCase()} ${f.home?"H":"A"}`).join(" + ") + `</span>`;
+}
+function buildXpCols(){
+  const m=DATA.minutes||{}, gws=m.gws||[];
+  XOFF=Math.max(0, gws.indexOf(DATA.nextGw));
+  XGW=gws.slice(XOFF, XOFF+XN);
+  const n=XGW.length;
+  const sum=(p,f)=>{ let t=0, any=false; for(let i=0;i<n;i++){ const v=f(p,i); if(v!=null){ t+=v; any=true; } } return any?t:null; };
+  XCOLS=[
+    {id:"xp5", label:`Next ${n} xP`, pos:ALL, dec:1,
+      val:p=>sum(p,xpAt), tip:`Expected FPL points across GW${XGW[0]}–GW${XGW[n-1]}, added up`,
+      note:`<b>Expected points</b> are our projection of the FPL points he scores, allowing for how likely he is to play — the same numbers the Planner uses.`},
+    ...XGW.map((g,i)=>({id:"xp"+i, label:`GW${g}`, pos:ALL, dec:1, val:p=>xpAt(p,i),
+      sub:p=>oppHtml(p.t,g), tip:`Expected FPL points in GW${g}. 0 means no fixture, or not expected to play`})),
+    {id:"xmin", label:"xMins", pos:ALL, dec:0, val:p=>{const t=sum(p,xmAt); return t==null?null:t/n;},
+      tip:`Expected minutes a gameweek, averaged over the next ${n}`},
+    {id:"ps", label:"Start %", pos:ALL, val:p=>p.ps==null?null:p.ps*100, show:p=>Math.round(p.ps*100)+"%",
+      tip:"Chance he starts the next match"},
+    {id:"c", label:"£", pos:ALL, tip:"Current price", show:p=>(p.c/10).toFixed(1)},
+    {id:"pts", label:"Season pts", pos:ALL, tip:"FPL points scored so far this season"},
+    {id:"own", label:"Own", pos:ALL, cls:"dim", tip:"Selected by this share of FPL managers", show:p=>p.own.toFixed(1)+"%"},
+  ];
+}
 // A 20-minute cameo makes noise look like form, so the list starts at 60 minutes
 // in every view. Per 90 is the harsher case — it divides by that same small number
 // — so there the floor scales with the season: 30% of the minutes available so far.
 // At GW3 that is 60; by GW20 it is 540, which is the point. A fixed number stops
 // filtering anything once the season is long enough.
 let AVAIL=0, FLOOR=60, minmTouched=false;
-const suggested=()=>SCALE==="p90"?FLOOR:60;
+// Expected points already allow for minutes, so that view starts with no floor:
+// a new signing with one cameo can still be the best pick for the next five.
+const suggested=()=>VIEW==="xp" ? 0 : SCALE==="p90" ? FLOOR : 60;
 function syncFloor(){ if(!minmTouched) $("#minm").value=suggested(); }
 const $=s=>document.querySelector(s);
 // Minutes per team game, not per start. Dividing by starts gave a man with one
@@ -343,10 +400,11 @@ const mpg=p=>{
   return g ? p.min/g : null;
 };
 
-const p90=c=>c.scaled && SCALE==="p90";
+const p90=c=>c.scaled && SCALE==="p90" && VIEW==="stats";
 // the columns this position and scale show, in order
-const visibleCols=()=>COLS.filter(c=>(POS===0 || c.pos.includes(POS)) && !(c.totOnly && SCALE!=="tot"));
-const colById=id=>id===NAMECOL.id ? NAMECOL : COLS.find(c=>c.id===id);
+const visibleCols=()=>VIEW==="xp" ? XCOLS
+  : COLS.filter(c=>(POS===0 || c.pos.includes(POS)) && !(c.totOnly && SCALE!=="tot"));
+const colById=id=>id===NAMECOL.id ? NAMECOL : visibleCols().find(c=>c.id===id);
 // a stat that does not apply to his position is null, so it shows "–" and sorts last
 function value(p,c){
   if(c.alpha) return p.n;
@@ -358,12 +416,12 @@ function cell(p,c){
   const v=value(p,c);
   if(v===null) return '<span class="dim">–</span>';
   if(c.show && !p90(c)) return c.show(p);
-  return v.toFixed(p90(c) ? 2 : (c.dec??0));
+  return v.toFixed(p90(c) ? 2 : (c.dec??0)) + (c.sub ? c.sub(p) : "");
 }
 const bestFirstDesc=c=>!(c.low||c.alpha);   // first click: best on top
 // keep the sort if its column is still on screen, otherwise back to Points
 function keepSort(){
-  if(SORT.id!==NAMECOL.id && !visibleCols().some(c=>c.id===SORT.id)) SORT={id:"pts", desc:true};
+  if(SORT.id!==NAMECOL.id && !visibleCols().some(c=>c.id===SORT.id)) SORT={...DEFAULT_SORT[VIEW]};
 }
 const esc=t=>String(t??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -411,6 +469,7 @@ function render(){
         + ` — ${sc.low?"lower":"higher"} is better, so `
         + (best ? "the best are on top." : "this is worst first. Click the header again to flip it.");
     if(sc.note) dir += " "+sc.note;
+    else if(VIEW==="xp" && XCOLS[0]) dir += " "+XCOLS[0].note;
   }
   const hidden = pool.length - rows.length;
   let cut = "";
@@ -421,7 +480,9 @@ function render(){
     if(SCALE==="p90" && minm===FLOOR && FLOOR>60)
       cut += ` Per 90 raises the floor to 30% of the football played so far.`;
   } else {
-    cut = ` <b>No minutes filter</b> — short cameos will distort any per-90 number.`;
+    cut = VIEW==="xp"
+      ? ` <b>No minutes filter</b> — expected points already allow for how likely he is to play.`
+      : ` <b>No minutes filter</b> — short cameos will distort any per-90 number.`;
   }
   $("#note").innerHTML = `${dir} Showing ${rows.length} ${POSNAME[POS]}.${cut}`;
 
@@ -450,6 +511,16 @@ $("#posSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(
   POS=+b.dataset.pos;
   [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));
   keepSort(); render();});
+function paintView(){
+  [...$("#viewSeg").children].forEach(x=>x.setAttribute("aria-pressed",x.dataset.view===VIEW?"true":"false"));
+  // Total / Per 90 means nothing for a projection
+  [...$("#scaleSeg").children].forEach(x=>{ x.disabled=VIEW==="xp";
+    x.title = VIEW==="xp" ? "Expected points are per gameweek; the scale applies to season stats" : ""; });
+}
+$("#viewSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b||b.dataset.view===VIEW)return;
+  VIEW=b.dataset.view; SORT={...DEFAULT_SORT[VIEW]};
+  history.replaceState(null,"",VIEW==="xp" ? "#xp" : location.pathname+location.search);
+  paintView(); syncFloor(); render();});
 $("#scaleSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   SCALE=b.dataset.scale;
   [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));
@@ -521,7 +592,19 @@ fetch("players.json?t="+Date.now())
     FLOOR=Math.max(60, Math.round(AVAIL*0.3/10)*10);
     $("#minm").max=Math.max(90, AVAIL);
     $("#minm").value=suggested();
+    buildXpCols(); paintView();
     render();
+    // Opponents under each gameweek's xP. Optional: if data.json does not
+    // arrive, the numbers stand on their own.
+    fetch("data.json?t="+Date.now()).then(r=>r.ok?r.json():null).then(fd=>{
+      if(!fd||!fd.fixtures) return;
+      FXM={};
+      for(const [gw,h,a] of fd.fixtures){
+        ((FXM[h]=FXM[h]||{})[gw]=FXM[h][gw]||[]).push({opp:a,home:true});
+        ((FXM[a]=FXM[a]||{})[gw]=FXM[a][gw]||[]).push({opp:h,home:false});
+      }
+      if(VIEW==="xp") render();
+    }).catch(()=>{});
   })
   .catch(err=>{
     $("#rows").innerHTML=`<tr><td colspan="${visibleCols().length+1}" class="empty">
