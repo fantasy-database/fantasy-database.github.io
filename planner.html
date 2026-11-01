@@ -23,7 +23,7 @@
 <meta property="og:image:alt" content="Fantasy DataBase">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/ui.css?v=20261101c">
+<link rel="stylesheet" href="/ui.css?v=20261101d">
 <style>
   :root{
     --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44;
@@ -566,6 +566,9 @@ const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
 ips:"#3A64A3",lee:"#FFCD00",liv:"#C8102E",mci:"#6CABDD",mun:"#DA291C",new:"#41B6E6",
 nfo:"#DD0000",tot:"#132257",sun:"#EB172B"};
+// A club crest from /crests, falling back to the club-colour bar if it fails.
+const crest=(short,size)=>`<span class="crest" style="--c:${CLUB[short]||"#888"};--cs:${size}px">`
+  + `<img src="/crests/${short}.png" alt="" width="${size}" height="${size}" decoding="async" onerror="this.remove()"></span>`;
 const POSNAME={1:"GK",2:"DEF",3:"MID",4:"FWD"};
 // Home kits, drawn rather than downloaded: body colour, trim colour, and which
 // of three patterns to use. Close enough to be recognised at 34 pixels, and it
@@ -1469,7 +1472,7 @@ function renderList(){
         : p.c>bank() ? "Not enough money left" : "Click to add";
     }
     return `<div class="p${has?" in":""}" data-id="${p.i}" aria-disabled="${blocked}" title="${esc(why)}${p.news?" · "+esc(p.news):""}">
-      <i style="background:${CLUB[t[1]]||"#888"}"></i>
+      ${crest(t[1],18)}
       <span class="nm">${esc(p.n)}${flagHtml(flagOf(p))}</span>
       <span class="tm">${t[1]}</span>
       ${fxChips(p,fxFrom())}

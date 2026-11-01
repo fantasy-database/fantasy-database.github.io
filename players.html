@@ -23,7 +23,7 @@
 <meta property="og:image:alt" content="Fantasy DataBase">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/ui.css?v=20261101c">
+<link rel="stylesheet" href="/ui.css?v=20261101d">
 <style>
   :root{
     --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44;
@@ -297,6 +297,9 @@ const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
 ips:"#3A64A3",lee:"#FFCD00",liv:"#C8102E",mci:"#6CABDD",mun:"#DA291C",new:"#41B6E6",
 nfo:"#DD0000",tot:"#132257",sun:"#EB172B"};
+// A club crest from /crests, falling back to the club-colour bar if it fails.
+const crest=(short,size)=>`<span class="crest" style="--c:${CLUB[short]||"#888"};--cs:${size}px">`
+  + `<img src="/crests/${short}.png" alt="" width="${size}" height="${size}" decoding="async" onerror="this.remove()"></span>`;
 
 // One table, every stat a column. `pos` is the positions FPL actually scores
 // the stat for: saves only for keepers, goals conceded only for keepers and
@@ -503,7 +506,7 @@ function render(){
         + ` data-news="${esc(p.news)}" aria-label="Fitness status for ${esc(p.n)} — click for detail">`
         + `${p.st==="d"?(p.cop??"?")+"%":"OUT"}</button>`;
     return `<tr>
-      <td class="lft"><span class="rk">${i+1}</span> <span class="pl"><i style="background:${CLUB[t.short]||"#888"}"></i>${esc(p.n)}</span><span class="tm">${t.short}</span>${flag}</td>
+      <td class="lft"><span class="rk">${i+1}</span> <span class="pl">${crest(t.short,18)}${esc(p.n)}</span><span class="tm">${t.short}</span>${flag}</td>
       ${cols.map(c=>`<td class="${[c.cls||"", c.id===SORT.id?"lead":""].join(" ").trim()}">${cell(p,c)}</td>`).join("")}
     </tr>`;}).join("");
 }
@@ -542,7 +545,7 @@ function openTeams(open){
 function setTeam(id){
   $("#team").value=id;
   const t=id&&DATA.teams[id];
-  $("#teamBtn").innerHTML = t ? `<i style="background:${CLUB[t.short]||"#888"}"></i><span>${t.short.toUpperCase()}</span>`
+  $("#teamBtn").innerHTML = t ? `${crest(t.short,16)}<span>${t.short.toUpperCase()}</span>`
                               : `<i></i><span>All teams</span>`;
   $("#teamBtn").title = t ? t.name : "";
   for(const b of teamPop.querySelectorAll(".rtb")) b.setAttribute("aria-pressed", b.dataset.id===id ? "true":"false");
@@ -591,7 +594,7 @@ fetch("players.json?t="+Date.now())
     teamPop.firstElementChild.innerHTML='<button type="button" class="rtb all" data-id="" aria-pressed="true">All teams</button>'
       + Object.entries(d.teams).sort((a,b)=>a[1].short.localeCompare(b[1].short))
           .map(([id,t])=>`<button type="button" class="rtb" data-id="${id}" aria-pressed="false" title="${t.name}">`
-            + `<i style="background:${CLUB[t.short]||"#888"}"></i>${t.short.toUpperCase()}</button>`).join("");
+            + `${crest(t.short,18)}${t.short.toUpperCase()}</button>`).join("");
     const maxCost=Math.max(...d.players.map(p=>p.c));
     $("#maxc").max=maxCost; $("#maxc").value=maxCost;
     AVAIL=(d.matchesPlayed||0)*90;

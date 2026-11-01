@@ -23,7 +23,7 @@
 <meta property="og:image:alt" content="Fantasy DataBase">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/ui.css?v=20261101c">
+<link rel="stylesheet" href="/ui.css?v=20261101d">
 <style>
   :root{
     --ground:#1E0021; --surface:#2E0634; --surface-2:#3D0F44;
@@ -325,6 +325,9 @@ const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
 ips:"#3A64A3",lee:"#FFCD00",liv:"#C8102E",mci:"#6CABDD",mun:"#DA291C",new:"#41B6E6",
 nfo:"#DD0000",tot:"#132257",sun:"#EB172B"};
+// A club crest from /crests, falling back to the club-colour bar if it fails.
+const crest=(short,size)=>`<span class="crest" style="--c:${CLUB[short]||"#888"};--cs:${size}px">`
+  + `<img src="/crests/${short}.png" alt="" width="${size}" height="${size}" decoding="async" onerror="this.remove()"></span>`;
 const POSNAME={1:"Goalkeepers",2:"Defenders",3:"Midfielders",4:"Forwards"};
 const SHORTPOS={1:"GK",2:"DEF",3:"MID",4:"FWD"};
 
@@ -586,11 +589,10 @@ function render(){
 // then moves to the other, so two clicks pick a pair.
 function paintRotPick(players){
   const code=p=>esc((D.teams[p.t]||{short:"?"}).short.toUpperCase());
-  const club=p=>CLUB[(D.teams[p.t]||{}).short]||"#888";
   $("#rotGrid").innerHTML=players.map(p=>{
     const s = p.i===rotA ? "A" : p.i===rotB ? "B" : "";
     return `<button type="button" class="rtb" data-id="${p.i}" aria-pressed="${s?"true":"false"}" title="${esc(p.n)}">`
-      + `<i style="background:${club(p)}"></i><span>${esc(p.n)}</span><small>${code(p)}</small>${s?`<em>${s}</em>`:""}</button>`;
+      + `${crest((D.teams[p.t]||{}).short,18)}<span>${esc(p.n)}</span><small>${code(p)}</small>${s?`<em>${s}</em>`:""}</button>`;
   }).join("");
   for(const k of ["a","b"]){
     const el=$(k==="a"?"#slotA":"#slotB"), p=players.find(x=>x.i===(k==="a"?rotA:rotB));
@@ -691,7 +693,7 @@ function renderChips(){
   c.innerHTML=picked.map(id=>{
     const p=P.players.find(x=>x.i===id); if(!p) return "";
     const t=D.teams[p.t]||{short:"?"};
-    return `<span class="chip"><i style="background:${CLUB[t.short]||"#888"}"></i>`
+    return `<span class="chip">${crest(t.short,16)}`
       + `<b>${esc(p.n)}</b><span>${esc(t.short.toUpperCase())}</span>`
       + `<button type="button" data-drop="${p.i}" aria-label="Remove ${esc(p.n)}">&times;</button></span>`;
   }).join("");
@@ -710,7 +712,7 @@ function searchResults(){
   box.hidden=!rows.length;
   box.innerHTML=rows.map(p=>{
     const t=D.teams[p.t]||{short:"?"};
-    return `<div data-add="${p.i}"><i style="background:${CLUB[t.short]||"#888"}"></i>`
+    return `<div data-add="${p.i}">${crest(t.short,16)}`
       + `<span class="nm">${esc(p.n)}</span><span class="tm">${esc(t.short.toUpperCase())}</span>`
       + `<span class="num">£${(p.c/10).toFixed(1)}m · ${p.pts}pts</span></div>`;
   }).join("");
