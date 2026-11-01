@@ -432,6 +432,13 @@ def match_player(full, web, pool):
     return None
 
 
+def _int_or_none(v):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def build_players(boot, season, short2name, short2id, played):
     """Every FPL player, with non-penalty xG and shots joined from Understat."""
     und_by_team, unmatched = {}, 0
@@ -446,8 +453,8 @@ def build_players(boot, season, short2name, short2id, played):
                 {"n": strip_name(p["player_name"]),
                  "npxg": float(p["npxG"]), "xa": float(p["xA"]),
                  # non-penalty goals: the actual output that npxG predicts.
-                 # Optional, so a missing field cannot cost a team its npxG.
-                 "npg": int(p["npg"]) if p.get("npg") is not None else None,
+                 # Optional, so a missing or odd field cannot cost a team its npxG.
+                 "npg": _int_or_none(p.get("npg")),
                  "sh": int(p["shots"]), "min": int(p["time"])}
                 for p in d["players"]]
         except Exception as e:

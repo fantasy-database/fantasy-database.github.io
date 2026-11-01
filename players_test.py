@@ -85,5 +85,15 @@ finally:
 check("missing npg field: npxG still joined", out[1]["npxg"] == 3.4, out[1])
 check("missing npg field: npg is null", out[1]["npg"] is None and out[1]["npg90"] is None, out[1])
 
+# a malformed npg value must not cost the team its npxG either
+UND_PLAYERS = [dict(r, npg="") for r in UND_PLAYERS]
+U.get_json = lambda url, headers=None, tries=4: {"players": UND_PLAYERS}
+try:
+    out = {p["i"]: p for p in U.build_players(boot, 2026, {"aaa": "Arsenal"}, {"aaa": 1}, 10)}
+finally:
+    U.get_json = real_get_json
+check("malformed npg value: npxG still joined, npg null",
+      out[1]["npxg"] == 3.4 and out[1]["npg"] is None, out[1])
+
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)
