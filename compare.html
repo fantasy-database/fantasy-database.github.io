@@ -115,6 +115,10 @@
   tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
   tbody tr:hover th,tbody tr:hover td{background:var(--surface-2)}
   td.win{color:var(--accent);font-weight:700}
+  /* expected points: a projection, set apart from the season record above it */
+  tbody th small{display:block;font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:500;
+    letter-spacing:.04em;color:var(--muted);opacity:.85;margin-top:1px}
+  tbody tr.xprow th,tbody tr.xprow td{border-top:1px dashed var(--border-strong)}
   td.dim{color:var(--muted)}
   th.lft,td.lft{position:sticky;left:0;z-index:2;background:var(--surface)}
   tbody tr:hover th.lft{background:var(--surface-2)}
@@ -323,18 +327,26 @@ const SHORTPOS={1:"GK",2:"DEF",3:"MID",4:"FWD"};
  * A keeper and a forward share almost nothing, so they do not share a table.
  */
 const STATS={
- 1:[["c","Price"],["min","Minutes"],["sv","Saves"],["cs","Clean sheets"],["pts","Points"]],
+ 1:[["c","Price"],["min","Minutes"],["sv","Saves"],["cs","Clean sheets"],["pts","Points"],["xp5","xP"]],
  2:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
-    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["cs","Clean sheets"],["pts","Points"]],
+    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["cs","Clean sheets"],["pts","Points"],["xp5","xP"]],
  3:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
-    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["sh","Shots"],["pts","Points"]],
+    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["sh","Shots"],["pts","Points"],["xp5","xP"]],
  4:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
-    ["npxgi","xGI"],["sh","Shots"],["pts","Points"]]};
+    ["npxgi","xGI"],["sh","Shots"],["pts","Points"],["xp5","xP"]]};
 
 // Price and minutes are context, not merit — no winner is marked for them.
 const NO_WINNER=new Set(["c"]);
-// Per 90 is meaningless for these two: one is a price, the other is the divisor.
-const FLAT=new Set(["c","min"]);
+// Per 90 is meaningless for these: a price, the divisor itself, and a
+// projection that is already per gameweek.
+const FLAT=new Set(["c","min","xp5"]);
+// Expected points: the per-gameweek projections in players.json (xp, from
+// minutes.py and points.py -- the same numbers the Planner and the Players
+// page use), added up over the next five gameweeks. They already allow for
+// how likely he is to play.
+const XN=5;
+const xpWindow=()=>{ const g=(P&&P.minutes&&P.minutes.gws)||[], off=Math.max(0,g.indexOf(P.nextGw));
+  return {off, gws:g.slice(off,off+XN)}; };
 // players.json has no g90/a90, so those are worked out here rather than in update.py.
 const DERIVED=new Set(["g","a"]);
 const DP={npxg:2,xa:2,npxgi:2};
@@ -360,6 +372,8 @@ const barW=(side,v)=>Math.round(goodClamped(side,v,"proj")*100)+"%";
 /* ------------------------------- values ---------------------------------- */
 function val(p,key){
   if(key==="c")   return p.c/10;
+  if(key==="xp5"){ const {off,gws}=xpWindow(); if(!Array.isArray(p.xp)||!gws.length) return null;
+    return p.xp.slice(off,off+gws.length).reduce((a,b)=>a+(b||0),0); }
   if(key==="dch") return p.dcg && p.dch!=null ? p.dch/p.dcg : null;
   if(key==="min") return p.min;
   if(scale==="tot") return p[key] ?? null;
@@ -371,6 +385,7 @@ function fmtStat(key,v,p){
   if(key==="c")   return "£"+v.toFixed(1)+"m";
   if(key==="dch") return `${p.dch}/${p.dcg}`;
   if(key==="min") return String(v);
+  if(key==="xp5") return v.toFixed(1);
   const d = scale==="p90" ? 2 : (DP[key] ?? 0);
   return v.toFixed(d);
 }
@@ -453,8 +468,12 @@ function render(){
       const vals=players.map(p=>val(p,key));
       const best=winnerOf(key,vals);
       const suffix = scale==="p90" && !FLAT.has(key) ? " /90" : "";
-      const tip = key==="dch" ? ` title="Games he hit the DefCon threshold / games he played"` : "";
-      return `<tr><th class="lft"${tip}>${label}${suffix}</th>`
+      const {gws:xg}=xpWindow();
+      const tip = key==="dch" ? ` title="Games he hit the DefCon threshold / games he played"`
+        : key==="xp5" ? ` title="Expected FPL points over the next ${xg.length} gameweeks, added up. Allows for his chance of playing."` : "";
+      const lab = key==="xp5" && xg.length
+        ? `xP <small>next ${xg.length} · GW${xg[0]}–${xg[xg.length-1]}</small>` : label;
+      return `<tr class="${key==="xp5"?"xprow":""}"><th class="lft"${tip}>${lab}${suffix}</th>`
         + vals.map((v,i)=>{
             const s=fmtStat(key,v,players[i]);
             if(s===null) return `<td class="dim" title="No data for this player">–</td>`;
@@ -650,6 +669,7 @@ function foot(players){
   const thin=players.filter(p=>p.min<60);
   let s=`Season totals from the FPL API; non-penalty xG, xA and shots from Understat. `
    + `<b>xGI</b> is non-penalty xG plus xA. <b>DefCon</b> is the defensive-contribution count FPL scores on; <b>hit rate</b> is games he reached its threshold out of games he played. `
+   + `<b>xP</b> is expected FPL points over the next five gameweeks — the same projections as the Planner and the Players page, already allowing for how likely he is to play. `
    + `Fixture ratings come from the same expected-goals model as the ticker, using its fitted constants.`;
   if(scale==="p90")
     s += ` <b>Per 90 divides by minutes played</b>, so a short cameo produces a huge rate off almost no football.`;
