@@ -1000,12 +1000,56 @@ def plan_run(state):
         return True, False, f"schedule check failed ({e}), rebuilding without odds"
 
 
+# ------------------------------------------------------- Understat outages ---
+# Every team rating starts from Understat's xG, so without it there is nothing
+# to rebuild. A short outage is not worth a failure email every two hours: the
+# site keeps serving the last good files. So a run that cannot reach Understat
+# stands down quietly while those files are fresh, and only fails -- loudly, as
+# before -- once they are a day old.
+STALE_AFTER_H = 24
+
+
+def understat_reachable(tries=3, wait=10, timeout=20):
+    """True if understat.com answers at all (any HTTP status counts)."""
+    for attempt in range(1, tries + 1):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(UND + "/", headers=UA), timeout=timeout):
+                return True
+        except urllib.error.HTTPError:
+            return True                      # it answered; that is all this asks
+        except (urllib.error.URLError, OSError) as e:
+            log(f"   Understat unreachable (try {attempt}/{tries}): {getattr(e, 'reason', e)}")
+            if attempt < tries:
+                time.sleep(wait * attempt)
+    return False
+
+
+def data_age_hours(now=None):
+    """Hours since data.json was built, or None if there is no usable file."""
+    try:
+        gen = datetime.datetime.fromisoformat(json.loads(OUT.read_text())["generated"])
+    except Exception:
+        return None
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    return (now - gen).total_seconds() / 3600
+
+
 def main():
     state = _read_json(OUT_S)
     build, want_odds, why = plan_run(state)
     if not build:
         log(f"nothing to do this hour: {why}")
         return
+    # Before anything that could spend odds credits.
+    if not understat_reachable():
+        age = data_age_hours()
+        if age is not None and age < STALE_AFTER_H:
+            log(f"::warning title=Understat unreachable::Understat is not answering, so this run "
+                f"stands down and the site keeps the data from {age:.0f}h ago. The next scheduled "
+                f"run tries again; this only fails once the data is {STALE_AFTER_H}h old.")
+            return
+        raise RuntimeError(f"Understat has been unreachable and the site's data is "
+                           f"{'missing' if age is None else f'{age:.0f}h old'} -- nothing to rebuild from")
     log(f"rebuilding; odds {'fetched' if want_odds else 'skipped'} ({why})")
 
     def fetch_priced():
