@@ -439,10 +439,12 @@ def _int_or_none(v):
         return None
 
 
-def build_players(boot, season, short2name, short2id, played):
-    """Every FPL player, with non-penalty xG and shots joined from Understat."""
+def build_players(boot, season, short2name, short2id, played, offline=False):
+    """Every FPL player, with non-penalty xG and shots joined from Understat.
+    offline: Understat is down -- do not ask it; main() carries those fields
+    over from the last players.json instead."""
     und_by_team, unmatched = {}, 0
-    for sh, tid in short2id.items():
+    for sh, tid in ({} if offline else short2id).items():
         name = short2name.get(sh)
         if not name:
             continue
@@ -515,7 +517,8 @@ def build_players(boot, season, short2name, short2id, played):
             "npxgi90": per90(npxgi, mins), "sh90": per90(shots, mins),
             "npg90": per90(npg, mins), "a90": per90(e["assists"], mins),
         })
-    log(f"players: {len(out)} built, {unmatched} with minutes had no Understat row")
+    if not offline:
+        log(f"players: {len(out)} built, {unmatched} with minutes had no Understat row")
     return out
 
 
@@ -1000,81 +1003,13 @@ def plan_run(state):
         return True, False, f"schedule check failed ({e}), rebuilding without odds"
 
 
-# ------------------------------------------------------- Understat outages ---
-# Every team rating starts from Understat's xG, so without it there is nothing
-# to rebuild. A short outage is not worth a failure email every two hours: the
-# site keeps serving the last good files. So a run that cannot reach Understat
-# stands down quietly while those files are fresh, and only fails -- loudly, as
-# before -- once they are a day old.
-STALE_AFTER_H = 24
-
-
-def understat_reachable(tries=3, wait=10, timeout=20):
-    """True if understat.com answers at all (any HTTP status counts)."""
-    for attempt in range(1, tries + 1):
-        try:
-            with urllib.request.urlopen(urllib.request.Request(UND + "/", headers=UA), timeout=timeout):
-                return True
-        except urllib.error.HTTPError:
-            return True                      # it answered; that is all this asks
-        except (urllib.error.URLError, OSError) as e:
-            log(f"   Understat unreachable (try {attempt}/{tries}): {getattr(e, 'reason', e)}")
-            if attempt < tries:
-                time.sleep(wait * attempt)
-    return False
-
-
-def data_age_hours(now=None):
-    """Hours since data.json was built, or None if there is no usable file."""
-    try:
-        gen = datetime.datetime.fromisoformat(json.loads(OUT.read_text())["generated"])
-    except Exception:
-        return None
-    now = now or datetime.datetime.now(datetime.timezone.utc)
-    return (now - gen).total_seconds() / 3600
-
-
-def main():
-    state = _read_json(OUT_S)
-    build, want_odds, why = plan_run(state)
-    if not build:
-        log(f"nothing to do this hour: {why}")
-        return
-    # Before anything that could spend odds credits.
-    if not understat_reachable():
-        age = data_age_hours()
-        if age is not None and age < STALE_AFTER_H:
-            log(f"::warning title=Understat unreachable::Understat is not answering, so this run "
-                f"stands down and the site keeps the data from {age:.0f}h ago. The next scheduled "
-                f"run tries again; this only fails once the data is {STALE_AFTER_H}h old.")
-            return
-        raise RuntimeError(f"Understat has been unreachable and the site's data is "
-                           f"{'missing' if age is None else f'{age:.0f}h old'} -- nothing to rebuild from")
-    log(f"rebuilding; odds {'fetched' if want_odds else 'skipped'} ({why})")
-
-    def fetch_priced():
-        if not want_odds:
-            raise OddsSkipped(why)
-        # On record BEFORE the request: from here the API may charge.
-        state["oddsAttempt"] = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
-        _write_state(state)
-        priced, remaining = odds_mod.priced_fixtures()
-        if cadence.as_int(remaining) is not None:
-            state["credits"] = cadence.as_int(remaining)
-            state["creditsAt"] = state["oddsAttempt"]
-            _write_state(state)
-        return priced, remaining
-
-    previous = json.loads(OUT.read_text()) if OUT.exists() else None
-    fpl = load_fpl(previous)
-    short2id = fpl["short2id"]
-    teams_meta = fpl["meta"]
-    deadlines = fpl["deadlines"]
-    fixtures = fpl["fixtures"]
-
-    season = understat_season()
+def ratings_from_understat(short2id, teams_meta, season):
+    """
+    The team ratings, fitted afresh from Understat: last season's matches set
+    the long-run strength of every side, this season's so far set a26/d26.
+    Returns what the rest of main() needs from it.
+    """
     prev = season - 1
-
     # last season: everyone who was in the division
     anchor, _ = team_matches("Arsenal", prev)
     prev_shorts = sorted({opp for opp, *_ in anchor} | {"ARS"})
@@ -1104,11 +1039,6 @@ def main():
 
     log(f"this season: {len(cur_matches)} teams pulled")
     played = max((len(v) for v in cur_matches.values()), default=0)
-    next_gw = fpl["nextGw"]
-    if next_gw is None:
-        next_gw = next_gw_from_deadlines(deadlines)
-    log(f"{played} matches played, next GW{next_gw}"
-        + ("" if fpl["live"] else "  (derived — FPL was unavailable)"))
 
     promoted = [sh for sh in cur_shorts if sh not in prev_matches]
     pa_rat = PROMOTED_PRIOR["a"] / base
@@ -1142,14 +1072,157 @@ def main():
     npt = sum(m[2] for t in prev_matches for m in prev_matches[t])
     pen = round(tot / npt, 4) if npt else 1.0
 
+    return {"teams": teams, "hfac": hfac, "kDef": fit["kDef"], "pen": pen, "played": played}
+
+
+# Player fields that come from Understat. While it is down they are carried
+# over from the last players.json as they were -- totals and per-90 together,
+# so each pair stays consistent with itself.
+UNDERSTAT_PLAYER_KEYS = ("npxg", "xa", "npxgi", "sh", "npg",
+                         "npxg90", "xa90", "npxgi90", "sh90", "npg90")
+
+
+def carry_understat_fields(players, path):
+    """Copy the Understat fields onto each player from the last players.json,
+    by FPL id. Returns how many players had something to carry. A player new
+    since then keeps the nulls build_players gave him."""
+    try:
+        old = {p["i"]: p for p in json.loads(path.read_text())["players"]}
+    except Exception:
+        return 0
+    n = 0
+    for p in players:
+        o = old.get(p["i"])
+        if not o:
+            continue
+        for k in UNDERSTAT_PLAYER_KEYS:
+            if k in o:
+                p[k] = o[k]
+        n += 1
+    return n
+
+
+def ratings_frozen(previous, short2id, teams_meta, raw_fixtures):
+    """
+    The same shape as ratings_from_understat(), for when Understat is down:
+    every side's ratings and the fitted constants as the last good data.json
+    had them. FPL's own data -- fixtures, deadlines, injuries, prices, odds,
+    minutes and expected points -- still refreshes around them. Matches
+    played comes from FPL's finished fixtures where it can.
+    """
+    old = previous["teams"]
+    teams = {}
+    for sh, tid in sorted(short2id.items()):
+        rec = dict(teams_meta[tid])
+        o = old.get(str(tid))
+        if not o:
+            raise RuntimeError(f"Understat is down and the last data.json has no ratings for {sh}")
+        for k in ("pa", "pd", "a26", "d26", "promoted"):
+            if k in o:
+                rec[k] = o[k]
+        teams[str(tid)] = rec
+    played = previous.get("matchesPlayed", 0)
+    if raw_fixtures:
+        n = collections.Counter()
+        for f in raw_fixtures:
+            if f.get("finished") or f.get("finished_provisional"):
+                n[f["team_h"]] += 1; n[f["team_a"]] += 1
+        if n:
+            played = max(played, max(n.values()))
+    fit = previous["fit"]
+    return {"teams": teams, "hfac": fit["home"], "kDef": fit["kDef"], "pen": fit["pen"], "played": played}
+
+
+# ------------------------------------------------------- Understat outages ---
+# Understat supplies the xG behind the team ratings and the players' xG -- and
+# nothing else. When it is down (it was, for days, from 2 Nov 2026) a run keeps
+# those exactly as the last good build had them (ratings_frozen) and refreshes
+# everything FPL and the bookmakers provide around them. Each such run says so
+# with a warning annotation; it only fails if there is no earlier build at all.
+
+
+def understat_reachable(tries=3, wait=10, timeout=20):
+    """True if understat.com answers at all (any HTTP status counts)."""
+    for attempt in range(1, tries + 1):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(UND + "/", headers=UA), timeout=timeout):
+                return True
+        except urllib.error.HTTPError:
+            return True                      # it answered; that is all this asks
+        except (urllib.error.URLError, OSError) as e:
+            log(f"   Understat unreachable (try {attempt}/{tries}): {getattr(e, 'reason', e)}")
+            if attempt < tries:
+                time.sleep(wait * attempt)
+    return False
+
+
+def main():
+    state = _read_json(OUT_S)
+    build, want_odds, why = plan_run(state)
+    if not build:
+        log(f"nothing to do this hour: {why}")
+        return
+    # Before anything that could spend odds credits: with no Understat and no
+    # earlier build there is nothing to publish, so stop before paying for odds.
+    understat_up = understat_reachable()
+    if not understat_up:
+        try:
+            last = json.loads(OUT.read_text())
+            usable = len(last.get("teams", {})) == 20 and "fit" in last
+        except Exception:
+            usable = False
+        if not usable:
+            raise RuntimeError("Understat is unreachable and there is no earlier data.json "
+                               "to carry its ratings over from -- nothing to build")
+    log(f"rebuilding; odds {'fetched' if want_odds else 'skipped'} ({why})"
+        + ("" if understat_up else "; Understat down, ratings frozen"))
+
+    def fetch_priced():
+        if not want_odds:
+            raise OddsSkipped(why)
+        # On record BEFORE the request: from here the API may charge.
+        state["oddsAttempt"] = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+        _write_state(state)
+        priced, remaining = odds_mod.priced_fixtures()
+        if cadence.as_int(remaining) is not None:
+            state["credits"] = cadence.as_int(remaining)
+            state["creditsAt"] = state["oddsAttempt"]
+            _write_state(state)
+        return priced, remaining
+
+    previous = json.loads(OUT.read_text()) if OUT.exists() else None
+    fpl = load_fpl(previous)
+    short2id = fpl["short2id"]
+    teams_meta = fpl["meta"]
+    deadlines = fpl["deadlines"]
+    fixtures = fpl["fixtures"]
+
+    season = understat_season()
+    if understat_up:
+        r = ratings_from_understat(short2id, teams_meta, season)
+        ratings_as_of = None                     # filled in with "generated" below
+    else:
+        r = ratings_frozen(previous, short2id, teams_meta, fpl["rawFixtures"])
+        ratings_as_of = previous.get("ratingsAsOf") or previous["generated"]
+        log(f"::warning title=Understat unreachable - ratings frozen::Understat is not answering, so team "
+            f"ratings and players' xG stay as they were on {ratings_as_of[:16].replace('T', ' ')} UTC. "
+            f"Fixtures, injuries, prices, odds, minutes and expected points are refreshed as usual.")
+    teams, hfac, played = r["teams"], r["hfac"], r["played"]
+    short2name = {v: k for k, v in NAME2SHORT.items()}
+    next_gw = fpl["nextGw"]
+    if next_gw is None:
+        next_gw = next_gw_from_deadlines(deadlines)
+    log(f"{played} matches played, next GW{next_gw}"
+        + ("" if fpl["live"] else "  (derived — FPL was unavailable)"))
+
     data = {
         "generated": datetime.datetime.now(datetime.timezone.utc)
                       .isoformat(timespec="seconds"),
         "season": f"{season}/{str(season + 1)[2:]}",
         "matchesPlayed": played,
         "nextGw": next_gw,
-        "fit": {"kAtk": ATTACK_K, "kDef": fit["kDef"],
-                "home": round(hfac, 3), "pen": pen, "level": GOAL_LEVEL},
+        "fit": {"kAtk": ATTACK_K, "kDef": r["kDef"],
+                "home": round(hfac, 3), "pen": r["pen"], "level": GOAL_LEVEL},
         "promotedPrior": PROMOTED_PRIOR,
         "teams": teams,
         "deadlines": deadlines,
@@ -1157,6 +1230,9 @@ def main():
         "fixtures": fixtures,
         "fplLive": fpl["live"],
     }
+    # When the team ratings were last fitted from Understat. Equal to
+    # "generated" on a normal run; older while Understat is down.
+    data["ratingsAsOf"] = ratings_as_of or data["generated"]
 
     # --- bookmaker odds, and the market's view of each side ----------------
     # Before data.json is written, because since 24 Oct 2026 the market's view
@@ -1251,7 +1327,11 @@ def main():
     try:
         if fpl["boot"] is None:
             raise RuntimeError("FPL was unavailable, so there is no player data to build from")
-        players = build_players(fpl["boot"], season, short2name, short2id, played)
+        players = build_players(fpl["boot"], season, short2name, short2id, played,
+                                offline=not understat_up)
+        if not understat_up:
+            carried = carry_understat_fields(players, OUT_P)
+            log(f"players: {len(players)} built; Understat down, xG carried over for {carried}")
         if len(players) < 300:
             raise ValueError(f"only {len(players)} players")
         pdata = {"generated": data["generated"], "season": data["season"],
