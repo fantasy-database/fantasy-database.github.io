@@ -1142,17 +1142,31 @@ def ratings_frozen(previous, short2id, teams_meta, raw_fixtures):
 
 
 def understat_reachable(tries=3, wait=10, timeout=20):
-    """True if understat.com answers at all (any HTTP status counts)."""
+    """True only if Understat actually serves team data as JSON.
+
+    Answering is not enough: during maintenance (from about 4 Nov 2026) the
+    whole site, data endpoints included, returns a "We will come back soon"
+    HTML page. The old any-answer check passed that, the JSON parse then failed
+    and every run crashed. So ask a real data endpoint and parse the reply."""
+    url = f"{UND}/getTeamData/Arsenal/{understat_season()}"
     for attempt in range(1, tries + 1):
+        why = None
         try:
-            with urllib.request.urlopen(urllib.request.Request(UND + "/", headers=UA), timeout=timeout):
+            req = urllib.request.Request(url, headers={**UA, "X-Requested-With": "XMLHttpRequest"})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                body = json.loads(_decode(r.read(), r.headers.get("Content-Encoding")))
+            if isinstance(body, dict) and body:
                 return True
-        except urllib.error.HTTPError:
-            return True                      # it answered; that is all this asks
+            why = "empty reply"
+        except urllib.error.HTTPError as e:
+            why = f"HTTP {e.code}"
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            why = "not JSON (maintenance page?)"
         except (urllib.error.URLError, OSError) as e:
-            log(f"   Understat unreachable (try {attempt}/{tries}): {getattr(e, 'reason', e)}")
-            if attempt < tries:
-                time.sleep(wait * attempt)
+            why = getattr(e, "reason", e)
+        log(f"   Understat not serving data (try {attempt}/{tries}): {why}")
+        if attempt < tries:
+            time.sleep(wait * attempt)
     return False
 
 
