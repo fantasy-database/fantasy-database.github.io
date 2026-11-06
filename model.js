@@ -21,7 +21,7 @@
  * repeatable — defence needs about three times the evidence. Promoted sides use
  * their own k, because they have no top-flight record to regress toward.
  * ------------------------------------------------------------------------- */
-export function strengths(rec, matchesPlayed, kA, kD, kp, km = 0) {
+export function strengths(rec, matchesPlayed, kA, kD, kp, km = 0, ke = 0) {
   const b = {}, n = matchesPlayed;
   for (const id in rec) {
     const r = rec[id];
@@ -35,7 +35,9 @@ export function strengths(rec, matchesPlayed, kA, kD, kp, km = 0) {
   const ATK = {}, DEF = {};
   ids.forEach(i => { ATK[i] = b[i][0] / la; DEF[i] = b[i][1] / ld; });
   const w = x => matchesPlayed / (matchesPlayed + x);
-  const m = marketBlend(rec, ATK, DEF, km);
+  const m0 = marketBlend(rec, ATK, DEF, km);
+  // then Elevenify's projections the same way (eA / eD from eN fixtures)
+  const m = marketBlend(rec, m0.ATK, m0.DEF, ke, ["eA", "eD", "eN"]);
   return { ATK: m.ATK, DEF: m.DEF, base: (la + ld) / 2, wA: w(kA), wD: w(kD), wP: w(kp) };
 }
 
@@ -47,17 +49,19 @@ export function strengths(rec, matchesPlayed, kA, kD, kp, km = 0) {
  * renormalised to mean 1, so one odd week of prices moves nothing much.
  * km = 0, or no market ratings, leaves the ratings untouched. points.py
  * market_blend() is the same function. claude/backtest-market-blend.md.
+ * Called a second time with ["eA","eD","eN"] and ke for Elevenify's
+ * projections (update.py ELEVENIFY_K, elevenify.py).
  */
-export function marketBlend(rec, ATK, DEF, km) {
+export function marketBlend(rec, ATK, DEF, km, [ka, kd, kn] = ["mA", "mD", "mN"]) {
   const ids = Object.keys(ATK);
-  if (!km || !ids.some(i => rec[i] && rec[i].mA != null)) return { ATK, DEF };
+  if (!km || !ids.some(i => rec[i] && rec[i][ka] != null)) return { ATK, DEF };
   const A2 = {}, D2 = {};
   for (const i of ids) {
     const r = rec[i];
-    if (r && r.mA != null && r.mN) {
-      const w = r.mN / (r.mN + km);
-      A2[i] = Math.exp((1 - w) * Math.log(ATK[i]) + w * Math.log(r.mA));
-      D2[i] = Math.exp((1 - w) * Math.log(DEF[i]) + w * Math.log(r.mD));
+    if (r && r[ka] != null && r[kn]) {
+      const w = r[kn] / (r[kn] + km);
+      A2[i] = Math.exp((1 - w) * Math.log(ATK[i]) + w * Math.log(r[ka]));
+      D2[i] = Math.exp((1 - w) * Math.log(DEF[i]) + w * Math.log(r[kd]));
     } else { A2[i] = ATK[i]; D2[i] = DEF[i]; }
   }
   const ma = ids.reduce((s, i) => s + A2[i], 0) / ids.length;
@@ -330,6 +334,7 @@ export function recordsFrom(teams) {
     rec[id] = { pa: t.pa, pd: t.pd, a26: t.a26, d26: t.d26 };
     if (t.promoted) rec[id].promoted = 1;
     if (t.mA != null) { rec[id].mA = t.mA; rec[id].mD = t.mD; rec[id].mN = t.mN; }
+    if (t.eA != null) { rec[id].eA = t.eA; rec[id].eD = t.eD; rec[id].eN = t.eN; }
   }
   return rec;
 }
@@ -382,10 +387,11 @@ export function nextGwFrom(d) {
 }
 
 
-export function fromData(d, { kAtk, kDef, kPromoted = 4, kMarket, home, pen, market = null } = {}) {
+export function fromData(d, { kAtk, kDef, kPromoted = 4, kMarket, kEleven, home, pen, market = null } = {}) {
   const rec = recordsFrom(d.teams);
   const S = strengths(rec, d.matchesPlayed,
-    kAtk ?? d.fit.kAtk, kDef ?? d.fit.kDef, kPromoted, kMarket ?? d.fit.kMarket ?? 0);
+    kAtk ?? d.fit.kAtk, kDef ?? d.fit.kDef, kPromoted, kMarket ?? d.fit.kMarket ?? 0,
+    kEleven ?? d.fit.kEleven ?? 0);
   // The fitted constants are not a user setting — update.py measures them and
   // writes them into data.json — but the ticker lets a query string override
   // them for testing, so they are overridable here rather than in the page.

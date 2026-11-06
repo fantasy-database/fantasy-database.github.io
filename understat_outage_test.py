@@ -35,7 +35,7 @@ def down(*a, **k):
     raise urllib.error.URLError("[Errno -3] Temporary failure in name resolution")
 
 
-# --- reachability: DNS failure is "down", any HTTP answer is "up" -----------
+# --- reachability: only real team data counts as "up" -----------------------
 U.urllib.request.urlopen = down
 check("DNS failure means unreachable", U.understat_reachable() is False)
 check("it tries three times", sum("try" in l for l in logs) == 3, logs)
@@ -46,7 +46,23 @@ def http_error(*a, **k):
 
 
 U.urllib.request.urlopen = http_error
-check("an HTTP error still counts as reachable", U.understat_reachable() is True)
+check("an HTTP error counts as down", U.understat_reachable() is False)
+
+
+class Page:
+    """A reply whose body is `body` -- Understat's maintenance page, or real data."""
+    def __init__(self, body): self.body, self.headers = body.encode(), {}
+    def read(self): return self.body
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+
+# 4 Nov 2026: every Understat URL answered with a "We will come back soon"
+# HTML page. Counting that as "up" crashed every run until 6 Nov.
+U.urllib.request.urlopen = lambda *a, **k: Page("<html><title>Understat.com</title>We will come back soon</html>")
+check("the maintenance page counts as down", U.understat_reachable() is False)
+U.urllib.request.urlopen = lambda *a, **k: Page('{"dates": [], "players": []}')
+check("a JSON reply counts as up", U.understat_reachable() is True)
 
 # --- ratings_frozen: last build's ratings, today's FPL around them -----------
 previous = {

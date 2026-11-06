@@ -207,7 +207,7 @@ def expected(r, mins, gf, ga, pos, defcon=True, p=None):
 # ---- the side's expected goals: model.js, in Python ------------------------
 # The same numbers the ticker shows. model.test.mjs freezes model.js's output
 # in model.fixture.json; points_test.py checks this port against that file.
-def strengths(teams, matches_played, kA, kD, kp=4, km=None):
+def strengths(teams, matches_played, kA, kD, kp=4, km=None, ke=None):
     b = {}
     n = matches_played
     for tid, r in teams.items():
@@ -219,24 +219,27 @@ def strengths(teams, matches_played, kA, kD, kp=4, km=None):
     ATK = {t: v[0] / la for t, v in b.items()}
     DEF = {t: v[1] / ld for t, v in b.items()}
     ATK, DEF = market_blend(teams, ATK, DEF, km)
+    ATK, DEF = market_blend(teams, ATK, DEF, ke, ("eA", "eD", "eN"))
     return {"ATK": ATK, "DEF": DEF, "base": (la + ld) / 2}
 
 
-def market_blend(teams, ATK, DEF, km):
+def market_blend(teams, ATK, DEF, km, keys=("mA", "mD", "mN")):
     """
     Lean each side's ratings toward the bookmakers' (mA / mD, from every round
     they have priced), more the more rounds they have priced: w = mN/(mN+km),
     blended in logs and renormalised to mean 1. No km, or no market ratings,
     leaves them untouched. model.js marketBlend() is the same function.
+    keys=("eA", "eD", "eN") does the same with Elevenify's ratings.
     """
-    if not km or not any("mA" in r for r in teams.values()):
+    ka, kd, kn = keys
+    if not km or not any(ka in r for r in teams.values()):
         return ATK, DEF
     A2, D2 = {}, {}
     for t, r in teams.items():
-        if "mA" in r and r.get("mN"):
-            w = r["mN"] / (r["mN"] + km)
-            A2[t] = math.exp((1 - w) * math.log(ATK[t]) + w * math.log(r["mA"]))
-            D2[t] = math.exp((1 - w) * math.log(DEF[t]) + w * math.log(r["mD"]))
+        if ka in r and r.get(kn):
+            w = r[kn] / (r[kn] + km)
+            A2[t] = math.exp((1 - w) * math.log(ATK[t]) + w * math.log(r[ka]))
+            D2[t] = math.exp((1 - w) * math.log(DEF[t]) + w * math.log(r[kd]))
         else:
             A2[t], D2[t] = ATK[t], DEF[t]
     ma = sum(A2.values()) / len(A2)

@@ -335,14 +335,15 @@
   </section>
 
   <p class="foot">xG from <a href="https://understat.com/" rel="noopener">Understat</a> (2025/26 full season, 2026/27 to date).
-    Fixtures and difficulty ratings from the Fantasy Premier League API. Data is a snapshot, not live.</p>
+    Fixtures and difficulty ratings from the Fantasy Premier League API. Team ratings also lean on
+    <a href="https://elevenify.com/" rel="noopener">Elevenify</a>&rsquo;s projections and the bookmakers&rsquo; odds. Data is a snapshot, not live.</p>
 
 </div>
 
 <script type="module" id="app">
 import { fromData, marketByTeamId, rotate,
          good as goodness, goodClamped, bandOf, bandLabels,
-         formatVal } from "./model.js?v=20261025";
+         formatVal } from "./model.js?v=20261106";
 import { ribbon } from "./ribbon.js?v=20261101";
 
 // Always expected returns: the opponent-only index was removed on 26 Sep 2026
@@ -351,7 +352,7 @@ import { ribbon } from "./ribbon.js?v=20261101";
 let SIDE="atk", MODE="proj", SORT="best";
 const PROMOTED_K=4;
 const OVR=(()=>{const q=new URLSearchParams(location.search), o={};
-  for(const k of ["kAtk","kDef","kp","home","kMarket"]){const v=parseFloat(q.get(k)); if(Number.isFinite(v)) o[k]=v;}
+  for(const k of ["kAtk","kDef","kp","home","kMarket","kEleven"]){const v=parseFloat(q.get(k)); if(Number.isFinite(v)) o[k]=v;}
   return o;})();
 const CLUB={ars:"#EF0107",avl:"#670E36",bou:"#DA291C",bre:"#E30613",bha:"#0057B8",
 che:"#034694",cov:"#6CACE4",cry:"#1B458F",eve:"#003399",ful:"#CC0000",hul:"#F18A01",
@@ -401,7 +402,7 @@ function buildModel(){
   if(!D) return;
   MARKET=marketByTeamId(MKT_RAW, D.teams);
   M=fromData(D,{kAtk:OVR.kAtk, kDef:OVR.kDef, kPromoted:OVR.kp??PROMOTED_K,
-                kMarket:OVR.kMarket, home:OVR.home, market:MARKET});
+                kMarket:OVR.kMarket, kEleven:OVR.kEleven, home:OVR.home, market:MARKET});
 }
 
 /* The key: the five bands written out, hardest first, in the view's own units. */
@@ -776,7 +777,8 @@ addEventListener("error",function(e){
     @media (max-width:700px){.site-legal{padding:0 12px 30px}}
   </style>
   <p>Fantasy DataBase is an independent fan site, not affiliated with or endorsed by the Premier League or
-    Fantasy Premier League. Ratings are estimates, not advice. &middot; <a href="/privacy">Privacy</a></p>
+    Fantasy Premier League. Ratings are estimates, not advice. &middot; Team projections draw on
+    <a href="https://elevenify.com/" rel="noopener">elevenify.com</a>, with thanks. &middot; <a href="/privacy">Privacy</a></p>
 </footer>
 </body>
 </html>

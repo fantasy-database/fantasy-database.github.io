@@ -18,6 +18,7 @@ import collections
 import minutes as MN
 import points as PT
 import odds as odds_mod
+import elevenify as EL
 import cadence
 
 FPL = "https://fantasy.premierleague.com/api"
@@ -78,6 +79,18 @@ GOAL_LEVEL = 0.95
 # and not yet shown against results. claude/backtest-market-blend.md.
 # 0 switches it off.
 MARKET_K = 10
+# How far each side's ratings then lean toward Elevenify's projections (its
+# live season-long sheet, read every build; elevenify.py): weight eN/(eN +
+# ELEVENIFY_K), eN being the upcoming fixtures it projects for that side in the
+# next elevenify.WINDOW rounds -- so at most 6/26 = 0.23. Applied after the
+# market blend, so a typical side ends up about half our xG model, a third
+# bookmakers and a fifth Elevenify. Chosen, not fitted: the sheet re-simulates
+# past rounds from today's ratings, so it cannot be backtested honestly.
+# 0 switches it off.
+ELEVENIFY_K = 20
+# How long the last good Elevenify ratings are carried over when the sheet
+# cannot be read. Past this, the build goes out without them.
+ELEVENIFY_STALE_DAYS = 14
 
 
 def goal_scale(fit):
@@ -332,6 +345,81 @@ def market_step(teams, fixtures, next_gw, hfac, data, prev_m, fetch_priced):
         log(f"!! market ratings not used ({e}) - xG ratings alone this build")
     return odds_ok, by_gw, remaining, history
 
+def elevenify_step(teams, fixtures, next_gw, hfac, data, previous):
+    """
+    Read Elevenify's live sheet and attach its attack and defence to each team
+    in `teams` (eA / eD / eN), setting data["fit"]["kEleven"] and
+    data["elevenify"] (when it was read, and which rounds were used).
+
+    Never raises. If the sheet cannot be read or does not check out, the
+    last good Elevenify ratings in `previous` (the last data.json) are carried
+    over for up to ELEVENIFY_STALE_DAYS; after that, or with none, the ratings
+    go out without Elevenify -- the model the site ran before 6 Nov 2026.
+    """
+    keys = ("eA", "eD", "eN")
+    if not ELEVENIFY_K:              # switched off: no fallback to an earlier read either
+        for rec in teams.values():
+            for k in keys:
+                rec.pop(k, None)
+        data["fit"].pop("kEleven", None)
+        data.pop("elevenify", None)
+        log("   Elevenify switched off (ELEVENIFY_K = 0)")
+        return False
+    try:
+        req = urllib.request.Request(EL.SHEET, headers=UA)
+        with urllib.request.urlopen(req, timeout=45) as r:
+            text = _decode(r.read(), r.headers.get("Content-Encoding")).lstrip("﻿")
+        sheet = EL.parse(text)
+        last = min(38, next_gw + EL.WINDOW - 1)
+        hist, dropped = EL.fixtures_by_gw(sheet, teams, fixtures, next_gw, last)
+        if dropped:
+            log(f"   Elevenify: {len(dropped)} fixtures left out ({'; '.join(dropped[:4])})")
+        rat = odds_mod.implied_ratings(hist, hfac, last, window=EL.WINDOW, min_rounds=EL.MIN_ROUNDS)
+        if not rat:
+            raise ValueError("too few upcoming rounds in the sheet")
+        bad = [s for s, v in rat.items() if not (0.3 <= v["mA"] <= 3 and 0.3 <= v["mD"] <= 3)]
+        if bad:
+            raise ValueError(f"Elevenify rating out of range for {', '.join(bad)}")
+        missing = {t["short"] for t in teams.values()} - set(rat)
+        if missing:
+            raise ValueError(f"no Elevenify rating for {', '.join(sorted(missing))}")
+        for rec in teams.values():
+            v = rat[rec["short"]]
+            rec.update({"eA": v["mA"], "eD": v["mD"], "eN": v["mN"]})
+        rounds = sorted(int(g) for g in hist)
+        data["fit"]["kEleven"] = ELEVENIFY_K
+        data["elevenify"] = {"read": data["generated"], "rounds": [rounds[0], rounds[-1]],
+                             "fixtures": sum(len(v) for v in hist.values())}
+        log(f"Elevenify ratings from {data['elevenify']['fixtures']} projected fixtures "
+            f"(GW{rounds[0]}-{rounds[-1]}), kEleven={ELEVENIFY_K}")
+        return True
+    except Exception as e:
+        why = e
+    # fall back to the last good read, if it is recent enough
+    try:
+        pe = (previous or {}).get("elevenify") or {}
+        read = datetime.datetime.fromisoformat(pe["read"])
+        age = datetime.datetime.now(datetime.timezone.utc) - read
+        if age > datetime.timedelta(days=ELEVENIFY_STALE_DAYS):
+            raise ValueError(f"last good read is {age.days} days old")
+        old = previous["teams"]
+        for tid, rec in teams.items():
+            o = old[str(tid)]
+            rec.update({k: o[k] for k in keys})
+        data["fit"]["kEleven"] = previous["fit"]["kEleven"]
+        data["elevenify"] = pe
+        log(f"!! Elevenify sheet not read ({why}) - keeping its ratings from {pe['read'][:16]}")
+        return False
+    except Exception as e2:
+        for rec in teams.values():
+            for k in keys:
+                rec.pop(k, None)
+        data["fit"].pop("kEleven", None)
+        data.pop("elevenify", None)
+        log(f"!! Elevenify not used ({why}; no usable earlier read: {e2}) - ratings without it this build")
+        return False
+
+
 def score_against_market(data, market, blended=False):
     """
     Put the model's next-gameweek projection beside the market's and score it.
@@ -351,7 +439,8 @@ def score_against_market(data, market, blended=False):
     gw = data["nextGw"]
     fit = data["fit"]
     S = PT.strengths(data["teams"], data["matchesPlayed"], fit["kAtk"], fit["kDef"],
-                     PROMOTED_K, fit.get("kMarket") if blended else None)
+                     PROMOTED_K, fit.get("kMarket") if blended else None,
+                     fit.get("kEleven") if blended else None)
     atk, dfn, base = S["ATK"], S["DEF"], S["base"]
 
     model = {}
@@ -713,7 +802,7 @@ def expected_points(players, pos_of, fc, lives, finished, raw_fixtures, want, mo
     """
     S = PT.strengths(model["teams"], model["matchesPlayed"],
                      model["fit"]["kAtk"], model["fit"]["kDef"], PROMOTED_K,
-                     model["fit"].get("kMarket"))
+                     model["fit"].get("kMarket"), model["fit"].get("kEleven"))
     sides = {f["id"]: (f["team_h"], f["team_a"]) for f in raw_fixtures}
     team_of = {e["id"]: e["team"] for e in players}
     srows = PT.live_stat_rows(lives, finished)
@@ -1160,7 +1249,7 @@ def understat_reachable(tries=3, wait=10, timeout=20):
             why = "empty reply"
         except urllib.error.HTTPError as e:
             why = f"HTTP {e.code}"
-        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        except (UnicodeDecodeError, json.JSONDecodeError, zlib.error) as e:
             why = "not JSON (maintenance page?)"
         except (urllib.error.URLError, OSError) as e:
             why = getattr(e, "reason", e)
@@ -1257,6 +1346,11 @@ def main():
         prev_m = {}
     odds_ok, by_gw, remaining, history = market_step(
         teams, fixtures, next_gw, hfac, data, prev_m, fetch_priced)
+
+    # --- Elevenify's projections, a second outside view ----------------------
+    # Also before data.json is written: it feeds the ratings (ELEVENIFY_K).
+    # elevenify_step() never raises.
+    elevenify_step(teams, fixtures, next_gw, hfac, data, previous)
 
     # --- refuse to publish anything that looks wrong -----------------------
     problems = []
