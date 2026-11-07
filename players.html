@@ -101,9 +101,6 @@
 
   .note{margin:12px 2px 0;font-size:12.5px;color:var(--muted)}
   .note b{color:var(--ink)}
-  #xpKey{margin:6px 2px 0;gap:4px 3px;font-size:10px}
-  #xpKey[hidden]{display:none}
-  #xpKey .lg{gap:3px}
 
   .card{margin-top:12px;background:var(--surface);border:0;
     border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
@@ -143,10 +140,6 @@
   .tm{color:var(--muted);font-size:11px;font-family:"Roboto Mono",monospace;
     text-transform:uppercase;margin-left:2px}
   .lead{font-weight:700;font-size:14px;color:var(--accent)}
-  td.xp-band{color:var(--bt);box-shadow:inset 3px 0 var(--bp)}
-  tbody td.xp-band:not(.b2){
-    background-image:linear-gradient(90deg,color-mix(in srgb,var(--bp) 16%,transparent),transparent 72%)}
-  td.xp-blank{color:var(--ink)}
   .flag{display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;
     margin-left:5px;vertical-align:1px;font-family:"Roboto Mono",monospace}
   .flag.out{background:var(--bad);color:#fff}
@@ -172,7 +165,7 @@
 
   @media (max-width:700px){
     .wrap{padding:16px 0 44px}
-    .mast,.bar,.filters,.card,.note,.key,#xpKey{margin-left:12px;margin-right:12px}
+    .mast,.bar,.filters,.card,.note,.key{margin-left:12px;margin-right:12px}
     .seg .lng{display:none} .seg .sht{display:inline}
     .bar{gap:8px 12px}
     .nav{margin-left:0;width:100%}
@@ -268,14 +261,6 @@
   </p>
 
   <p class="note" id="note"></p>
-  <div class="legend" id="xpKey" hidden>
-    <span>xP a gameweek:</span>
-    <span class="lg b0"><i></i>Under 2</span> ·
-    <span class="lg b1"><i></i>2.0–2.9</span> ·
-    <span class="lg b2"><i></i>3.0–3.9</span> ·
-    <span class="lg b3"><i></i>4.0–4.9</span> ·
-    <span class="lg b4"><i></i>5.0+</span>
-  </div>
 
   <div id="pop" class="pop" hidden role="dialog" aria-live="polite">
     <button type="button" class="popx" id="popx" aria-label="Close">&times;</button>
@@ -374,14 +359,12 @@ let SORT={...DEFAULT_SORT[VIEW]};
  * A gameweek he has no fixture in is 0; a double adds both games.
  * The view shows the next five of them. XCOLS is built once the file is in. */
 const XN=5;
-const XP_EDGES=[2,3,4,5];
 let XGW=[], XOFF=0, XCOLS=[], FXM=null;    // FXM: team id -> gw -> [{opp,home}] from data.json
 const xpAt=(p,i)=>Array.isArray(p.xp) && p.xp[XOFF+i]!=null ? p.xp[XOFF+i] : null;
 const xmAt=(p,i)=>Array.isArray(p.xm) && p.xm[XOFF+i]!=null ? p.xm[XOFF+i] : null;
-const fixturesAt=(team,gw)=>FXM ? FXM[team]?.[gw]||[] : null;
-function oppHtml(fx){
-  if(!fx) return "";
-  const T=DATA.teams;
+function oppHtml(team,gw){
+  if(!FXM) return "";
+  const fx=(FXM[team]||{})[gw]||[], T=DATA.teams;
   if(!fx.length) return `<span class="opp">blank</span>`;
   return `<span class="opp${fx.length>1?" dgw":""}">`
     + fx.map(f=>`${(T[f.opp]||{short:"?"}).short.toUpperCase()} ${f.home?"H":"A"}`).join(" + ") + `</span>`;
@@ -393,11 +376,11 @@ function buildXpCols(){
   const n=XGW.length;
   const sum=(p,f)=>{ let t=0, any=false; for(let i=0;i<n;i++){ const v=f(p,i); if(v!=null){ t+=v; any=true; } } return any?t:null; };
   XCOLS=[
-    {id:"xp5", label:`Next ${n} xP`, pos:ALL, dec:1, xpWeeks:n,
-      val:p=>sum(p,xpAt), tip:`Expected FPL points across GW${XGW[0]}–GW${XGW[n-1]}, added up. Colour is based on average xP per gameweek shown.`,
+    {id:"xp5", label:`Next ${n} xP`, pos:ALL, dec:1,
+      val:p=>sum(p,xpAt), tip:`Expected FPL points across GW${XGW[0]}–GW${XGW[n-1]}, added up`,
       note:`<b>Expected points</b> are our projection of the FPL points he scores, allowing for how likely he is to play — the same numbers the Planner uses.`},
-    ...XGW.map((g,i)=>({id:"xp"+i, label:`GW${g}`, pos:ALL, dec:1, xpWeeks:1, gw:g, val:p=>xpAt(p,i),
-      tip:`Expected FPL points in GW${g}. 0 means no fixture, or not expected to play`})),
+    ...XGW.map((g,i)=>({id:"xp"+i, label:`GW${g}`, pos:ALL, dec:1, val:p=>xpAt(p,i),
+      sub:p=>oppHtml(p.t,g), tip:`Expected FPL points in GW${g}. 0 means no fixture, or not expected to play`})),
     {id:"xmin", label:"xMins", pos:ALL, dec:0, val:p=>{const t=sum(p,xmAt); return t==null?null:t/n;},
       tip:`Expected minutes a gameweek, averaged over the next ${n}`},
     {id:"ps", label:"Start %", pos:ALL, val:p=>p.ps==null?null:p.ps*100, show:p=>Math.round(p.ps*100)+"%",
@@ -440,21 +423,9 @@ function value(p,c){
 }
 function cell(p,c){
   const v=value(p,c);
-  const classes=[c.cls, c.id===SORT.id?"lead":""];
-  let html='<span class="dim">–</span>';
-  if(v!==null){
-    const shown=c.show && !p90(c) ? c.show(p) : v.toFixed(p90(c) ? 2 : (c.dec??0));
-    const fx=c.gw==null ? null : fixturesAt(p.t,c.gw);
-    if(c.xpWeeks && (c.gw==null || fx?.length)){
-      const xp=Number(shown);
-      const band=XP_EDGES.filter(edge=>xp>=edge*c.xpWeeks).length;
-      classes.push("xp-band","b"+band);
-    } else if(fx?.length===0){
-      classes.push("xp-blank");
-    }
-    html=shown+oppHtml(fx);
-  }
-  return `<td class="${classes.filter(Boolean).join(" ")}">${html}</td>`;
+  if(v===null) return '<span class="dim">–</span>';
+  if(c.show && !p90(c)) return c.show(p);
+  return v.toFixed(p90(c) ? 2 : (c.dec??0)) + (c.sub ? c.sub(p) : "");
 }
 const bestFirstDesc=c=>!(c.low||c.alpha);   // first click: best on top
 // keep the sort if its column is still on screen, otherwise back to Points
@@ -536,7 +507,7 @@ function render(){
         + `${p.st==="d"?(p.cop??"?")+"%":"OUT"}</button>`;
     return `<tr>
       <td class="lft"><span class="rk">${i+1}</span> <span class="pl">${crest(t.short,18)}${esc(p.n)}</span><span class="tm">${t.short}</span>${flag}</td>
-      ${cols.map(c=>cell(p,c)).join("")}
+      ${cols.map(c=>`<td class="${[c.cls||"", c.id===SORT.id?"lead":""].join(" ").trim()}">${cell(p,c)}</td>`).join("")}
     </tr>`;}).join("");
 }
 
@@ -551,7 +522,6 @@ $("#posSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(
   keepSort(); render();});
 function paintView(){
   [...$("#viewSeg").children].forEach(x=>x.setAttribute("aria-pressed",x.dataset.view===VIEW?"true":"false"));
-  $("#xpKey").hidden=VIEW!=="xp";
   // Total / Per 90 means nothing for a projection
   [...$("#scaleSeg").children].forEach(x=>{ x.disabled=VIEW==="xp";
     x.title = VIEW==="xp" ? "Expected points are per gameweek; the scale applies to season stats" : ""; });
