@@ -98,6 +98,19 @@
   thead th.lft{padding-left:12px}
   thead th.rgt{text-align:right;padding-right:14px}
   thead th b{display:block;font-weight:600;color:var(--ink);font-size:11px;letter-spacing:.04em}
+  /* gameweek headings are buttons: tap one to rank the table on that week */
+  thead th.gwh button{font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;text-align:inherit;
+    background:none;border:0;padding:3px 6px 3px 4px;margin:-3px -6px -3px -4px;border-radius:6px;cursor:pointer;width:calc(100% + 10px)}
+  thead th.gwh button:hover{background:var(--surface-2);color:var(--ink)}
+  thead th.gwh button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  thead th.gwh .ar{margin-left:5px;font-size:9px;opacity:.45}
+  thead th.gwh.on{color:var(--accent)}
+  thead th.gwh.on .ar{opacity:1}
+  thead th.rgt.gwh button{text-align:right}
+  .sortnote{flex-basis:100%}
+  .sortnote b{color:var(--ink);font-weight:600}
+  .sortnote .txtbtn{font-size:12px;padding:0 2px}
+  .mobsocials{display:none}
   tbody td{padding:2px 2px;vertical-align:middle}
   tbody tr:first-child td{padding-top:6px}
   tbody tr:last-child td{padding-bottom:6px}
@@ -176,11 +189,37 @@
   .mrank,.mscore{display:none}
   /* ---- phones: pin the team, scroll the fixtures ---- */
   @media (max-width:700px){
-    .wrap{padding:16px 0 44px}
-    .mast,.views,.viewnote,.panel,.tablecard,.rot,.gwv,.foot{margin-left:12px;margin-right:12px}
-    .mast h1{font-size:30px}
+    /* Phones: get to the table fast. The page becomes a column so the
+       explanation can sit under the table rather than above it, the masthead
+       shrinks to a line plus the nav, and the socials move to the bottom. */
+    .wrap{padding:12px 0 44px;display:flex;flex-direction:column}
+    .mast,.views,.viewnote,.panel,.tablecard,.rot,.gwv,.foot,.mobsocials{margin-left:12px;margin-right:12px}
+    .mast{gap:8px;padding-bottom:10px;border-bottom-width:2px}
+    .mast > div{display:flex;flex-direction:column}
+    #stamp{order:2;margin:6px 0 0;font-size:9.5px;letter-spacing:.1em}
+    .brand{gap:9px}
+    .brand .mark{height:28px}
+    .mast h1{font-size:24px}
+    .mast .sect,.topsocials{display:none}
     .mast p{font-size:12.5px}
-    .views{gap:8px 14px}
+    .nav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:6px;margin:0 -12px;padding:0 12px;width:calc(100% + 24px)}
+    .nav::-webkit-scrollbar{display:none}
+    .nav a{flex:none;padding:6px 11px;font-size:12.5px}
+    .views{gap:6px 8px;margin-top:12px}
+    .views .seglabel{display:none}
+    .views{flex-wrap:nowrap}
+    .views .seg{flex-wrap:nowrap}
+    .views .seg button{padding:5px 8px;font-size:11.5px}
+    .keybar{padding:9px 12px;gap:6px 12px}
+    .gwwin{order:1;margin-top:10px;padding:10px 10px 8px}
+    .gwwin .kick,.gwhint{display:none}
+    .gwwin .winhead{margin-bottom:6px;align-items:center}
+    .gwwin .readout{margin-top:0;font-size:17px}
+    .gwwin .readout small{font-size:11.5px}
+    .tablecard{order:2;margin-top:10px}
+    .viewnote{order:3}
+    .rot{order:4} .gwv{order:5} .foot{order:6}
+    .mobsocials{order:7;display:flex;margin-top:18px}
   
     .tablecard{border-radius:10px}
     table{min-width:0}
@@ -218,6 +257,8 @@
   @media (max-width:440px){
     .mside small{display:none}
   }
+  /* the two pill rows only share a line from about 360px up */
+  @media (max-width:359px){.views{flex-wrap:wrap}}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 <style>html{-webkit-text-size-adjust:100%}img{max-width:100%}</style>
@@ -248,7 +289,7 @@
         <h1><em>Fantasy</em> DataBase</h1>
       </div>
       <p class="sect">Fixture ticker</p>
-      <div class="socials">
+      <div class="socials topsocials">
         <span class="lab">Follow</span>
         <a class="tt" href="https://www.tiktok.com/@fantasydbapp" target="_blank" rel="noopener" aria-label="Fantasy DataBase on TikTok (@fantasydbapp)" title="TikTok · @fantasydbapp"><img src="/social/tiktok.png" alt="" width="28" height="28"></a>
         <a class="x" href="https://x.com/FDBApp" target="_blank" rel="noopener" aria-label="Fantasy DataBase on X (@FDBApp)" title="X · @FDBApp"><img src="/social/x.png" alt="" width="28" height="28"></a>
@@ -300,7 +341,8 @@
   </section>
 
   <div class="tablecard">
-    <div class="keybar" id="keybar"><div class="legend" id="legend"></div><p class="kbsrc" id="kbsrc"></p></div>
+    <div class="keybar" id="keybar"><div class="legend" id="legend"></div><p class="kbsrc" id="kbsrc"></p>
+      <p class="kbsrc sortnote" id="sortNote" aria-live="polite"></p></div>
     <div class="tscroll"><table>
       <thead><tr id="thead"></tr></thead>
       <tbody id="rows"></tbody>
@@ -334,6 +376,13 @@
     <p class="kbsrc" id="mvSrc"></p>
   </section>
 
+  <div class="socials mobsocials">
+    <span class="lab">Follow</span>
+    <a class="tt" href="https://www.tiktok.com/@fantasydbapp" target="_blank" rel="noopener" aria-label="Fantasy DataBase on TikTok (@fantasydbapp)" title="TikTok · @fantasydbapp"><img src="/social/tiktok.png" alt="" width="28" height="28" loading="lazy"></a>
+    <a class="x" href="https://x.com/FDBApp" target="_blank" rel="noopener" aria-label="Fantasy DataBase on X (@FDBApp)" title="X · @FDBApp"><img src="/social/x.png" alt="" width="28" height="28" loading="lazy"></a>
+    <a class="yt" href="https://www.youtube.com/@FDBApp" target="_blank" rel="noopener" aria-label="Fantasy DataBase on YouTube (@FDBApp)" title="YouTube · @FDBApp"><img src="/social/youtube.png" alt="" width="40" height="28" loading="lazy"></a>
+  </div>
+
   <p class="foot">xG from <a href="https://understat.com/" rel="noopener">Understat</a> (2025/26 full season, 2026/27 to date).
     Fixtures and difficulty ratings from the Fantasy Premier League API. Team ratings also lean on
     <a href="https://elevenify.com/" rel="noopener">Elevenify</a>&rsquo;s projections and the bookmakers&rsquo; odds. Data is a snapshot, not live.</p>
@@ -350,6 +399,10 @@ import { ribbon } from "./ribbon.js?v=20261101";
 // as too hard to read. MODE stays a variable only because renderMatches()
 // and the shared helpers take it as an argument.
 let SIDE="atk", MODE="proj", SORT="best";
+// The column the table is ranked on: null ranks on the whole window (the
+// default, so the next six out of the box); a gameweek number ranks on that
+// week alone. Set by tapping a gameweek heading; tapping it again clears it.
+let SORT_GW=null;
 const PROMOTED_K=4;
 const OVR=(()=>{const q=new URLSearchParams(location.search), o={};
   for(const k of ["kAtk","kDef","kp","home","kMarket","kEleven"]){const v=parseFloat(q.get(k)); if(Number.isFinite(v)) o[k]=v;}
@@ -439,6 +492,8 @@ function render(){
 
   const fixtures=M.fixtures(from,to);
   const gws=[]; for(let g=from;g<=to;g++) gws.push(g);
+  // a week that has slid out of the window cannot be sorted on any more
+  if(SORT_GW!==null && (SORT_GW<from || SORT_GW>to)) SORT_GW=null;
 
   // per-team, per-side goodness
   const data={};
@@ -471,19 +526,50 @@ function render(){
     const fixAvg = SIDE==="fix" && raws.length ? raws.reduce((a,b)=>a+b,0)/raws.length : 0;
     const score = SIDE==="fix" ? fixAvg : (SIDE==="atk"?aggA[id]:aggD[id]);
     const shownVal = SIDE==="fix" ? fixAvg : (SIDE==="atk" ? rawA[id] : rawD[id]);
-    return {id:+id,name:TEAMS[id][0],code:code(id),fx:d.fx,cells,raws,score,shownVal,
+    // One week on its own, the same way the window is scored: Attack adds a
+    // double gameweek's two fixtures up, the other views average them. A blank
+    // week is null and always sinks to the bottom, whichever way round.
+    let gwScore=null;
+    if(SORT_GW!==null){
+      const js=d.fx.map((f,j)=>f.gw===SORT_GW?j:-1).filter(j=>j>=0);
+      if(js.length){
+        const vs = SIDE==="fix" ? js.map(j=>raws[j]) : js.map(j=>cells[j]);
+        const sum=vs.reduce((a,b)=>a+b,0);
+        gwScore = SIDE==="atk" ? sum : sum/vs.length;
+      }
+    }
+    return {id:+id,name:TEAMS[id][0],code:code(id),fx:d.fx,cells,raws,score,shownVal,gwScore,
       promoted:!!M.rec[id].promoted, games:d.fx.length};
   });
 
   // A–Z goes by the code, because the code is what the column shows.
-  rows.sort((a,b)=> SORT==="az" ? a.code.localeCompare(b.code)
-                  : SORT==="worst" ? (a.score-b.score||a.code.localeCompare(b.code))
-                  : (b.score-a.score||a.code.localeCompare(b.code)));
+  const key = r => SORT_GW===null ? r.score : r.gwScore;
+  rows.sort((a,b)=>{
+    if(SORT==="az") return a.code.localeCompare(b.code);
+    const ka=key(a), kb=key(b);
+    if(ka===null || kb===null) return (ka===null)-(kb===null) || a.code.localeCompare(b.code);
+    return (SORT==="worst" ? ka-kb : kb-ka) || a.code.localeCompare(b.code);
+  });
 
+  // Every gameweek heading is a button that ranks the table on that week.
+  const arrow = SORT==="worst" ? "▲" : "▼";
+  const sorting = g => SORT!=="az" && SORT_GW===g;
   const colName = SIDE==="atk" ? "Total xG" : "Clean sheet %";
+  const sortTotal = SORT!=="az" && SORT_GW===null;
   $("#thead").innerHTML=`<th class="lft">#</th><th class="lft">Team</th>`
-    + gws.map(g=>`<th>GW${g}<b>${fmtDate(DEADLINES[g-1]).replace(" ","&nbsp;")}</b></th>`).join("")
-    + (SIDE==="fix" ? "" : `<th class="rgt">${colName}</th>`);
+    + gws.map(g=>`<th class="gwh${sorting(g)?" on":""}" aria-sort="${sorting(g)?(SORT==="worst"?"ascending":"descending"):"none"}">`
+      + `<button type="button" data-gw="${g}" title="${sorting(g)?"Back to ranking on the whole window":`Rank on GW${g} alone`}">`
+      + `GW${g}<span class="ar" aria-hidden="true">${sorting(g)?arrow:"⇅"}</span>`
+      + `<b>${fmtDate(DEADLINES[g-1]).replace(" ","&nbsp;")}</b></button></th>`).join("")
+    + (SIDE==="fix" ? "" : `<th class="rgt gwh${sortTotal?" on":""}"><button type="button" data-gw="all" title="Rank on the whole window">`
+      + `${colName}${sortTotal?`<span class="ar" aria-hidden="true">${arrow}</span>`:""}</button></th>`);
+  const hardest = SORT==="worst";
+  $("#sortNote").innerHTML = SORT==="az"
+    ? `Tap a gameweek heading to rank the table on that week.`
+    : SORT_GW===null
+      ? `Tap a gameweek heading to rank the table on that week alone.`
+      : `Ranked on <b>GW${SORT_GW}</b> alone, ${hardest?"hardest":"easiest"} first${rows.some(r=>r.gwScore===null)?"; sides without a fixture that week sit at the bottom":""}. `
+        + `<button type="button" class="txtbtn" data-gw="all">Back to the whole window</button>`;
 
   $("#rows").innerHTML=rows.map((r,i)=>{
     const rank=i+1;
@@ -706,9 +792,22 @@ function setWin(from,to){
 }
 $("#sideSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   SIDE=b.dataset.side;[...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
+function setSort(s){
+  SORT=s;
+  for(const x of $("#sortSeg").children) x.setAttribute("aria-pressed",x.dataset.sort===s?"true":"false");
+}
 $("#sortSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
-  SORT=b.dataset.sort;
-  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));render();});
+  setSort(b.dataset.sort); if(SORT==="az") SORT_GW=null; render();});
+/* A gameweek heading ranks the table on that week; tapping the week already
+   ranked on goes back to the whole window. From A–Z it starts at easiest. */
+function sortOn(gw){
+  if(gw==="all") SORT_GW=null;
+  else { gw=+gw; SORT_GW = (SORT_GW===gw && SORT!=="az") ? null : gw; }
+  if(SORT==="az") setSort("best");
+  render();
+}
+$("#thead").addEventListener("click",e=>{const b=e.target.closest("button[data-gw]"); if(b) sortOn(b.dataset.gw);});
+$("#sortNote").addEventListener("click",e=>{const b=e.target.closest("button[data-gw]"); if(b) sortOn(b.dataset.gw);});
 
 function applyData(d){
   D=d; buildModel();
