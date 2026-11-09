@@ -98,7 +98,7 @@ if shutil.which("node"):
     d = json.loads((HERE / "data.json").read_text())
     if d["fit"].get("kMarket"):
         f = d["fit"]
-        py = PT.strengths(d["teams"], d["matchesPlayed"], f["kAtk"], f["kDef"], 4, f["kMarket"])
+        py = PT.strengths(d["teams"], d["matchesPlayed"], f["kAtk"], f["kDef"], 4, f["kMarket"], f.get("kEleven"))
         js = json.loads(subprocess.check_output(["node", "-e", (
             'import("./model.js").then(M=>{const d=JSON.parse(require("fs").readFileSync("data.json"));'
             'const S=M.fromData(d).S;console.log(JSON.stringify({A:S.ATK,D:S.DEF}))})')], cwd=HERE))

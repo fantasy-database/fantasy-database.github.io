@@ -799,6 +799,9 @@ Promise.all([
   fetch("market.json?t="+Date.now()).then(r=>r.ok?r.json():null).catch(()=>null)
 ]).then(([d,pl,mk])=>{
   D=d; P=pl;
+  // Understat down: players.json's npxg is FPL's xG, penalties included.
+  if(pl.xgSource==="fpl")
+    for(const rows of Object.values(STATS)) for(const r of rows) if(r[0]==="npxg") r[1]="xG";
   // market.json is keyed by short code; the model works in FPL team ids.
   MARKET=marketByTeamId(mk&&mk.gw, d.teams);
   M=fromData(d,{market:MARKET});
