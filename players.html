@@ -269,6 +269,8 @@
     <p class="popwhy" id="popWhy"></p>
   </div>
 
+  <p class="note" id="xgNote" hidden></p>
+
   <div class="card">
     <div class="scroll">
       <table>
@@ -582,6 +584,24 @@ $("#popx").addEventListener("click",closePop);
 document.addEventListener("click",e=>{
   if(!pop.hidden && !e.target.closest(".pop") && !e.target.closest("button.flag")) closePop();});
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") closePop(); });
+/* Understat is down: update.py fills npxg/xa/npg from FPL's Opta figures,
+ * which include penalties. Say so, and label the columns for what they are. */
+function fplFallback(d){
+  const col=id=>COLS.find(c=>c.id===id);
+  Object.assign(col("npxg"),{label:"xG", tip:"Expected goals, penalties included (FPL / Opta)"});
+  Object.assign(col("npg"),{label:"Goals",
+    tip:"Goals he has actually scored, penalties included (FPL), the outcome xG estimates",
+    note:"<b>Goals</b> is the goals he actually scored, penalties included, to set against his xG."});
+  Object.assign(col("xa"),{tip:"Expected assists (FPL / Opta)"});
+  Object.assign(col("npxgi"),{label:"xGI", tip:"xG + xA"});
+  Object.assign(col("sh"),{tip:"Shots (Understat, not updated while it is down)"});
+  const asOf=d.understatAsOf
+    ? new Date(d.understatAsOf).toLocaleDateString("en-GB",{day:"numeric",month:"short"}) : "earlier";
+  const n=$("#xgNote");
+  n.textContent=`Understat is down, so xG, xA and goals are FPL's Opta figures (xG includes penalties). Shots last updated ${asOf}.`;
+  n.hidden=false;
+}
+
 window.addEventListener("resize",closePop);
 $("#resetm").addEventListener("click",()=>{minmTouched=false;syncFloor();render();});
 
@@ -589,6 +609,7 @@ fetch("players.json?t="+Date.now())
   .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
   .then(d=>{
     DATA=d;
+    if(d.xgSource==="fpl") fplFallback(d);
     const when=new Date(d.generated);
     $("#stamp").textContent=`${d.season} · ${d.players.length} players · updated ${when.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`;
     teamPop.firstElementChild.innerHTML='<button type="button" class="rtb all" data-id="" aria-pressed="true">All teams</button>'

@@ -492,10 +492,18 @@ def strip_name(s):
     return re.sub(r"[^a-z ]", "", out).strip()
 
 
-def match_player(full, web, pool):
+MATCH_MIN_GAP = 180      # a loose name match this far off on minutes is someone else
+
+
+def match_player(full, web, pool, mins=None):
     """
     Find an Understat player for an FPL one. Tried in order of confidence:
     exact, one name being a subset of the other, shared surname, web name.
+
+    mins: the FPL minutes. A loose (non-exact) candidate whose Understat
+    minutes differ by more than MATCH_MIN_GAP is skipped -- Arsenal's
+    Understat "Gabriel" (the centre-back) is a subset of Gabriel Martinelli
+    and Gabriel Jesus too. An exact match is never skipped.
     """
     f, w = strip_name(full), strip_name(web)
     toks = f.split()
@@ -504,18 +512,24 @@ def match_player(full, web, pool):
     for cand in pool:
         if cand["n"] == f:
             return cand
-    for cand in pool:
+
+    def near(cand):
+        m = cand.get("min")
+        return mins is None or m is None or abs(m - mins) <= MATCH_MIN_GAP
+
+    loose = [c for c in pool if near(c)]
+    for cand in loose:
         if cand["n"] and all(t in toks for t in cand["n"].split()):
             return cand
-    for cand in pool:
+    for cand in loose:
         if all(t in cand["n"].split() for t in toks):
             return cand
     last = toks[-1]
-    for cand in pool:
+    for cand in loose:
         if cand["n"] == last or cand["n"].endswith(" " + last):
             return cand
     bare = re.sub(r"^[a-z]\.", "", w).strip()
-    for cand in pool:
+    for cand in loose:
         if bare and bare in cand["n"]:
             return cand
     return None
@@ -530,8 +544,9 @@ def _int_or_none(v):
 
 def build_players(boot, season, short2name, short2id, played, offline=False):
     """Every FPL player, with non-penalty xG and shots joined from Understat.
-    offline: Understat is down -- do not ask it; main() carries those fields
-    over from the last players.json instead."""
+    offline: Understat is down -- do not ask it. xG, xA and goals then come
+    from FPL's own (Opta) figures, which count penalties; FPL has no shots,
+    so main() carries those over from the last players.json (carry_shots)."""
     und_by_team, unmatched = {}, 0
     for sh, tid in ({} if offline else short2id).items():
         name = short2name.get(sh)
@@ -555,17 +570,46 @@ def build_players(boot, season, short2name, short2id, played, offline=False):
     def per90(total, minutes):
         return round(total / minutes * 90, 3) if minutes and total is not None else None
 
+    # Match everyone first: one Understat row may only go to one FPL player.
+    # If several claim it, the one whose minutes are closest keeps it.
+    matched = {}
+    for e in boot["elements"]:
+        if offline:
+            break
+        u = match_player(f"{e['first_name']} {e['second_name']}", e["web_name"],
+                         und_by_team.get(e["team"], []), e["minutes"])
+        if u is not None:
+            matched[e["id"]] = u
+    claims = collections.defaultdict(list)
+    mins_of = {e["id"]: e["minutes"] for e in boot["elements"]}
+    for pid, u in matched.items():
+        claims[id(u)].append(pid)
+    for pids in claims.values():
+        if len(pids) > 1:
+            u = matched[pids[0]]
+            keep = min(pids, key=lambda pid: abs(mins_of[pid] - (u.get("min") or 0)))
+            for pid in pids:
+                if pid != keep:
+                    del matched[pid]
+
     out = []
     for e in boot["elements"]:
         mins = e["minutes"]
-        u = match_player(f"{e['first_name']} {e['second_name']}", e["web_name"],
-                         und_by_team.get(e["team"], []))
-        if u is None and mins > 0:
-            unmatched += 1
-        npxg = u["npxg"] if u else None
-        xa = u["xa"] if u else None
-        npg = u["npg"] if u else None
-        shots = u["sh"] if u else None
+        if offline:
+            # FPL's Opta figures. Penalties included, so "npxg"/"npg" here
+            # are really xG and goals; players.json says so (xgSource).
+            npxg = float(e["expected_goals"])
+            xa = float(e["expected_assists"])
+            npg = e["goals_scored"]
+            shots = None
+        else:
+            u = matched.get(e["id"])
+            if u is None and mins > 0:
+                unmatched += 1
+            npxg = u["npxg"] if u else None
+            xa = u["xa"] if u else None
+            npg = u["npg"] if u else None
+            shots = u["sh"] if u else None
         npxgi = (npxg + xa) if (npxg is not None and xa is not None) else None
 
         out.append({
@@ -587,6 +631,7 @@ def build_players(boot, season, short2name, short2id, played, offline=False):
             "g": e["goals_scored"], "a": e["assists"],
             # Understat's goals minus penalties, so it lines up with npxG. FPL's
             # "g" counts penalties and would flatter whoever takes them.
+            # While Understat is down this is FPL's goals (see xgSource).
             "npg": npg,
             "npxg": round(npxg, 2) if npxg is not None else None,
             "xa": round(xa, 2) if xa is not None else None,
@@ -1171,6 +1216,58 @@ UNDERSTAT_PLAYER_KEYS = ("npxg", "xa", "npxgi", "sh", "npg",
                          "npxg90", "xa90", "npxgi90", "sh90", "npg90")
 
 
+SHOT_KEYS = ("sh", "sh90")
+
+
+def carry_shots(players, path):
+    """Understat is down: carry only the shots (sh, sh90) over from the last
+    players.json, by FPL id -- FPL has no shot counts. Everything else comes
+    from FPL (build_players(offline=True)). Returns how many got shots.
+
+    The old file can hold one Understat row copied onto several teammates (the
+    Gabriel mismatch). Those show up as identical (team, npxg, xa, sh, npg);
+    only the one with the most minutes keeps the shots, the rest get none."""
+    try:
+        old_list = json.loads(path.read_text())["players"]
+    except Exception:
+        return 0
+    groups = collections.defaultdict(list)
+    for o in old_list:
+        if o.get("sh"):
+            groups[(o.get("t"), o.get("npxg"), o.get("xa"), o.get("sh"), o.get("npg"))].append(o)
+    shared = set()
+    for g in groups.values():
+        if len(g) > 1:
+            best = max(g, key=lambda o: o.get("min") or 0)
+            shared.update(o["i"] for o in g if o is not best)
+    old = {o["i"]: o for o in old_list}
+    n = 0
+    for p in players:
+        o = old.get(p["i"])
+        if not o or p["i"] in shared:
+            continue
+        for k in SHOT_KEYS:
+            if k in o:
+                p[k] = o[k]
+        if o.get("sh") is not None:
+            n += 1
+    return n
+
+
+def xg_source(understat_up, generated, path, ratings_as_of=None):
+    """Top-level players.json fields saying where the xG came from.
+    understatAsOf is when the Understat figures (now only shots) were last
+    fetched: kept from the last players.json while Understat stays down."""
+    if understat_up:
+        return {"xgSource": "understat", "understatAsOf": generated}
+    try:
+        old = json.loads(path.read_text())
+    except Exception:
+        old = {}
+    as_of = old.get("understatAsOf") or ratings_as_of or old.get("generated")
+    return {"xgSource": "fpl", "understatAsOf": as_of, "stale": list(SHOT_KEYS)}
+
+
 def carry_understat_fields(players, path):
     """Copy the Understat fields onto each player from the last players.json,
     by FPL id. Returns how many players had something to carry. A player new
@@ -1223,10 +1320,12 @@ def ratings_frozen(previous, short2id, teams_meta, raw_fixtures):
 
 
 # ------------------------------------------------------- Understat outages ---
-# Understat supplies the xG behind the team ratings and the players' xG -- and
-# nothing else. When it is down (it was, for days, from 2 Nov 2026) a run keeps
-# those exactly as the last good build had them (ratings_frozen) and refreshes
-# everything FPL and the bookmakers provide around them. Each such run says so
+# Understat supplies the xG behind the team ratings and the players' xG and
+# shots -- and nothing else. When it is down (it was, for days, from 2 Nov 2026)
+# a run keeps the team ratings exactly as the last good build had them
+# (ratings_frozen), takes players' xG, xA and goals from FPL instead
+# (build_players(offline=True)), carries only their shots over (carry_shots),
+# and refreshes everything FPL and the bookmakers provide around them. Each such run says so
 # with a warning annotation; it only fails if there is no earlier build at all.
 
 
@@ -1308,7 +1407,8 @@ def main():
         r = ratings_frozen(previous, short2id, teams_meta, fpl["rawFixtures"])
         ratings_as_of = previous.get("ratingsAsOf") or previous["generated"]
         log(f"::warning title=Understat unreachable - ratings frozen::Understat is not answering, so team "
-            f"ratings and players' xG stay as they were on {ratings_as_of[:16].replace('T', ' ')} UTC. "
+            f"ratings and players' shots stay as they were on {ratings_as_of[:16].replace('T', ' ')} UTC; "
+            f"players' xG, xA and goals come from FPL instead. "
             f"Fixtures, injuries, prices, odds, minutes and expected points are refreshed as usual.")
     teams, hfac, played = r["teams"], r["hfac"], r["played"]
     short2name = {v: k for k, v in NAME2SHORT.items()}
@@ -1438,11 +1538,13 @@ def main():
         players = build_players(fpl["boot"], season, short2name, short2id, played,
                                 offline=not understat_up)
         if not understat_up:
-            carried = carry_understat_fields(players, OUT_P)
-            log(f"players: {len(players)} built; Understat down, xG carried over for {carried}")
+            carried = carry_shots(players, OUT_P)
+            log(f"players: {len(players)} built; Understat down, xG from FPL, "
+                f"shots carried over for {carried}")
         if len(players) < 300:
             raise ValueError(f"only {len(players)} players")
         pdata = {"generated": data["generated"], "season": data["season"],
+                 **xg_source(understat_up, data["generated"], OUT_P, data.get("ratingsAsOf")),
                  "matchesPlayed": played, "nextGw": next_gw,
                  "teams": {k: {"name": v["name"], "short": v["short"]}
                            for k, v in data["teams"].items()},
