@@ -724,12 +724,10 @@ function applyData(d){
     presets:[...document.querySelectorAll("#presets button")], deadlines:DEADLINES, first:NEXT_GW,
     change:(a,b)=>{ WIN.from=a; WIN.to=b; render(); }});
   buildPairPicker();
+  // "generated" is the last successful refresh, Understat or not. The header
+  // never shows a separate ratings date (data.json's ratingsAsOf is for logs).
   const when=new Date(d.generated);
-  const dm=t=>t.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
-  // Understat down: the team ratings are older than the rest of the data.
-  const rated=d.ratingsAsOf?new Date(d.ratingsAsOf):null;
-  const stale=rated && when-rated>2*864e5 ? ` · Ratings last updated ${dm(rated)}` : "";
-  $("#stamp").textContent=`${d.season} · ${d.matchesPlayed} match${d.matchesPlayed===1?"":"es"} played · data updated ${dm(when)}${stale}`;
+  $("#stamp").textContent=`${d.season} · ${d.matchesPlayed} match${d.matchesPlayed===1?"":"es"} played · data updated ${when.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`;
   render();
 }
 
