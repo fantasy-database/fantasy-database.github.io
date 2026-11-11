@@ -726,10 +726,9 @@ function applyData(d){
   buildPairPicker();
   const when=new Date(d.generated);
   const dm=t=>t.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
-  // Understat down: the team ratings are older than the rest of the data.
-  const rated=d.ratingsAsOf?new Date(d.ratingsAsOf):null;
-  const stale=rated && when-rated>2*864e5 ? ` · Ratings last updated ${dm(rated)}` : "";
-  $("#stamp").textContent=`${d.season} · ${d.matchesPlayed} match${d.matchesPlayed===1?"":"es"} played · data updated ${dm(when)}${stale}`;
+  // One date only: the last refresh. The ratings also draw on the bookmakers and
+  // Elevenify, so they are current even while Understat is down.
+  $("#stamp").textContent=`${d.season} · ${d.matchesPlayed} match${d.matchesPlayed===1?"":"es"} played · data updated ${dm(when)}`;
   render();
 }
 
