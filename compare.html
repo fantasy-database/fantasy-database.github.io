@@ -131,6 +131,10 @@
   .caution{margin:0;padding:10px 14px 13px;font-size:12.5px;color:var(--warn);
     border-top:1px solid var(--border);background:rgba(255,200,69,.06)}
   .caution b{color:var(--ink)}
+  .ban1{color:var(--warn);font-weight:700}
+  .flag{display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;
+    font-family:"Roboto Mono",monospace}
+  .flag.out{background:var(--bad);color:#fff}
   thead th em{display:block;font-style:normal;font-family:"Roboto Mono",monospace;
     font-size:9.5px;letter-spacing:.06em;color:var(--muted);margin-top:2px}
   thead th em.thin{color:var(--warn)}
@@ -336,16 +340,16 @@ const SHORTPOS={1:"GK",2:"DEF",3:"MID",4:"FWD"};
  * A keeper and a forward share almost nothing, so they do not share a table.
  */
 const STATS={
- 1:[["c","Price"],["min","Minutes"],["sv","Saves"],["cs","Clean sheets"],["pts","Points"],["xp5","xP"]],
+ 1:[["c","Price"],["min","Minutes"],["sv","Saves"],["cs","Clean sheets"],["ban","Bans"],["pts","Points"],["xp5","xP"]],
  2:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
-    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["cs","Clean sheets"],["pts","Points"],["xp5","xP"]],
+    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["cs","Clean sheets"],["ban","Bans"],["pts","Points"],["xp5","xP"]],
  3:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
-    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["sh","Shots"],["pts","Points"],["xp5","xP"]],
+    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["sh","Shots"],["ban","Bans"],["pts","Points"],["xp5","xP"]],
  4:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
-    ["npxgi","xGI"],["sh","Shots"],["pts","Points"],["xp5","xP"]]};
+    ["npxgi","xGI"],["sh","Shots"],["ban","Bans"],["pts","Points"],["xp5","xP"]]};
 
 // Price and minutes are context, not merit — no winner is marked for them.
-const NO_WINNER=new Set(["c"]);
+const NO_WINNER=new Set(["c","ban"]);
 // Per 90 is meaningless for these: a price, the divisor itself, and a
 // projection that is already per gameweek.
 const FLAT=new Set(["c","min","xp5"]);
@@ -362,7 +366,10 @@ const DP={npxg:2,xa:2,npxgi:2};
 // DefCon hit rate: games he reached the DefCon threshold out of games he
 // played (dch/dcg in players.json). Shown as x/y, ranked by the rate. A season
 // figure only -- a hit rate per 90 means nothing, so it drops out on Per 90.
-const TOTAL_ONLY=new Set(["dch"]);
+const TOTAL_ONLY=new Set(["dch","ban"]);
+// Bans: yellow cards / the count that brings his next ban (yc/yth in
+// players.json), as on the Players page. Amber one booking away; a red tag
+// while FPL lists him suspended. Context, so no winner is marked.
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -384,6 +391,7 @@ function val(p,key){
   if(key==="xp5"){ const {off,gws}=xpWindow(); if(!Array.isArray(p.xp)||!gws.length) return null;
     return p.xp.slice(off,off+gws.length).reduce((a,b)=>a+(b||0),0); }
   if(key==="dch") return p.dcg && p.dch!=null ? p.dch/p.dcg : null;
+  if(key==="ban") return p.sus ? 0 : (p.ytb ?? null);
   if(key==="min") return p.min;
   if(scale==="tot") return p[key] ?? null;
   if(DERIVED.has(key)) return p.min ? (p[key]??0)/p.min*90 : null;
@@ -393,6 +401,8 @@ function fmtStat(key,v,p){
   if(v===null||v===undefined) return null;
   if(key==="c")   return "£"+v.toFixed(1)+"m";
   if(key==="dch") return `${p.dch}/${p.dcg}`;
+  if(key==="ban") return p.sus ? '<span class="flag out">Suspended</span>'
+    : `<span class="${p.ytb===1?"ban1":""}">${p.yc}/${p.yth}</span>`;
   if(key==="min") return String(v);
   if(key==="xp5") return v.toFixed(1);
   const d = scale==="p90" ? 2 : (DP[key] ?? 0);
@@ -479,6 +489,7 @@ function render(){
       const suffix = scale==="p90" && !FLAT.has(key) ? " /90" : "";
       const {gws:xg}=xpWindow();
       const tip = key==="dch" ? ` title="Games he hit the DefCon threshold / games he played"`
+        : key==="ban" ? ` title="Yellow cards / the count that brings his next ban: 5 before his club's 19th league game, 10 before its 32nd, 15 at any point"`
         : key==="xp5" ? ` title="Expected FPL points over the next ${xg.length} gameweeks, added up. Allows for his chance of playing."` : "";
       const lab = key==="xp5" && xg.length
         ? `xP <small>next ${xg.length} · GW${xg[0]}–${xg[xg.length-1]}</small>` : label;

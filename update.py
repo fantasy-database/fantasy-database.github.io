@@ -924,6 +924,50 @@ def finished_fixtures(raw_fixtures):
             if f.get("event") and (f.get("finished") or f.get("finished_provisional"))}
 
 
+# ------------------------------------------------------------------ bans ---
+# Premier League 2026/27 yellow-card bans: (yellows, the club league game the
+# count must be reached before). 5 before the club's 19th game is a one-match
+# ban, 10 before its 32nd is two, 15 at any point is three. A threshold stays
+# live while the club has played fewer games than its cut-off.
+BAN_THRESHOLDS = ((5, 19), (10, 32), (15, None))
+
+
+def team_games_played(raw_fixtures):
+    """{team id: league games played}, from FPL's finished fixtures."""
+    n = collections.Counter()
+    for f in raw_fixtures:
+        if f.get("finished") or f.get("finished_provisional"):
+            n[f["team_h"]] += 1
+            n[f["team_a"]] += 1
+    return n
+
+
+def ban_status(yellows, games_played, status):
+    """
+    A player's yellow-card position: yc (yellows), yth (the active threshold:
+    the lowest one above his yellows whose cut-off has not passed), ytb
+    (bookings to ban: yth - yc) and sus (FPL lists him as suspended).
+    A suspended player is flagged instead: yth and ytb are None. So are they
+    for a player already past every threshold.
+    """
+    if status == "s":
+        return {"yc": yellows, "yth": None, "ytb": None, "sus": True}
+    yth = next((t for t, cut in BAN_THRESHOLDS
+                if t > yellows and (cut is None or games_played < cut)), None)
+    return {"yc": yellows, "yth": yth,
+            "ytb": yth - yellows if yth is not None else None, "sus": False}
+
+
+def add_bans(players, elements, raw_fixtures):
+    """Write ban_status() onto each player; returns how many are one booking from a ban."""
+    games = team_games_played(raw_fixtures)
+    by_id = {e["id"]: e for e in elements}
+    for p in players:
+        e = by_id[p["i"]]
+        p.update(ban_status(e["yellow_cards"], games.get(e["team"], 0), e["status"]))
+    return sum(1 for p in players if p["ytb"] == 1)
+
+
 def defcon_record(raw_fixtures, fetch=None):
     """
     {player id: (games where he hit the DefCon threshold, games he played)}
@@ -1574,6 +1618,17 @@ def main():
             for p in players:
                 p.pop("dch", None); p.pop("dcg", None)
             log(f"!! DefCon hit rate not built ({e}) -- players published without it")
+
+        # Yellow-card bans (yc / yth / ytb / sus): also in their own try.
+        try:
+            one = add_bans(players, fpl["boot"]["elements"], fpl["rawFixtures"])
+            log(f"bans: {sum(p['sus'] for p in players)} suspended, "
+                f"{one} one booking from a ban")
+        except Exception as e:
+            for p in players:
+                for k in ("yc", "yth", "ytb", "sus"):
+                    p.pop(k, None)
+            log(f"!! yellow-card bans not built ({e}) -- players published without them")
 
         # The minutes model goes in its own try: if it fails, the players
         # still publish. Yesterday's minutes are kept when they still cover
