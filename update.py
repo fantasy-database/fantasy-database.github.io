@@ -614,6 +614,8 @@ def build_players(boot, season, short2name, short2id, played, offline=False):
 
         out.append({
             "i": e["id"], "n": e["web_name"], "t": e["team"], "p": e["element_type"],
+            # FPL's permanent player code: the pages build his headshot URL from it.
+            "pc": e["code"],
             "c": e["now_cost"], "own": float(e["selected_by_percent"]),
             "st": e["status"], "news": (e["news"] or "")[:90],
             "cop": e["chance_of_playing_next_round"],

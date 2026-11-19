@@ -107,6 +107,7 @@
   thead th{font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:600;letter-spacing:.1em;
     text-transform:uppercase;color:var(--muted);text-align:right;background:var(--surface)}
   thead th.lft{text-align:left}
+  thead th .hs.big{display:block;margin:0 0 6px auto}
   thead th b{display:block;font-family:Barlow,Arial,sans-serif;font-size:13.5px;
     letter-spacing:0;text-transform:none;color:var(--ink)}
   tbody th{text-align:left;font-weight:600;font-size:13px;color:var(--muted)}
@@ -202,6 +203,13 @@
     th.lft,td.lft{min-width:104px;max-width:104px;box-shadow:6px 0 8px -6px rgba(0,0,0,.55)}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  /* headshots: the photo covers the crest; if it fails the crest shows */
+  .hs{position:relative;display:inline-block;flex:none;width:var(--hs);height:var(--hs);
+    border-radius:50%;overflow:hidden;background:var(--surface-2);vertical-align:middle}
+  .hs .crest{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+  .hs img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 0;
+    background:var(--surface-2)}
+  .hs.big{width:calc(var(--hs)*.786);height:var(--hs);border-radius:8px}
 </style>
 <style>html{-webkit-text-size-adjust:100%}img{max-width:100%}</style>
 
@@ -335,6 +343,14 @@ nfo:"#DD0000",tot:"#132257",sun:"#EB172B"};
 // A club crest from /crests, falling back to the club-colour bar if it fails.
 const crest=(short,size)=>`<span class="crest" style="--c:${CLUB[short]||"#888"};--cs:${size}px">`
   + `<img src="/crests/${short}.png" alt="" width="${size}" height="${size}" decoding="async" onerror="this.remove()"></span>`;
+// A player's headshot from the Premier League's image server, built from his
+// FPL code (pc in players.json). His club crest sits underneath, so a missing
+// code or a photo that fails to load still shows something.
+const PHOTO=(code,size)=>`https://resources.premierleague.com/premierleague25/photos/players/${size}/${code}.png`;
+const headshot=(p,short,size,big)=>p.pc==null ? crest(short,size)
+  : `<span class="hs${big?" big":""}" style="--hs:${size}px">${crest(short,big?22:size)}`
+  + `<img src="${PHOTO(p.pc,big?"110x140":"40x40")}" alt="" loading="lazy" decoding="async"`
+  + ` referrerpolicy="no-referrer" onerror="this.remove()"></span>`;
 const POSNAME={1:"Goalkeepers",2:"Defenders",3:"Midfielders",4:"Forwards"};
 const SHORTPOS={1:"GK",2:"DEF",3:"MID",4:"FWD"};
 
@@ -482,7 +498,7 @@ function render(){
         const thin = scale==="p90" && maxMin>0 && p.min < maxMin*0.75;
         const mins = scale==="p90"
           ? `<em class="${thin?"thin":""}">${p.min} min · ${p.starts} start${p.starts===1?"":"s"}</em>` : "";
-        return `<th><b>${esc(p.n)}</b>${esc(t.short.toUpperCase())} · ${SHORTPOS[p.p]}${mins}</th>`;
+        return `<th>${headshot(p,t.short,70,true)}<b>${esc(p.n)}</b>${esc(t.short.toUpperCase())} · ${SHORTPOS[p.p]}${mins}</th>`;
       }).join("") + `</tr></thead>`;
 
   const body=rows.filter(([k])=>!(scale==="p90"&&((FLAT.has(k)&&k==="min")||TOTAL_ONLY.has(k))))
