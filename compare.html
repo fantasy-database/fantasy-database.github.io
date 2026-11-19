@@ -108,7 +108,18 @@
     text-transform:uppercase;color:var(--muted);text-align:right;background:var(--surface)}
   thead th.lft{text-align:left}
   thead th .hs.big{display:block;margin:0 0 6px auto}
-  tbody th.lft .hs{margin-right:8px}
+  /* Upcoming fixtures: a fixed, opaque player column that the tiles scroll
+     under. Name on one line (cut with an ellipsis if it is still too long),
+     team code on a smaller line beneath, and a clear gap before the first tile. */
+  #fxTable th.lft{width:190px;min-width:190px;max-width:190px;z-index:3;
+    background:var(--surface);overflow:hidden;box-shadow:6px 0 8px -6px rgba(0,0,0,.55)}
+  #fxTable tbody tr:hover th.lft{background:var(--surface-2)}
+  #fxTable th.lft + td.fx{padding-left:10px}
+  #fxTable thead th.lft + th{padding-left:13px}
+  .who{display:flex;align-items:center;gap:8px;min-width:0}
+  .wt{display:flex;flex-direction:column;min-width:0;line-height:1.2}
+  .wn{font-weight:700;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wc{font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:600;letter-spacing:.06em;color:var(--muted)}
   .rslot .hs{margin-right:2px}
   thead th b{display:block;font-family:Barlow,Arial,sans-serif;font-size:13.5px;
     letter-spacing:0;text-transform:none;color:var(--ink)}
@@ -203,6 +214,7 @@
     .nav{margin-left:0;width:100%}
     th,td{padding:7px 8px}
     th.lft,td.lft{min-width:104px;max-width:104px;box-shadow:6px 0 8px -6px rgba(0,0,0,.55)}
+    #fxTable th.lft{width:128px;min-width:128px;max-width:128px}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   /* headshots: the photo covers the crest; if it fails the crest shows */
@@ -574,7 +586,8 @@ function render(){
     // difference across the window falls in.
     const avg=n?rawSum/n:0;
     const t=D.teams[p.t]||{short:"?"};
-    return `<tr><th class="lft">${headshot(p,t.short,24)}${esc(p.n)} <span style="color:var(--muted);font-family:'Roboto Mono',monospace;font-size:10px">${esc(t.short.toUpperCase())}</span></th>`
+    return `<tr><th class="lft" title="${esc(p.n)} · ${esc(t.name||t.short.toUpperCase())}"><span class="who">${headshot(p,t.short,24)}`
+      + `<span class="wt"><span class="wn">${esc(p.n)}</span><span class="wc">${esc(t.short.toUpperCase())}</span></span></span></th>`
       + cells
       + `<td class="fx"><span class="cell plain b${band(side,avg)}" title="Average across the window · ${formatVal(side,avg,"proj",true)}">`
       + `<span class="o">AVG</span><i class="mb" style="--w:${barW(side,avg)}"></i></span></td></tr>`;

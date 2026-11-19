@@ -121,6 +121,17 @@
   thead th.lft, tbody td.lft{position:sticky;left:0;z-index:2;background:var(--surface);
     box-shadow:6px 0 8px -6px rgba(0,0,0,.55)}
   tbody tr:hover td.lft{background:var(--surface-2)}
+  /* The player column: a fixed width, opaque, above the stats that scroll
+     under it. Rank, photo, then the name on one line (ellipsis if it is still
+     too long) with the team code and any fitness badge on a smaller line beneath. */
+  thead th.lft, tbody td.lft{width:200px;min-width:200px;max-width:200px;z-index:3;overflow:hidden}
+  td.lft .who{display:flex;align-items:center;gap:7px;min-width:0}
+  td.lft .rk{flex:none;min-width:18px;text-align:right}
+  td.lft .wt{display:flex;flex-direction:column;min-width:0;line-height:1.2}
+  td.lft .wn{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  td.lft .wc{display:flex;align-items:center;font-family:"Roboto Mono",monospace;font-size:10px;
+    font-weight:600;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+  td.lft .wc .flag{margin-left:6px}
   tbody td.hit{font-weight:600}
   td .opp{display:block;font-size:9.5px;font-weight:500;color:var(--muted);letter-spacing:.04em;margin-top:1px}
   td .opp.dgw{color:var(--accent)}
@@ -134,11 +145,6 @@
   tbody tr:last-child td{border-bottom:0}
   tbody tr:hover td{background:var(--surface-2)}
   .rk{color:var(--muted);width:30px;font-size:11px}
-  .pl{font-weight:700;display:inline-flex;align-items:center;gap:7px}
-  .pl i{display:block;width:4px;height:15px;border-radius:2px;flex:0 0 auto;
-    box-shadow:0 0 0 1px rgba(255,255,255,.18)}
-  .tm{color:var(--muted);font-size:11px;font-family:"Roboto Mono",monospace;
-    text-transform:uppercase;margin-left:2px}
   .lead{font-weight:700;font-size:14px;color:var(--accent)}
   .flag{display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;
     margin-left:5px;vertical-align:1px;font-family:"Roboto Mono",monospace}
@@ -175,8 +181,8 @@
     .seg .lng{display:none} .seg .sht{display:inline}
     .bar{gap:8px 12px}
     .nav{margin-left:0;width:100%}
-    thead th.lft, tbody td.lft{min-width:126px;max-width:126px}
-    .pl{font-size:12.5px}
+    thead th.lft, tbody td.lft{width:164px;min-width:164px;max-width:164px}
+    td.lft .wn{font-size:12.5px}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   /* headshots: the photo covers the crest; if it fails the crest shows */
@@ -540,7 +546,8 @@ function render(){
         + ` data-news="${esc(p.news)}" aria-label="Fitness status for ${esc(p.n)} — click for detail">`
         + `${p.st==="d"?(p.cop??"?")+"%":"OUT"}</button>`;
     return `<tr>
-      <td class="lft"><span class="rk">${i+1}</span> <span class="pl">${headshot(p,t.short,26)}${esc(p.n)}</span><span class="tm">${t.short}</span>${flag}</td>
+      <td class="lft" title="${esc(p.n)} · ${esc(t.name)}"><span class="who"><span class="rk">${i+1}</span>${headshot(p,t.short,26)}`
+      + `<span class="wt"><span class="wn">${esc(p.n)}</span><span class="wc">${t.short}${flag}</span></span></span></td>
       ${cols.map(c=>`<td class="${[c.cls||"", c.id===SORT.id?"lead":""].join(" ").trim()}">${cell(p,c)}</td>`).join("")}
     </tr>`;}).join("");
 }
