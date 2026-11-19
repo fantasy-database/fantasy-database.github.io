@@ -27,7 +27,7 @@ U.log = lambda *a, **k: None
 
 
 def element(i, first, second, web, pos, mins, goals, assists, xg="0.0", xa="0.0"):
-    return {"id": i, "first_name": first, "second_name": second, "web_name": web,
+    return {"id": i, "code": 50000 + i, "first_name": first, "second_name": second, "web_name": web,
             "team": 1, "element_type": pos, "now_cost": 80, "selected_by_percent": "12.5",
             "status": "a", "news": "", "chance_of_playing_next_round": None,
             "minutes": mins, "starts": mins // 90, "total_points": 50,
@@ -175,6 +175,9 @@ check("carry_shots: shared Gabriel row only to the most minutes",
       by[4]["sh"] == 9 and by[18]["sh"] is None and by[27]["sh"] is None, (by[4], by[18], by[27]))
 check("carry_shots: a new player keeps null shots", by[999]["sh"] is None)
 check("carry_shots: count", n == 2, n)
+
+out = {p["i"]: p for p in U.build_players(boot, 2026, {"aaa": "Arsenal"}, {"aaa": 1}, 10)}
+check("player code carried for the headshot", out[1]["pc"] == 50001, out[1].get("pc"))
 
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

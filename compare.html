@@ -107,6 +107,9 @@
   thead th{font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:600;letter-spacing:.1em;
     text-transform:uppercase;color:var(--muted);text-align:right;background:var(--surface)}
   thead th.lft{text-align:left}
+  thead th .hs.big{display:block;margin:0 0 6px auto}
+  tbody th.lft .hs{margin-right:8px}
+  .rslot .hs{margin-right:2px}
   thead th b{display:block;font-family:Barlow,Arial,sans-serif;font-size:13.5px;
     letter-spacing:0;text-transform:none;color:var(--ink)}
   tbody th{text-align:left;font-weight:600;font-size:13px;color:var(--muted)}
@@ -202,6 +205,13 @@
     th.lft,td.lft{min-width:104px;max-width:104px;box-shadow:6px 0 8px -6px rgba(0,0,0,.55)}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  /* headshots: the photo covers the crest; if it fails the crest shows */
+  .hs{position:relative;display:inline-block;flex:none;width:var(--hs);height:var(--hs);
+    border-radius:50%;overflow:hidden;background:var(--surface-2);vertical-align:middle}
+  .hs .crest{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+  .hs img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 0;
+    background:var(--surface-2)}
+  .hs.big{width:calc(var(--hs)*.786);height:var(--hs);border-radius:8px}
 </style>
 <style>html{-webkit-text-size-adjust:100%}img{max-width:100%}</style>
 
@@ -335,6 +345,14 @@ nfo:"#DD0000",tot:"#132257",sun:"#EB172B"};
 // A club crest from /crests, falling back to the club-colour bar if it fails.
 const crest=(short,size)=>`<span class="crest" style="--c:${CLUB[short]||"#888"};--cs:${size}px">`
   + `<img src="/crests/${short}.png" alt="" width="${size}" height="${size}" decoding="async" onerror="this.remove()"></span>`;
+// A player's headshot from the Premier League's image server, built from his
+// FPL code (pc in players.json). His club crest sits underneath, so a missing
+// code or a photo that fails to load still shows something.
+const PHOTO=(code,size)=>`https://resources.premierleague.com/premierleague25/photos/players/${size}/${code}.png`;
+const headshot=(p,short,size,big)=>p.pc==null ? crest(short,size)
+  : `<span class="hs${big?" big":""}" style="--hs:${size}px">${crest(short,big?22:size)}`
+  + `<img src="${PHOTO(p.pc,big?"110x140":"40x40")}" alt="" loading="lazy" decoding="async"`
+  + ` referrerpolicy="no-referrer" onerror="this.remove()"></span>`;
 const POSNAME={1:"Goalkeepers",2:"Defenders",3:"Midfielders",4:"Forwards"};
 const SHORTPOS={1:"GK",2:"DEF",3:"MID",4:"FWD"};
 
@@ -482,7 +500,7 @@ function render(){
         const thin = scale==="p90" && maxMin>0 && p.min < maxMin*0.75;
         const mins = scale==="p90"
           ? `<em class="${thin?"thin":""}">${p.min} min · ${p.starts} start${p.starts===1?"":"s"}</em>` : "";
-        return `<th><b>${esc(p.n)}</b>${esc(t.short.toUpperCase())} · ${SHORTPOS[p.p]}${mins}</th>`;
+        return `<th>${headshot(p,t.short,70,true)}<b>${esc(p.n)}</b>${esc(t.short.toUpperCase())} · ${SHORTPOS[p.p]}${mins}</th>`;
       }).join("") + `</tr></thead>`;
 
   const body=rows.filter(([k])=>!(scale==="p90"&&((FLAT.has(k)&&k==="min")||TOTAL_ONLY.has(k))))
@@ -556,7 +574,7 @@ function render(){
     // difference across the window falls in.
     const avg=n?rawSum/n:0;
     const t=D.teams[p.t]||{short:"?"};
-    return `<tr><th class="lft">${esc(p.n)} <span style="color:var(--muted);font-family:'Roboto Mono',monospace;font-size:10px">${esc(t.short.toUpperCase())}</span></th>`
+    return `<tr><th class="lft">${headshot(p,t.short,24)}${esc(p.n)} <span style="color:var(--muted);font-family:'Roboto Mono',monospace;font-size:10px">${esc(t.short.toUpperCase())}</span></th>`
       + cells
       + `<td class="fx"><span class="cell plain b${band(side,avg)}" title="Average across the window · ${formatVal(side,avg,"proj",true)}">`
       + `<span class="o">AVG</span><i class="mb" style="--w:${barW(side,avg)}"></i></span></td></tr>`;
@@ -606,14 +624,14 @@ function paintRotPick(players){
   $("#rotGrid").innerHTML=players.map(p=>{
     const s = p.i===rotA ? "A" : p.i===rotB ? "B" : "";
     return `<button type="button" class="rtb" data-id="${p.i}" aria-pressed="${s?"true":"false"}" title="${esc(p.n)}">`
-      + `${crest((D.teams[p.t]||{}).short,18)}<span>${esc(p.n)}</span><small>${code(p)}</small>${s?`<em>${s}</em>`:""}</button>`;
+      + `${headshot(p,(D.teams[p.t]||{}).short,24)}<span>${esc(p.n)}</span><small>${code(p)}</small>${s?`<em>${s}</em>`:""}</button>`;
   }).join("");
   for(const k of ["a","b"]){
     const el=$(k==="a"?"#slotA":"#slotB"), p=players.find(x=>x.i===(k==="a"?rotA:rotB));
     el.dataset.active = rotActive===k ? "1" : "0";
     el.setAttribute("aria-label", (k==="a"?"First":"Second")+" player: "+(p?p.n:"none")+". Click, then pick a player to fill it.");
     el.innerHTML=`<span class="k">${k.toUpperCase()}</span>`
-      + (p ? `<span><b>${esc(p.n)}</b> <em>${code(p)}</em></span>` : `<b>Pick a player</b>`);
+      + (p ? `${headshot(p,(D.teams[p.t]||{}).short,24)}<span><b>${esc(p.n)}</b> <em>${code(p)}</em></span>` : `<b>Pick a player</b>`);
   }
 }
 
@@ -707,7 +725,7 @@ function renderChips(){
   c.innerHTML=picked.map(id=>{
     const p=P.players.find(x=>x.i===id); if(!p) return "";
     const t=D.teams[p.t]||{short:"?"};
-    return `<span class="chip">${crest(t.short,16)}`
+    return `<span class="chip">${headshot(p,t.short,22)}`
       + `<b>${esc(p.n)}</b><span>${esc(t.short.toUpperCase())}</span>`
       + `<button type="button" data-drop="${p.i}" aria-label="Remove ${esc(p.n)}">&times;</button></span>`;
   }).join("");
@@ -726,7 +744,7 @@ function searchResults(){
   box.hidden=!rows.length;
   box.innerHTML=rows.map(p=>{
     const t=D.teams[p.t]||{short:"?"};
-    return `<div data-add="${p.i}">${crest(t.short,16)}`
+    return `<div data-add="${p.i}">${headshot(p,t.short,24)}`
       + `<span class="nm">${esc(p.n)}</span><span class="tm">${esc(t.short.toUpperCase())}</span>`
       + `<span class="num">£${(p.c/10).toFixed(1)}m · ${p.pts}pts</span></div>`;
   }).join("");

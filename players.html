@@ -179,6 +179,13 @@
     .pl{font-size:12.5px}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  /* headshots: the photo covers the crest; if it fails the crest shows */
+  .hs{position:relative;display:inline-block;flex:none;width:var(--hs);height:var(--hs);
+    border-radius:50%;overflow:hidden;background:var(--surface-2);vertical-align:middle}
+  .hs .crest{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+  .hs img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 0;
+    background:var(--surface-2)}
+  .hs.big{width:calc(var(--hs)*.786);height:var(--hs);border-radius:8px}
 </style>
 <style>html{-webkit-text-size-adjust:100%}img{max-width:100%}</style>
 
@@ -308,6 +315,14 @@ nfo:"#DD0000",tot:"#132257",sun:"#EB172B"};
 // A club crest from /crests, falling back to the club-colour bar if it fails.
 const crest=(short,size)=>`<span class="crest" style="--c:${CLUB[short]||"#888"};--cs:${size}px">`
   + `<img src="/crests/${short}.png" alt="" width="${size}" height="${size}" decoding="async" onerror="this.remove()"></span>`;
+// A player's headshot from the Premier League's image server, built from his
+// FPL code (pc in players.json). His club crest sits underneath, so a missing
+// code or a photo that fails to load still shows something.
+const PHOTO=(code,size)=>`https://resources.premierleague.com/premierleague25/photos/players/${size}/${code}.png`;
+const headshot=(p,short,size,big)=>p.pc==null ? crest(short,size)
+  : `<span class="hs${big?" big":""}" style="--hs:${size}px">${crest(short,big?22:size)}`
+  + `<img src="${PHOTO(p.pc,big?"110x140":"40x40")}" alt="" loading="lazy" decoding="async"`
+  + ` referrerpolicy="no-referrer" onerror="this.remove()"></span>`;
 
 // One table, every stat a column. `pos` is the positions FPL actually scores
 // the stat for: saves only for keepers, goals conceded only for keepers and
@@ -525,7 +540,7 @@ function render(){
         + ` data-news="${esc(p.news)}" aria-label="Fitness status for ${esc(p.n)} — click for detail">`
         + `${p.st==="d"?(p.cop??"?")+"%":"OUT"}</button>`;
     return `<tr>
-      <td class="lft"><span class="rk">${i+1}</span> <span class="pl">${crest(t.short,18)}${esc(p.n)}</span><span class="tm">${t.short}</span>${flag}</td>
+      <td class="lft"><span class="rk">${i+1}</span> <span class="pl">${headshot(p,t.short,26)}${esc(p.n)}</span><span class="tm">${t.short}</span>${flag}</td>
       ${cols.map(c=>`<td class="${[c.cls||"", c.id===SORT.id?"lead":""].join(" ").trim()}">${cell(p,c)}</td>`).join("")}
     </tr>`;}).join("");
 }
