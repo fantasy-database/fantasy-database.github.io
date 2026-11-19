@@ -132,6 +132,9 @@
     border-top:1px solid var(--border);background:rgba(255,200,69,.06)}
   .caution b{color:var(--ink)}
   .ban1{color:var(--warn);font-weight:700}
+  /* the yellow card drawn before "Counter" in the header */
+  .yc{display:inline-block;width:8px;height:11px;border-radius:1.5px;background:#FFD400;
+    vertical-align:-1px;margin-right:5px;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
   .flag{display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;
     font-family:"Roboto Mono",monospace}
   .flag.out{background:var(--bad);color:#fff}
@@ -340,13 +343,13 @@ const SHORTPOS={1:"GK",2:"DEF",3:"MID",4:"FWD"};
  * A keeper and a forward share almost nothing, so they do not share a table.
  */
 const STATS={
- 1:[["c","Price"],["min","Minutes"],["sv","Saves"],["cs","Clean sheets"],["ban","Bans"],["pts","Points"],["xp5","xP"]],
+ 1:[["c","Price"],["min","Minutes"],["sv","Saves"],["cs","Clean sheets"],["ban",'<span class="yc" role="img" aria-label="Yellow card"></span>Counter'],["pts","Points"],["xp5","xP"]],
  2:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
-    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["cs","Clean sheets"],["ban","Bans"],["pts","Points"],["xp5","xP"]],
+    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["cs","Clean sheets"],["ban",'<span class="yc" role="img" aria-label="Yellow card"></span>Counter'],["pts","Points"],["xp5","xP"]],
  3:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
-    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["sh","Shots"],["ban","Bans"],["pts","Points"],["xp5","xP"]],
+    ["npxgi","xGI"],["dc","DefCon"],["dch","DefCon hit rate"],["sh","Shots"],["ban",'<span class="yc" role="img" aria-label="Yellow card"></span>Counter'],["pts","Points"],["xp5","xP"]],
  4:[["c","Price"],["min","Minutes"],["npxg","npxG"],["g","Goals"],["a","Assists"],["xa","xA"],
-    ["npxgi","xGI"],["sh","Shots"],["ban","Bans"],["pts","Points"],["xp5","xP"]]};
+    ["npxgi","xGI"],["sh","Shots"],["ban",'<span class="yc" role="img" aria-label="Yellow card"></span>Counter'],["pts","Points"],["xp5","xP"]]};
 
 // Price and minutes are context, not merit — no winner is marked for them.
 const NO_WINNER=new Set(["c","ban"]);
@@ -367,7 +370,7 @@ const DP={npxg:2,xa:2,npxgi:2};
 // played (dch/dcg in players.json). Shown as x/y, ranked by the rate. A season
 // figure only -- a hit rate per 90 means nothing, so it drops out on Per 90.
 const TOTAL_ONLY=new Set(["dch","ban"]);
-// Bans: yellow cards / the count that brings his next ban (yc/yth in
+// Yellow card counter: yellow cards / the count that brings his next ban (yc/yth in
 // players.json), as on the Players page. Amber one booking away; a red tag
 // while FPL lists him suspended. Context, so no winner is marked.
 

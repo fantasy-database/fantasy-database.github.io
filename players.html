@@ -160,7 +160,10 @@
     font-size:17px;line-height:1;cursor:pointer;padding:2px 4px}
   .popx:hover{color:var(--ink)}
   .flag.doubt{background:var(--warn);color:#241900}
-  /* Bans column: one booking from a ban, and suspended now */
+  /* Yellow card counter column: one booking from a ban, and suspended now */
+  /* the yellow card drawn before "Counter" in the header */
+  .yc{display:inline-block;width:8px;height:11px;border-radius:1.5px;background:#FFD400;
+    vertical-align:-1px;margin-right:5px;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
   .ban1{color:var(--warn);font-weight:700}
   .flag.sus{margin-left:0}
   .dim{color:var(--muted)}
@@ -345,15 +348,15 @@ const COLS=[
  {id:"starts",label:"Starts", pos:ALL, tip:"Matches started"},
  {id:"mpg",  label:"Min/game", pos:ALL, tip:"Minutes divided by matches his team has played",
    val:p=>mpg(p), show:p=>mpg(p).toFixed(0)},
- // Yellow-card bans: yellows / the active threshold (yc / yth in players.json).
+ // Yellow card counter: yellows / the active threshold (yc / yth in players.json).
  // Fewest bookings to a ban first; a player suspended now counts as 0, so he
  // tops the list. Totals only, like DefCon hit rate.
- {id:"ban",  label:"Bans", pos:ALL, totOnly:true, low:true, risk:true,
+ {id:"ban",  label:'<span class="yc" role="img" aria-label="Yellow card"></span>Counter', name:"Yellow card counter", pos:ALL, totOnly:true, low:true, risk:true,
    tip:"Yellow cards / the yellow count that brings his next ban (5 before his club's 19th game, 10 before its 32nd, 15 at any point)",
    val:p=>p.sus ? 0 : (p.ytb ?? null),
    show:p=>p.sus ? '<span class="flag out sus">Suspended</span>'
      : `<span class="${p.ytb===1?"ban1":""}">${p.yc}/${p.yth}</span>`,
-   note:"<b>Bans</b> is his yellow cards against the count that brings his next ban: 5 before his club's 19th league game (1 match), 10 before its 32nd (2), 15 at any point (3). Amber is one booking away."},
+   note:"<b>Yellow card counter</b> is his yellow cards against the count that brings his next ban: 5 before his club's 19th league game (1 match), 10 before its 32nd (2), 15 at any point (3). Amber is one booking away."},
  {id:"own",  label:"Own", pos:ALL, cls:"dim", tip:"Selected by this share of FPL managers",
    show:p=>p.own.toFixed(1)+"%"},
 ];
@@ -487,7 +490,7 @@ function render(){
   let dir;
   if(sc.alpha) dir=`Sorted by <b>player name</b>, ${SORT.desc?"Z to A":"A to Z"}.`;
   // closer to a ban is not better or worse, just more urgent
-  else if(sc.risk) dir=`Sorted by <b>${sc.label}</b>, ${SORT.desc?"furthest from":"closest to"} a ban first. ${sc.note}`;
+  else if(sc.risk) dir=`Sorted by <b>${sc.name}</b>, ${SORT.desc?"furthest from":"closest to"} a ban first. ${sc.note}`;
   else {
     const best = SORT.desc===bestFirstDesc(sc);
     dir = `Sorted by <b>${sc.label}${suffix(sc)}</b>, ${SORT.desc?"highest":"lowest"} first`

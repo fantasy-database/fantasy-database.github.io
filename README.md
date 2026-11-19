@@ -12,7 +12,7 @@ An expected-goals fixture ticker and player database for Fantasy Premier League.
 - **Player database** — points, minutes, defensive contributions, saves, clean
   sheets, non-penalty xG, xA and shots, with per-90 counterparts and a minutes
   floor so short cameos cannot fake a good rate.
-- **Yellow-card bans** — each player's yellows against the count that brings his
+- **Yellow card counter** — each player's yellows against the count that brings his
   next ban (5 before his club's 19th league game, 10 before its 32nd, 15 at any
   point), on the player database and the compare page.
 
